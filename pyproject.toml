@@ -30,7 +30,7 @@ dependencies = [
     "playwright==1.51",
     "tldextract",
     "loguru",
-    "opentelemetry-proto==1.28.0",
+    "opentelemetry-proto==1.32.1",
     "pydantic",
     "pydantic-settings",
     "fastapi[standard]",
