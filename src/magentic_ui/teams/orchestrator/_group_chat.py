@@ -20,7 +20,7 @@ from autogen_agentchat.teams import BaseGroupChat
 from autogen_agentchat.messages import BaseAgentEvent, BaseChatMessage, MessageFactory
 from autogen_agentchat.teams._group_chat._events import GroupChatTermination
 from ._orchestrator import Orchestrator
-from ...orchestrator_config import OrchestratorConfig
+from ...teams.orchestrator.orchestrator_config import OrchestratorConfig
 from ...types import CheckpointEvent
 from ...learning.memory_provider import MemoryControllerProvider
 

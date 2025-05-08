@@ -1,5 +1,5 @@
 import json
-from typing import Optional, List, Dict, Sequence, Union, Any, Literal
+from typing import Optional, List, Dict, Sequence, Union, Any
 from autogen_agentchat.messages import BaseAgentEvent
 from pydantic import BaseModel
 from dataclasses import dataclass
@@ -160,25 +160,3 @@ class CheckpointEvent(BaseAgentEvent):
 
     def to_text(self) -> str:
         return "Checkpoint"
-
-
-class SimplifiedConfig(BaseModel):
-    """
-    A simplified set of configuration options for Magentic-UI.
-    """
-
-    cooperative_planning: bool = True
-    autonomous_execution: bool = False
-    allowed_websites: Optional[List[str]] = None
-    max_actions_per_step: int = 5
-    multiple_tools_per_call: bool = False
-    max_turns: int = 20
-    plan: Optional[Plan] = None
-    approval_policy: Literal[
-        "always", "never", "auto-conservative", "auto-permissive"
-    ] = "auto-conservative"
-    allow_for_replans: bool = True
-    do_bing_search: bool = False
-    websurfer_loop: bool = False
-    retrieve_relevant_plans: Literal["never", "hint", "reuse"] = "never"
-    memory_controller_key: Optional[str] = None

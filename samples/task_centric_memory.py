@@ -1,7 +1,8 @@
 import asyncio
 from autogen_agentchat.ui import Console
 from autogen_ext.models.openai import OpenAIChatCompletionClient
-from magentic_ui import OrchestratorConfig, get_task_team
+from magentic_ui.teams.orchestrator.orchestrator_config import OrchestratorConfig
+from magentic_ui import get_task_team
 from magentic_ui.types import Plan
 from autogen_ext.experimental.task_centric_memory import MemoryController
 from autogen_ext.experimental.task_centric_memory.utils import PageLogger

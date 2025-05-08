@@ -1,5 +1,5 @@
 from .task_team import get_task_team
-from .orchestrator_config import OrchestratorConfig
+from .teams.orchestrator.orchestrator_config import OrchestratorConfig
 from .input_func import AsyncInputFunc, InputFuncType, InputRequestType, SyncInputFunc
 from .approval_guard import (
     BaseApprovalGuard,

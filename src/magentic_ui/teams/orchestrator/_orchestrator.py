@@ -45,7 +45,7 @@ from ...learning.memory_provider import MemoryControllerProvider
 from ...types import HumanInputFormat, Plan
 from ...utils import dict_to_str, thread_to_context
 from ...tools.bing_search import get_bing_search_results
-from ...orchestrator_config import OrchestratorConfig
+from ...teams.orchestrator.orchestrator_config import OrchestratorConfig
 from ._prompts import (
     ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING,
     ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING_AUTONOMOUS,
