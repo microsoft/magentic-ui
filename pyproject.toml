@@ -50,8 +50,11 @@ eval = [
 ]
 
 azure = [
-    "azure-identity",
-    "autogen-ext[azure,ollama]==0.5.3"
+    "autogen-ext[azure]==0.5.3"
+]
+
+ollama = [
+    "autogen-ext[ollama]==0.5.3"
 ]
 
 [project.scripts]
