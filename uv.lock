@@ -1610,16 +1610,13 @@ dependencies = [
     { name = "alembic" },
     { name = "autogen-agentchat" },
     { name = "autogen-core" },
-    { name = "autogen-ext", extra = ["azure", "docker", "file-surfer", "magentic-one", "ollama", "openai", "task-centric-memory", "web-surfer"] },
-    { name = "azure-identity" },
+    { name = "autogen-ext", extra = ["docker", "file-surfer", "magentic-one", "openai", "task-centric-memory", "web-surfer"] },
     { name = "docker" },
     { name = "fastapi", extra = ["standard"] },
     { name = "html2text" },
-    { name = "huggingface-hub" },
     { name = "loguru" },
     { name = "nest-asyncio" },
     { name = "opentelemetry-proto" },
-    { name = "pandas" },
     { name = "playwright" },
     { name = "psutil" },
     { name = "psycopg" },
@@ -1627,12 +1624,19 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "scipy" },
     { name = "sqlmodel" },
-    { name = "tabulate" },
     { name = "tldextract" },
     { name = "typer" },
     { name = "websockets" },
+]
+
+[package.optional-dependencies]
+eval = [
+    { name = "autogen-ext", extra = ["azure", "ollama"] },
+    { name = "azure-identity" },
+    { name = "huggingface-hub" },
+    { name = "pandas" },
+    { name = "scipy" },
 ]
 
 [package.dev-dependencies]
@@ -1660,16 +1664,17 @@ requires-dist = [
     { name = "alembic" },
     { name = "autogen-agentchat", specifier = "==0.5.3" },
     { name = "autogen-core", specifier = "==0.5.3" },
-    { name = "autogen-ext", extras = ["azure", "docker", "ollama", "openai", "file-surfer", "web-surfer", "magentic-one", "task-centric-memory"], specifier = "==0.5.3" },
-    { name = "azure-identity" },
+    { name = "autogen-ext", extras = ["azure", "ollama"], marker = "extra == 'eval'", specifier = "==0.5.3" },
+    { name = "autogen-ext", extras = ["openai", "docker", "file-surfer", "web-surfer", "magentic-one", "task-centric-memory"], specifier = "==0.5.3" },
+    { name = "azure-identity", marker = "extra == 'eval'" },
     { name = "docker" },
     { name = "fastapi", extras = ["standard"] },
     { name = "html2text" },
-    { name = "huggingface-hub" },
+    { name = "huggingface-hub", marker = "extra == 'eval'" },
     { name = "loguru" },
     { name = "nest-asyncio" },
     { name = "opentelemetry-proto", specifier = "==1.28.0" },
-    { name = "pandas" },
+    { name = "pandas", marker = "extra == 'eval'" },
     { name = "playwright", specifier = "==1.51" },
     { name = "psutil" },
     { name = "psycopg" },
@@ -1677,9 +1682,8 @@ requires-dist = [
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "scipy" },
+    { name = "scipy", marker = "extra == 'eval'" },
     { name = "sqlmodel" },
-    { name = "tabulate" },
     { name = "tldextract" },
     { name = "typer" },
     { name = "websockets" },
@@ -3874,15 +3878,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/11/8a/5a7fd6284fa8caac23a26c9ddf9c30485a48169344b4bd3b0f02fef1890f/sympy-1.13.3.tar.gz", hash = "sha256:b27fd2c6530e0ab39e275fc9b683895367e51d5da91baa8d3d64db2565fec4d9", size = 7533196 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/99/ff/c87e0622b1dadea79d2fb0b25ade9ed98954c9033722eb707053d310d4f3/sympy-1.13.3-py3-none-any.whl", hash = "sha256:54612cf55a62755ee71824ce692986f23c88ffa77207b30c1368eda4a7060f73", size = 6189483 },
-]
-
-[[package]]
-name = "tabulate"
-version = "0.9.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ec/fe/802052aecb21e3797b8f7902564ab6ea0d60ff8ca23952079064155d1ae1/tabulate-0.9.0.tar.gz", hash = "sha256:0095b12bf5966de529c0feb1fa08671671b3368eec77d7ef7ab114be2c068b3c", size = 81090 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/40/44/4a5f08c96eb108af5cb50b41f76142f0afa346dfa99d5296fe7202a11854/tabulate-0.9.0-py3-none-any.whl", hash = "sha256:024ca478df22e9340661486f85298cff5f6dcdba14f3813e8830015b9ed1948f", size = 35252 },
 ]
 
 [[package]]
