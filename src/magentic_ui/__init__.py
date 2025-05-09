@@ -1,5 +1,5 @@
 from .task_team import get_task_team
-from .orchestrator_config import OrchestratorConfig
+from .teams.orchestrator.orchestrator_config import OrchestratorConfig
 from .input_func import AsyncInputFunc, InputFuncType, InputRequestType, SyncInputFunc
 from .approval_guard import (
     BaseApprovalGuard,
@@ -7,6 +7,7 @@ from .approval_guard import (
     DEFAULT_REQUIRES_APPROVAL,
 )
 from .guarded_action import GuardedAction, ApprovalDeniedError, TrivialGuardedAction
+from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
 
 __version__ = "0.0.1rc1"
 ABOUT = "Magentic-UI - A web browsing assistant."
@@ -25,4 +26,6 @@ __all__ = [
     "TrivialGuardedAction",
     "__version__",
     "ABOUT",
+    "MagenticUIConfig",
+    "ModelClientConfigs",
 ]

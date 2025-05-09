@@ -26,7 +26,8 @@ from autogen_core import EVENT_LOGGER_NAME, CancellationToken, ComponentModel
 from autogen_core.logging import LLMCallEvent
 from ...task_team import get_task_team
 from ...teams import GroupChat
-from ...types import SimplifiedConfig, RunPaths
+from ...types import RunPaths
+from ...magentic_ui_config import MagenticUIConfig, ModelClientConfigs
 from ...input_func import InputFuncType
 from ...agents import WebSurfer
 
@@ -161,46 +162,42 @@ class TeamManager:
                         logger.error(f"Failed to parse model configurations: {e}")
 
                 # Use model configs from settings if available, otherwise fall back to config
-                endpoint_configs = {
-                    "orchestrator_client": model_configs.get(
+                model_client_configs = ModelClientConfigs(
+                    orchestrator=model_configs.get(
                         "orchestrator_client",
                         self.config.get("orchestrator_client", None),
                     ),
-                    "web_surfer_client": model_configs.get(
+                    web_surfer=model_configs.get(
                         "web_surfer_client",
                         self.config.get("web_surfer_client", None),
                     ),
-                    "coder_client": model_configs.get(
+                    coder=model_configs.get(
                         "coder_client", self.config.get("coder_client", None)
                     ),
-                    "file_surfer_client": model_configs.get(
+                    file_surfer=model_configs.get(
                         "file_surfer_client",
                         self.config.get("file_surfer_client", None),
                     ),
-                    "action_guard_client": model_configs.get(
+                    action_guard=model_configs.get(
                         "action_guard_client",
                         self.config.get("action_guard_client", None),
                     ),
-                }
+                )
+
+                magentic_ui_config = MagenticUIConfig(
+                    **(settings_config or {}),
+                    model_client_configs=model_client_configs,
+                    playwright_port=playwright_port,
+                    novnc_port=novnc_port,
+                    inside_docker=self.inside_docker,
+                )
 
                 self.team = cast(
                     Team,
                     await get_task_team(
+                        magentic_ui_config=magentic_ui_config,
                         input_func=input_func,
-                        simplified_config=SimplifiedConfig(**(settings_config or {})),
                         paths=paths,
-                        inside_docker=self.inside_docker,
-                        playwright_port=playwright_port,
-                        novnc_port=novnc_port,
-                        endpoint_config_orch=endpoint_configs["orchestrator_client"],
-                        endpoint_config_websurfer=endpoint_configs["web_surfer_client"],
-                        endpoint_config_coder=endpoint_configs["coder_client"],
-                        endpoint_config_file_surfer=endpoint_configs[
-                            "file_surfer_client"
-                        ],
-                        endpoint_config_action_guard=endpoint_configs[
-                            "action_guard_client"
-                        ],
                     ),
                 )
                 if hasattr(self.team, "_participants"):

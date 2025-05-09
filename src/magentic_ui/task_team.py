@@ -1,4 +1,4 @@
-from typing import Optional, Union, Any, Dict, Literal
+from typing import Union, Any, Dict, Optional
 from autogen_core.models import ChatCompletionClient
 from autogen_core import ComponentModel
 from autogen_agentchat.agents import UserProxyAgent
@@ -6,9 +6,10 @@ from autogen_agentchat.agents import UserProxyAgent
 from .tools.playwright.browser import get_browser_resource_config
 from .utils import get_internal_urls
 from .teams import GroupChat, RoundRobinGroupChat
-from .orchestrator_config import OrchestratorConfig
+from .teams.orchestrator.orchestrator_config import OrchestratorConfig
 from .agents import WebSurfer, CoderAgent, USER_PROXY_DESCRIPTION, FileSurfer
-from .types import SimplifiedConfig, RunPaths
+from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
+from .types import RunPaths
 from .agents.web_surfer import WebSurferConfig
 from .agents.users import DummyUserProxy, MetadataUserProxy
 from .approval_guard import (
@@ -23,188 +24,120 @@ from .learning.memory_provider import MemoryControllerProvider
 
 # TODO: Convert all usages of allowed website to use a Dict[str, UrlStatus]
 async def get_task_team(
-    orchestrator_config: OrchestratorConfig | None = None,
-    websurfer_config: WebSurferConfig | None = None,
+    magentic_ui_config: Optional[MagenticUIConfig] = None,
     input_func: Optional[InputFuncType] = None,
-    endpoint_config_orch: Optional[Union[ComponentModel, Dict[str, Any]]] = None,
-    endpoint_config_websurfer: Optional[Union[ComponentModel, Dict[str, Any]]] = None,
-    endpoint_config_coder: Optional[Union[ComponentModel, Dict[str, Any]]] = None,
-    endpoint_config_file_surfer: Optional[Union[ComponentModel, Dict[str, Any]]] = None,
-    endpoint_config_action_guard: Optional[
-        Union[ComponentModel, Dict[str, Any]]
-    ] = None,
-    simplified_config: SimplifiedConfig | None = None,
-    playwright_port: int = -1,
-    novnc_port: int = -1,
-    user_proxy_type: Optional[str] = None,
-    task: Optional[str] = None,
-    hints: Optional[str] = None,
-    answer: Optional[str] = None,
     *,
     paths: RunPaths,
-    inside_docker: bool = True,
-    model_context_token_limit: int = 110000,
-    approval_policy: Optional[
-        Literal[
-            "always",
-            "never",
-            "auto-conservative",
-            "auto-permissive",
-        ]
-    ] = None,
 ) -> GroupChat | RoundRobinGroupChat:
     """
     Creates and returns a GroupChat team with specified configuration.
 
     Args:
-        orchestrator_config (OrchestratorConfig, optional): Configuration for the team. Default: None.
-        websurfer_config (WebSurferConfig, optional): Configuration for the web surfer agent. Default: None.
-        input_func (callable, optional): Function to handle user input. Default: None
-        endpoint_config_orch (Dict[str. Any], optional): Configuration for the orchestrator client. Default: None.
-        endpoint_config_websurfer (Dict[str. Any], optional): Configuration for the web surfer client. Default: None.
-        endpoint_config_coder (Dict[str. Any], optional): Configuration for the coder client. Default: None.
-        endpoint_config_file_surfer (Dict[str. Any], optional): Configuration for the file surfer client. Default: None.
-        endpoint_config_action_guard (Dict[str. Any], optional): Configuration for the action guard client. Default: None.
-        simplified_config (SimplifiedConfig, optional): Simplified configuration for team. Default: None.
-        playwright_port (int, optional): Port for the Playwright browser. Default: -1 (auto-assign).
-        novnc_port (int, optional): Port for the noVNC server. Default: -1 (auto-assign).
-        user_proxy_type (str, optional): Type of user proxy agent to use ("dummy", "metadata", or None for default). Default: None.
-        task (str, optional): Task to be performed by the agents. Default: None.
-        hints (str, optional): Helpful hints for the task. Default: None.
-        answer (str, optional): Answer to the task. Default: None.
-        inside_docker (bool, optional): Whether to run inside a docker container. Default: True.
-        model_context_token_limit (int, optional): The maximum number of tokens the model can use. Default: 110000.
-        approval_policy (str, optional): Policy for action approval. Default: "auto-conservative".
+        magentic_ui_config (MagenticUIConfig, optional): Magentic UI configuration for team. Default: None.
+        paths (RunPaths): Paths for internal and external run directories.
 
     Returns:
         GroupChat | RoundRobinGroupChat: An instance of GroupChat or RoundRobinGroupChat with the specified agents and configuration.
     """
-    default_client_config = {
-        "provider": "OpenAIChatCompletionClient",
-        "config": {
-            "model": "gpt-4o-2024-08-06",
-        },
-        "max_retries": 5,
-    }
+    if magentic_ui_config is None:
+        magentic_ui_config = MagenticUIConfig()
 
     def get_model_client(
-        endpoint_config: Union[ComponentModel, Dict[str, Any], None],
+        model_client_config: Union[ComponentModel, Dict[str, Any], None],
     ) -> ChatCompletionClient:
-        if endpoint_config is None:
-            return ChatCompletionClient.load_component(default_client_config)
-        return ChatCompletionClient.load_component(endpoint_config)
+        if model_client_config is None:
+            return ChatCompletionClient.load_component(
+                ModelClientConfigs.get_default_client_config()
+            )
+        return ChatCompletionClient.load_component(model_client_config)
 
-    if not inside_docker:
+    if not magentic_ui_config.inside_docker:
         assert (
             paths.external_run_dir == paths.internal_run_dir
         ), "External and internal run dirs must be the same in non-docker mode"
 
-    model_client_orch = get_model_client(endpoint_config_orch)
+    model_client_orch = get_model_client(
+        magentic_ui_config.model_client_configs.orchestrator
+    )
     approval_guard: BaseApprovalGuard | None = None
 
-    if approval_policy is None:
-        if simplified_config is not None and simplified_config.approval_policy:
-            approval_policy = simplified_config.approval_policy
-        else:
-            approval_policy = "never"
+    approval_policy = (
+        magentic_ui_config.approval_policy
+        if magentic_ui_config.approval_policy
+        else "never"
+    )
 
     websurfer_loop_team: bool = (
-        simplified_config.websurfer_loop if simplified_config else False
+        magentic_ui_config.websurfer_loop if magentic_ui_config else False
     )
 
-    model_client_coder = get_model_client(endpoint_config_coder)
-    model_client_file_surfer = get_model_client(endpoint_config_file_surfer)
+    model_client_coder = get_model_client(magentic_ui_config.model_client_configs.coder)
+    model_client_file_surfer = get_model_client(
+        magentic_ui_config.model_client_configs.file_surfer
+    )
     browser_resource_config, _novnc_port, _playwright_port = (
         get_browser_resource_config(
-            paths.external_run_dir, novnc_port, playwright_port, inside_docker
+            paths.external_run_dir,
+            magentic_ui_config.novnc_port,
+            magentic_ui_config.playwright_port,
+            magentic_ui_config.inside_docker,
         )
     )
 
-    if endpoint_config_websurfer is None:
-        endpoint_config_websurfer = default_client_config
-
-    if simplified_config is not None and (
-        orchestrator_config is not None or websurfer_config is not None
-    ):
-        raise ValueError(
-            "Cannot provide both orchestrator_config and simplified_config or websurfer_config"
-        )
-
-    if simplified_config is not None:
-        orchestrator_config = OrchestratorConfig(
-            cooperative_planning=simplified_config.cooperative_planning,
-            autonomous_execution=simplified_config.autonomous_execution,
-            allowed_websites=simplified_config.allowed_websites,
-            plan=simplified_config.plan,
-            model_context_token_limit=model_context_token_limit,
-            do_bing_search=simplified_config.do_bing_search,
-            retrieve_relevant_plans=simplified_config.retrieve_relevant_plans,
-            memory_controller_key=simplified_config.memory_controller_key,
-        )
-        websurfer_config = WebSurferConfig(
-            name="web_surfer",
-            model_client=endpoint_config_websurfer,
-            browser=browser_resource_config,
-            single_tab_mode=False,
-            max_actions_per_step=simplified_config.max_actions_per_step,
-            url_statuses={
-                key: "allowed" for key in orchestrator_config.allowed_websites
-            }
-            if orchestrator_config.allowed_websites
-            else None,
-            url_block_list=get_internal_urls(inside_docker, paths),
-            multiple_tools_per_call=simplified_config.multiple_tools_per_call,
-            downloads_folder=str(paths.internal_run_dir),
-            debug_dir=str(paths.internal_run_dir),
-            animate_actions=True,
-            start_page=None,
-            use_action_guard=True,
-            to_save_screenshots=False,
-        )
-    else:
-        if orchestrator_config is None:
-            orchestrator_config = OrchestratorConfig(
-                cooperative_planning=True,
-                autonomous_execution=False,
-                allow_for_replans=True,
-                do_bing_search=False,
-                model_context_token_limit=model_context_token_limit,
-            )
-        if websurfer_config is None:
-            websurfer_config = WebSurferConfig(
-                name="web_surfer",
-                model_client=endpoint_config_websurfer,
-                model_context_token_limit=model_context_token_limit,
-                browser=browser_resource_config,
-                animate_actions=True,
-                url_statuses={
-                    key: "allowed" for key in orchestrator_config.allowed_websites
-                }
-                if orchestrator_config.allowed_websites
-                else None,
-                url_block_list=get_internal_urls(inside_docker, paths),
-                start_page=None,
-                downloads_folder=str(paths.internal_run_dir),
-                debug_dir=str(paths.internal_run_dir),
-                use_action_guard=True,
-                to_save_screenshots=False,
-                single_tab_mode=False,
-            )
+    orchestrator_config = OrchestratorConfig(
+        cooperative_planning=magentic_ui_config.cooperative_planning,
+        autonomous_execution=magentic_ui_config.autonomous_execution,
+        allowed_websites=magentic_ui_config.allowed_websites,
+        plan=magentic_ui_config.plan,
+        model_context_token_limit=magentic_ui_config.model_context_token_limit,
+        do_bing_search=magentic_ui_config.do_bing_search,
+        retrieve_relevant_plans=magentic_ui_config.retrieve_relevant_plans,
+        memory_controller_key=magentic_ui_config.memory_controller_key,
+        allow_follow_up_input=magentic_ui_config.allow_follow_up_input,
+        final_answer_prompt=magentic_ui_config.final_answer_prompt,
+    )
+    websurfer_model_client = magentic_ui_config.model_client_configs.web_surfer
+    if websurfer_model_client is None:
+        websurfer_model_client = ModelClientConfigs.get_default_client_config()
+    websurfer_config = WebSurferConfig(
+        name="web_surfer",
+        model_client=websurfer_model_client,
+        browser=browser_resource_config,
+        single_tab_mode=False,
+        max_actions_per_step=magentic_ui_config.max_actions_per_step,
+        url_statuses={key: "allowed" for key in orchestrator_config.allowed_websites}
+        if orchestrator_config.allowed_websites
+        else None,
+        url_block_list=get_internal_urls(magentic_ui_config.inside_docker, paths),
+        multiple_tools_per_call=magentic_ui_config.multiple_tools_per_call,
+        downloads_folder=str(paths.internal_run_dir),
+        debug_dir=str(paths.internal_run_dir),
+        animate_actions=True,
+        start_page=None,
+        use_action_guard=True,
+        to_save_screenshots=False,
+    )
 
     user_proxy: DummyUserProxy | MetadataUserProxy | UserProxyAgent
 
-    if user_proxy_type == "dummy":
+    if magentic_ui_config.user_proxy_type == "dummy":
         user_proxy = DummyUserProxy(name="user_proxy")
-    elif user_proxy_type == "metadata":
-        assert task is not None, "Task must be provided for metadata user proxy"
-        assert hints is not None, "Hints must be provided for metadata user proxy"
-        assert answer is not None, "Answer must be provided for metadata user proxy"
+    elif magentic_ui_config.user_proxy_type == "metadata":
+        assert (
+            magentic_ui_config.task is not None
+        ), "Task must be provided for metadata user proxy"
+        assert (
+            magentic_ui_config.hints is not None
+        ), "Hints must be provided for metadata user proxy"
+        assert (
+            magentic_ui_config.answer is not None
+        ), "Answer must be provided for metadata user proxy"
         user_proxy = MetadataUserProxy(
             name="user_proxy",
             description="Metadata User Proxy Agent",
-            task=task,
-            helpful_task_hints=hints,
-            task_answer=answer,
+            task=magentic_ui_config.task,
+            helpful_task_hints=magentic_ui_config.hints,
+            task_answer=magentic_ui_config.answer,
             model_client=model_client_orch,
         )
     else:
@@ -215,8 +148,10 @@ async def get_task_team(
             input_func=user_proxy_input_func,
         )
 
-    if user_proxy_type in ["dummy", "metadata"]:
-        model_client_action_guard = get_model_client(endpoint_config_action_guard)
+    if magentic_ui_config.user_proxy_type in ["dummy", "metadata"]:
+        model_client_action_guard = get_model_client(
+            magentic_ui_config.model_client_configs.action_guard
+        )
 
         # Simple approval function that always returns yes
         def always_yes_input(prompt: str, input_type: str = "text_input") -> str:
@@ -231,7 +166,9 @@ async def get_task_team(
             ),
         )
     elif input_func is not None:
-        model_client_action_guard = get_model_client(endpoint_config_action_guard)
+        model_client_action_guard = get_model_client(
+            magentic_ui_config.model_client_configs.action_guard
+        )
         approval_guard = ApprovalGuard(
             input_func=input_func,
             default_approval=False,
@@ -256,7 +193,7 @@ async def get_task_team(
         model_client=model_client_coder,
         work_dir=paths.internal_run_dir,
         bind_dir=paths.external_run_dir,
-        model_context_token_limit=model_context_token_limit,
+        model_context_token_limit=magentic_ui_config.model_context_token_limit,
         approval_guard=approval_guard,
     )
 
@@ -265,7 +202,7 @@ async def get_task_team(
         model_client=model_client_file_surfer,
         work_dir=paths.internal_run_dir,
         bind_dir=paths.external_run_dir,
-        model_context_token_limit=model_context_token_limit,
+        model_context_token_limit=magentic_ui_config.model_context_token_limit,
         approval_guard=approval_guard,
     )
 
@@ -276,7 +213,7 @@ async def get_task_team(
         memory_provider = MemoryControllerProvider(
             internal_workspace_root=paths.internal_root_dir,
             external_workspace_root=paths.external_root_dir,
-            inside_docker=inside_docker,
+            inside_docker=magentic_ui_config.inside_docker,
         )
     else:
         memory_provider = None

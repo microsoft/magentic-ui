@@ -11,12 +11,12 @@ import yaml
 from typing import Any, Optional, Literal, cast
 from autogen_core import EVENT_LOGGER_NAME, CancellationToken
 from autogen_agentchat.ui import Console
-from .orchestrator_config import OrchestratorConfig
 from .task_team import get_task_team
 from loguru import logger
 import logging
 from .utils import LLMCallFilter
 from .types import RunPaths
+from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
 
 logging.basicConfig(level=logging.WARNING, handlers=[])
 logger_llm = logging.getLogger(EVENT_LOGGER_NAME)
@@ -84,16 +84,6 @@ async def get_team(
             print(f"Deleting state file: {state_file}")
             os.remove(state_file)
 
-    config = OrchestratorConfig(
-        cooperative_planning=cooperative_planning,
-        autonomous_execution=autonomous_execution,
-        allow_for_replans=True,
-        do_bing_search=False,
-        allow_follow_up_input=False,
-        final_answer_prompt=final_answer_prompt,
-        model_context_token_limit=model_context_token_limit,
-    )
-
     if inside_docker:
         # Use environment variables as fallback if paths not provided
         if internal_workspace_root is None:
@@ -142,23 +132,36 @@ async def get_team(
         with open(client_config, "r") as f:
             client_config_dict = yaml.safe_load(f)
 
-    team = await get_task_team(
-        orchestrator_config=config,
-        input_func=cancellable_input,
-        paths=paths,
+    model_client_configs = ModelClientConfigs(
+        orchestrator=client_config_dict.get("orchestrator_client", None),
+        web_surfer=client_config_dict.get("web_surfer_client", None),
+        coder=client_config_dict.get("coder_client", None),
+        file_surfer=client_config_dict.get("file_surfer_client", None),
+    )
+
+    magentic_ui_config = MagenticUIConfig(
+        model_client_configs=model_client_configs,
+        approval_policy=action_policy,
+        cooperative_planning=cooperative_planning,
+        autonomous_execution=autonomous_execution,
+        allow_for_replans=True,
+        do_bing_search=False,
+        model_context_token_limit=model_context_token_limit,
+        allow_follow_up_input=False,
+        final_answer_prompt=final_answer_prompt,
         playwright_port=playwright_port,
         novnc_port=novnc_port,
-        inside_docker=inside_docker,
-        model_context_token_limit=model_context_token_limit,
-        endpoint_config_orch=client_config_dict.get("orchestrator_client", None),
-        endpoint_config_websurfer=client_config_dict.get("web_surfer_client", None),
-        endpoint_config_coder=client_config_dict.get("coder_client", None),
-        endpoint_config_file_surfer=client_config_dict.get("file_surfer_client", None),
-        approval_policy=action_policy,
         user_proxy_type=user_proxy_type,
         task=task_metadata,
         hints=hints,
         answer=answer,
+        inside_docker=inside_docker,
+    )
+
+    team = await get_task_team(
+        magentic_ui_config=magentic_ui_config,
+        input_func=cancellable_input,
+        paths=paths,
     )
 
     try:

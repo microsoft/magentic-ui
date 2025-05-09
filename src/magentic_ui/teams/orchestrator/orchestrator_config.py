@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from .types import Plan
+from ...types import Plan
 from typing import List, Literal, Optional, Union
 
 
