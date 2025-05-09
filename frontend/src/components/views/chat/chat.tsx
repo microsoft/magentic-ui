@@ -947,6 +947,10 @@ export default function ChatView({
     }
   };
 
+  if (!visible) {
+    return null;
+  }
+
   return (
     <div className="text-primary h-[calc(100vh-100px)] bg-primary relative rounded flex-1 scroll w-full">
       {contextHolder}
