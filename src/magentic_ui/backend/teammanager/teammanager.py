@@ -27,8 +27,7 @@ from autogen_core.logging import LLMCallEvent
 from ...task_team import get_task_team
 from ...teams import GroupChat
 from ...types import RunPaths
-from ...endpoint_configs import EndpointConfigs
-from ...magentic_ui_config import MagenticUIConfig
+from ...magentic_ui_config import MagenticUIConfig, ModelClientConfigs
 from ...input_func import InputFuncType
 from ...agents import WebSurfer
 
@@ -163,7 +162,7 @@ class TeamManager:
                         logger.error(f"Failed to parse model configurations: {e}")
 
                 # Use model configs from settings if available, otherwise fall back to config
-                endpoint_configs = EndpointConfigs(
+                model_client_configs = ModelClientConfigs(
                     orchestrator=model_configs.get(
                         "orchestrator_client",
                         self.config.get("orchestrator_client", None),
@@ -187,7 +186,7 @@ class TeamManager:
 
                 magentic_ui_config = MagenticUIConfig(
                     **(settings_config or {}),
-                    endpoint_configs=endpoint_configs,
+                    model_client_configs=model_client_configs,
                     playwright_port=playwright_port,
                     novnc_port=novnc_port,
                     inside_docker=self.inside_docker,

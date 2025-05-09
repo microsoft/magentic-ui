@@ -8,7 +8,7 @@ from .utils import get_internal_urls
 from .teams import GroupChat, RoundRobinGroupChat
 from .teams.orchestrator.orchestrator_config import OrchestratorConfig
 from .agents import WebSurfer, CoderAgent, USER_PROXY_DESCRIPTION, FileSurfer
-from .magentic_ui_config import MagenticUIConfig
+from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
 from .types import RunPaths
 from .agents.web_surfer import WebSurferConfig
 from .agents.users import DummyUserProxy, MetadataUserProxy
@@ -39,23 +39,17 @@ async def get_task_team(
     Returns:
         GroupChat | RoundRobinGroupChat: An instance of GroupChat or RoundRobinGroupChat with the specified agents and configuration.
     """
-    default_client_config = {
-        "provider": "OpenAIChatCompletionClient",
-        "config": {
-            "model": "gpt-4o-2024-08-06",
-        },
-        "max_retries": 5,
-    }
-
     if magentic_ui_config is None:
         magentic_ui_config = MagenticUIConfig()
 
     def get_model_client(
-        endpoint_config: Union[ComponentModel, Dict[str, Any], None],
+        model_client_config: Union[ComponentModel, Dict[str, Any], None],
     ) -> ChatCompletionClient:
-        if endpoint_config is None:
-            return ChatCompletionClient.load_component(default_client_config)
-        return ChatCompletionClient.load_component(endpoint_config)
+        if model_client_config is None:
+            return ChatCompletionClient.load_component(
+                ModelClientConfigs.get_default_client_config()
+            )
+        return ChatCompletionClient.load_component(model_client_config)
 
     if not magentic_ui_config.inside_docker:
         assert (
@@ -63,7 +57,7 @@ async def get_task_team(
         ), "External and internal run dirs must be the same in non-docker mode"
 
     model_client_orch = get_model_client(
-        magentic_ui_config.endpoint_configs.orchestrator
+        magentic_ui_config.model_client_configs.orchestrator
     )
     approval_guard: BaseApprovalGuard | None = None
 
@@ -77,9 +71,9 @@ async def get_task_team(
         magentic_ui_config.websurfer_loop if magentic_ui_config else False
     )
 
-    model_client_coder = get_model_client(magentic_ui_config.endpoint_configs.coder)
+    model_client_coder = get_model_client(magentic_ui_config.model_client_configs.coder)
     model_client_file_surfer = get_model_client(
-        magentic_ui_config.endpoint_configs.file_surfer
+        magentic_ui_config.model_client_configs.file_surfer
     )
     browser_resource_config, _novnc_port, _playwright_port = (
         get_browser_resource_config(
@@ -89,9 +83,6 @@ async def get_task_team(
             magentic_ui_config.inside_docker,
         )
     )
-
-    if magentic_ui_config.endpoint_configs.web_surfer is None:
-        magentic_ui_config.endpoint_configs.web_surfer = default_client_config
 
     orchestrator_config = OrchestratorConfig(
         cooperative_planning=magentic_ui_config.cooperative_planning,
@@ -105,9 +96,12 @@ async def get_task_team(
         allow_follow_up_input=magentic_ui_config.allow_follow_up_input,
         final_answer_prompt=magentic_ui_config.final_answer_prompt,
     )
+    websurfer_model_client = magentic_ui_config.model_client_configs.web_surfer
+    if websurfer_model_client is None:
+        websurfer_model_client = ModelClientConfigs.get_default_client_config()
     websurfer_config = WebSurferConfig(
         name="web_surfer",
-        model_client=magentic_ui_config.endpoint_configs.web_surfer,
+        model_client=websurfer_model_client,
         browser=browser_resource_config,
         single_tab_mode=False,
         max_actions_per_step=magentic_ui_config.max_actions_per_step,
@@ -156,7 +150,7 @@ async def get_task_team(
 
     if magentic_ui_config.user_proxy_type in ["dummy", "metadata"]:
         model_client_action_guard = get_model_client(
-            magentic_ui_config.endpoint_configs.action_guard
+            magentic_ui_config.model_client_configs.action_guard
         )
 
         # Simple approval function that always returns yes
@@ -173,7 +167,7 @@ async def get_task_team(
         )
     elif input_func is not None:
         model_client_action_guard = get_model_client(
-            magentic_ui_config.endpoint_configs.action_guard
+            magentic_ui_config.model_client_configs.action_guard
         )
         approval_guard = ApprovalGuard(
             input_func=input_func,

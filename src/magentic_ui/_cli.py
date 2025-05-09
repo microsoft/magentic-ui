@@ -16,8 +16,7 @@ from loguru import logger
 import logging
 from .utils import LLMCallFilter
 from .types import RunPaths
-from .magentic_ui_config import MagenticUIConfig
-from .endpoint_configs import EndpointConfigs
+from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
 
 logging.basicConfig(level=logging.WARNING, handlers=[])
 logger_llm = logging.getLogger(EVENT_LOGGER_NAME)
@@ -133,7 +132,7 @@ async def get_team(
         with open(client_config, "r") as f:
             client_config_dict = yaml.safe_load(f)
 
-    endpoint_configs = EndpointConfigs(
+    model_client_configs = ModelClientConfigs(
         orchestrator=client_config_dict.get("orchestrator_client", None),
         web_surfer=client_config_dict.get("web_surfer_client", None),
         coder=client_config_dict.get("coder_client", None),
@@ -141,7 +140,7 @@ async def get_team(
     )
 
     magentic_ui_config = MagenticUIConfig(
-        endpoint_configs=endpoint_configs,
+        model_client_configs=model_client_configs,
         approval_policy=action_policy,
         cooperative_planning=cooperative_planning,
         autonomous_execution=autonomous_execution,

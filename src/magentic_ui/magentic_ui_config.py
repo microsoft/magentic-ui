@@ -1,8 +1,44 @@
 from pydantic import BaseModel
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Union, Dict, Any
 from .types import Plan
-from .endpoint_configs import EndpointConfigs
 from pydantic import Field
+from dataclasses import dataclass, field
+from autogen_core import ComponentModel
+
+
+@dataclass
+class ModelClientConfigs:
+    """Configurations for the model clients.
+    Attributes:
+        default_client_config (dict): Default configuration for the model clients.
+        orchestrator (Optional[Union[ComponentModel, Dict[str, Any]]]): Configuration for the orchestrator component. Default: None.
+        web_surfer (Optional[Union[ComponentModel, Dict[str, Any]]]): Configuration for the web surfer component. Default: None.
+        coder (Optional[Union[ComponentModel, Dict[str, Any]]]): Configuration for the coder component. Default: None.
+        file_surfer (Optional[Union[ComponentModel, Dict[str, Any]]]): Configuration for the file surfer component. Default: None.
+        action_guard (Optional[Union[ComponentModel, Dict[str, Any]]]): Configuration for the action guard component. Default: None.
+    """
+
+    default_client_config: Dict[str, Any] = field(
+        default_factory=lambda: {
+            "provider": "OpenAIChatCompletionClient",
+            "config": {
+                "model": "gpt-4o-2024-08-06",
+            },
+            "max_retries": 5,
+        },
+        init=False,
+        repr=False,
+    )
+
+    orchestrator: Optional[Union[ComponentModel, Dict[str, Any]]] = None
+    web_surfer: Optional[Union[ComponentModel, Dict[str, Any]]] = None
+    coder: Optional[Union[ComponentModel, Dict[str, Any]]] = None
+    file_surfer: Optional[Union[ComponentModel, Dict[str, Any]]] = None
+    action_guard: Optional[Union[ComponentModel, Dict[str, Any]]] = None
+
+    @classmethod
+    def get_default_client_config(cls) -> Dict[str, Any]:
+        return cls.default_client_config
 
 
 class MagenticUIConfig(BaseModel):
@@ -10,7 +46,7 @@ class MagenticUIConfig(BaseModel):
     A simplified set of configuration options for Magentic-UI.
 
     Attributes:
-        endpoint_configs (EndpointConfigs): Configuration for various endpoints.
+        model_client_configs (ModelClientConfigs): Configurations for the model client.
         cooperative_planning (bool): Disable co-planning mode (default: enabled), user will not be involved in the planning process. Default: True.
         autonomous_execution (bool): Enable autonomous execution mode (default: disabled), user will not be involved in the execution. Default: False.
         allowed_websites (List[str], optional): List of websites that are permitted.
@@ -36,7 +72,7 @@ class MagenticUIConfig(BaseModel):
         inside_docker (bool, optional): Whether to run inside a docker container. Default: True.
     """
 
-    endpoint_configs: EndpointConfigs = Field(default_factory=EndpointConfigs)
+    model_client_configs: ModelClientConfigs = Field(default_factory=ModelClientConfigs)
     cooperative_planning: bool = True
     autonomous_execution: bool = False
     allowed_websites: Optional[List[str]] = None
