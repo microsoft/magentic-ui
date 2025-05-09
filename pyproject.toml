@@ -45,9 +45,12 @@ dependencies = [
 [project.optional-dependencies]
 eval = [
     "huggingface_hub",
-    "azure-identity",
     "pandas",
     "scipy",
+]
+
+azure = [
+    "azure-identity",
     "autogen-ext[azure,ollama]==0.5.3"
 ]
 
