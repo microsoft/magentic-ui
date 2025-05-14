@@ -90,7 +90,7 @@ const ContentHeader = ({
 
           {/* Settings Button */}
           <div className="text-primary">
-            <Tooltip title="Open application settings">
+            <Tooltip title="Settings">
               <button
                 onClick={() => setIsSettingsOpen(true)}
                 className="hover:text-accent transition-colors p-2"

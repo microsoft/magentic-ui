@@ -448,7 +448,7 @@ export const SessionManager: React.FC = () => {
           },
         })
       );
-    }, 1000); // Give time for session selection to complete
+    }, 2000); // Give time for session selection to complete
   };
 
   return (

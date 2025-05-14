@@ -305,7 +305,6 @@ export default function ChatView({
     setCurrentRun((current: Run | null) => {
       if (!current || !session?.id) return null;
 
-      console.log("WebSocket message:", message);
 
       switch (message.type) {
         case "error":
@@ -619,7 +618,7 @@ export default function ChatView({
       }
 
       // Setup websocket connection
-      const socket = setupWebSocket(run.id, fresh_socket, false, true);
+      const socket = setupWebSocket(run.id, fresh_socket, false);
       if (!socket) {
         throw new Error("WebSocket connection not available");
       }
@@ -1016,7 +1015,6 @@ export default function ChatView({
                     onCancel={handleCancel}
                     error={error}
                     chatInputRef={chatInputRef}
-                    isPlanMessage={isPlanMessage}
                     onExecutePlan={handleExecutePlan}
                     enable_upload={false} // Or true if needed
                   />

@@ -43,7 +43,6 @@ const normalizePlanData = (
       : [],
     user_id: planData.user_id || userId,
     session_id: planData.session_id || null,
-    created_at: planData.created_at,
   };
 };
 

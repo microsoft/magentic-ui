@@ -8,7 +8,7 @@ import {
 import * as React from "react";
 import { appContext } from "../../../hooks/provider";
 import { IStatus } from "../../types/app";
-import { Upload, message, Button, Tooltip, notification, Modal } from "antd";
+import { Upload, message, Button, Tooltip, notification, Modal, Dropdown, Menu } from "antd";
 import type { UploadFile, UploadProps, RcFile } from "antd/es/upload/interface";
 import { FileTextIcon, ImageIcon, XIcon, UploadIcon } from "lucide-react";
 import { InputRequest, ApprovalInputRequest } from "../../types/datamodel";
@@ -296,18 +296,6 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       debounce((query: string) => {
         console.log("Search request with query:", query);
 
-        const shouldSearch =
-          runStatus === "connected" ||
-          (runStatus === "awaiting_input" && !isPlanMessage);
-
-        if (!shouldSearch) {
-          console.log("Search skipped - not in a searchable state:", {
-            runStatus,
-            isPlanMessage,
-          });
-          return;
-        }
-
         // Don't search if query is too short, no plans available, or plan is already attached
         if (
           query.length < 3 ||
@@ -327,7 +315,6 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                 return true;
               }
             }
-
             const taskMatches = searchTerms.every((term) =>
               plan.taskLower.includes(term)
             );
@@ -354,7 +341,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
         } finally {
           setIsSearching(false);
         }
-      }, 300),
+      }, 1000),
       [searchableData, runStatus, isPlanMessage, attachedPlan]
     );
 
@@ -364,11 +351,12 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       const newText = event.target.value;
       setText(newText);
 
-      // Updated condition: search when "connected" OR ("awaiting_input" AND not showing plan)
-      const shouldSearch =
-        runStatus === "connected" ||
-        (runStatus === "awaiting_input" && !isPlanMessage);
+      // Clear relevant plans and attached plan as soon as the query changes
+      setRelevantPlans([]);
 
+      const shouldSearch = !(
+        runStatus === "connected" || runStatus === "awaiting_input"
+      );
       if (shouldSearch) {
         searchPlans(newText);
       } else if (relevantPlans.length > 0) {
@@ -731,21 +719,41 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                     : "bg-white text-black"
                 }`}
               >
-                {/* File upload button */}
+                {/* File upload button replaced with Dropdown */}
                 {enable_upload && (
                   <div
-                    className={`${
-                      isInputDisabled ? "pointer-events-none opacity-50" : ""
-                    }`}
+                    className={`$${isInputDisabled ? "pointer-events-none opacity-50" : ""}`}
                   >
-                    <Upload {...uploadProps}>
+                    <Dropdown
+                      overlay={
+                        <Menu>
+                          <Menu.Item key="attach-file">
+                            <Upload {...uploadProps} showUploadList={false}>
+                              <span>Attach File</span>
+                            </Upload>
+                          </Menu.Item>
+                          <Menu.SubMenu key="attach-plan" title="Attach Plan">
+                            {allPlans.length === 0 ? (
+                              <Menu.Item disabled key="no-plans">No plans available</Menu.Item>
+                            ) : (
+                              allPlans.map((plan: any) => (
+                                <Menu.Item
+                                  key={plan.id || plan.task}
+                                  onClick={() => handleUsePlan(plan)}
+                                >
+                                  {plan.task}
+                                </Menu.Item>
+                              ))
+                            )}
+                          </Menu.SubMenu>
+                        </Menu>
+                      }
+                      trigger={["click"]}
+                    >
                       <Tooltip
                         title={
                           <span className="text-sm">
-                            Upload File{" "}
-                            <span className="text-secondary text-xs">
-                              (max 5mb)
-                            </span>
+                            Attach File or Plan
                           </span>
                         }
                         placement="top"
@@ -758,7 +766,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                           <UploadIcon className="h-6 -mt-1 w-6 text-accent" />
                         </button>
                       </Tooltip>
-                    </Upload>
+                    </Dropdown>
                   </div>
                 )}
 

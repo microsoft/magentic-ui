@@ -100,8 +100,6 @@ const FullscreenOverlay: React.FC<FullscreenOverlayProps> = ({
 
   // Apply styles to target element
   useEffect(() => {
-    console.log("isVisible", isVisible);
-    console.log("targetElementId", targetElementId);
     if (isVisible && targetElementId) {
       const targetEl = document.getElementById(targetElementId);
       if (targetEl) {

@@ -390,7 +390,6 @@ const RunView: React.FC<RunViewProps> = ({
         // Skip if we can't parse the message
       }
     });
-    console.log("newFailedIndices", newFailedIndices);
     setRepeatedStepIndices(newRepeatedIndices);
     setFailedStepIndices(newFailedIndices);
 

@@ -245,8 +245,14 @@ const PlanCard: React.FC<PlanCardProps> = ({
           </div>
 
           <div className="mt-4 text-xs text-gray-500 flex items-center">
-            <Clock className="h-3 w-3 mr-1" />
-            {getRelativeTimeString(plan.created_at || "")}
+            {plan.created_at ? (
+              <>
+                <Clock className="h-3 w-3 mr-1" />
+                {getRelativeTimeString(plan.created_at)}
+              </>
+            ) : (
+              ""
+            )}
           </div>
         </div>
       </Card>
