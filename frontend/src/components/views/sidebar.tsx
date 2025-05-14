@@ -10,6 +10,7 @@ import {
   FileText,
   Archive,
   MoreVertical,
+  StopCircle,
 } from "lucide-react";
 import type { Session, RunStatus } from "../types/datamodel";
 import SubMenu from "../common/SubMenu";
@@ -28,6 +29,7 @@ interface SidebarProps {
   sessionRunStatuses: { [sessionId: number]: RunStatus };
   activeSubMenuItem: string;
   onSubMenuChange: (tabId: string) => void;
+  onStopSession: (sessionId: number) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -42,6 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sessionRunStatuses,
   activeSubMenuItem,
   onSubMenuChange,
+  onStopSession,
 }) => {
   // Group sessions by time period
   const groupSessions = (sessions: Session[]) => {
@@ -98,51 +101,103 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Helper function to render session group
   const renderSessionGroup = (sessions: Session[]) => (
     <>
-      {sessions.map((s) => (
-        <div key={s.id} className="relative">
-          <div
-            className={`group flex items-center justify-between rounded-l p-2 py-1 text-sm ${
-              isLoading
-                ? "pointer-events-none opacity-50"
-                : "cursor-pointer hover:bg-tertiary"
-            } ${
-              currentSession?.id === s.id ? "  border-accent bg-secondary" : ""
-            }`}
-            onClick={() => !isLoading && onSelectSession(s)}
-          >
-            <div className="flex items-center gap-2 flex-1">
-              <span className="truncate text-sm">
-                {s.name.slice(0, 20)}
-                {s.name.length > 20 ? "..." : ""}
-              </span>
-              {s.id && (
-                <SessionRunStatusIndicator status={sessionRunStatuses[s.id]} />
-              )}
-            </div>
-            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Dropdown
-                trigger={["click"]}
-                overlay={
-                  <Menu>
-                    <Menu.Item key="edit" onClick={(e) => { e.domEvent.stopPropagation(); onEditSession(s); }}>
-                      Edit
-                    </Menu.Item>
-                    <Menu.Item key="delete" onClick={(e) => { e.domEvent.stopPropagation(); if (s.id) onDeleteSession(s.id); }} danger>
-                      Delete
-                    </Menu.Item>
-                    <Menu.Item key="learn-plan" onClick={(e) => e.domEvent.stopPropagation()}>
-                      <LearnPlanButton sessionId={Number(s.id)} messageId={-1} />
-                    </Menu.Item>
-                  </Menu>
-                }
-                placement="bottomRight"
-              >
-                <Button type="text" size="small" className="p-0 min-w-[24px] h-6" icon={<MoreVertical className="w-4 h-4" />} onClick={e => e.stopPropagation()} />
-              </Dropdown>
+      {sessions.map((s) => {
+        const status = sessionRunStatuses[s.id];
+        const isActive = [
+          "active",
+          "awaiting_input",
+          "pausing",
+          "paused",
+        ].includes(status);
+        return (
+          <div key={s.id} className="relative">
+            <div
+              className={`group flex items-center justify-between rounded-l p-2 py-1 text-sm ${
+                isLoading
+                  ? "pointer-events-none opacity-50"
+                  : "cursor-pointer hover:bg-tertiary"
+              } ${
+                currentSession?.id === s.id
+                  ? "  border-accent bg-secondary"
+                  : ""
+              }`}
+              onClick={() => !isLoading && onSelectSession(s)}
+            >
+              <div className="flex items-center gap-2 flex-1">
+                <span className="truncate text-sm">
+                  {s.name.slice(0, 20)}
+                  {s.name.length > 20 ? "..." : ""}
+                </span>
+                {s.id && (
+                  <SessionRunStatusIndicator
+                    status={sessionRunStatuses[s.id]}
+                  />
+                )}
+              </div>
+              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Dropdown
+                  trigger={["click"]}
+                  overlay={
+                    <Menu>
+                      <Menu.Item
+                        key="edit"
+                        onClick={(e) => {
+                          e.domEvent.stopPropagation();
+                          onEditSession(s);
+                        }}
+                      >
+                        <Edit className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />{" "}
+                        Edit
+                      </Menu.Item>
+                      <Menu.Item
+                        key="stop"
+                        onClick={(e) => {
+                          e.domEvent.stopPropagation();
+                          if (isActive && s.id) onStopSession(s.id);
+                        }}
+                        disabled={!isActive}
+                        danger
+                      >
+                        <StopCircle className="w-4 h-4 inline-block mr-1.5 -mt-0.5 text-red-500" />{" "}
+                        Disconnect
+                      </Menu.Item>
+                      <Menu.Item
+                        key="delete"
+                        onClick={(e) => {
+                          e.domEvent.stopPropagation();
+                          if (s.id) onDeleteSession(s.id);
+                        }}
+                        danger
+                      >
+                        <Trash2 className="w-4 h-4 inline-block mr-1.5 -mt-0.5 text-red-500" />{" "}
+                        Delete
+                      </Menu.Item>
+                      <Menu.Item
+                        key="learn-plan"
+                        onClick={(e) => e.domEvent.stopPropagation()}
+                      >
+                        <LearnPlanButton
+                          sessionId={Number(s.id)}
+                          messageId={-1}
+                        />
+                      </Menu.Item>
+                    </Menu>
+                  }
+                  placement="bottomRight"
+                >
+                  <Button
+                    type="text"
+                    size="small"
+                    className="p-0 min-w-[24px] h-6"
+                    icon={<MoreVertical className="w-4 h-4" />}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </Dropdown>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </>
   );
 

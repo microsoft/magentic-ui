@@ -1,13 +1,11 @@
 from pydantic import BaseModel
-from typing import Optional, List, Literal, Union, Dict, Any
+from typing import Optional, List, Literal, Union, Dict, Any, ClassVar
 from .types import Plan
 from pydantic import Field
-from dataclasses import dataclass, field
 from autogen_core import ComponentModel
 
 
-@dataclass
-class ModelClientConfigs:
+class ModelClientConfigs(BaseModel):
     """Configurations for the model clients.
     Attributes:
         default_client_config (dict): Default configuration for the model clients.
@@ -18,23 +16,19 @@ class ModelClientConfigs:
         action_guard (Optional[Union[ComponentModel, Dict[str, Any]]]): Configuration for the action guard component. Default: None.
     """
 
-    default_client_config: Dict[str, Any] = field(
-        default_factory=lambda: {
-            "provider": "OpenAIChatCompletionClient",
-            "config": {
-                "model": "gpt-4o-2024-08-06",
-            },
-            "max_retries": 5,
-        },
-        init=False,
-        repr=False,
-    )
-
     orchestrator: Optional[Union[ComponentModel, Dict[str, Any]]] = None
     web_surfer: Optional[Union[ComponentModel, Dict[str, Any]]] = None
     coder: Optional[Union[ComponentModel, Dict[str, Any]]] = None
     file_surfer: Optional[Union[ComponentModel, Dict[str, Any]]] = None
     action_guard: Optional[Union[ComponentModel, Dict[str, Any]]] = None
+
+    default_client_config: ClassVar[Dict[str, Any]] = {
+        "provider": "OpenAIChatCompletionClient",
+        "config": {
+            "model": "gpt-4o-2024-08-06",
+        },
+        "max_retries": 5,
+    }
 
     @classmethod
     def get_default_client_config(cls) -> Dict[str, Any]:

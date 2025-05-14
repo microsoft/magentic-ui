@@ -22,7 +22,6 @@ from .input_func import InputFuncType, make_agentchat_input_func
 from .learning.memory_provider import MemoryControllerProvider
 
 
-# TODO: Convert all usages of allowed website to use a Dict[str, UrlStatus]
 async def get_task_team(
     magentic_ui_config: Optional[MagenticUIConfig] = None,
     input_func: Optional[InputFuncType] = None,

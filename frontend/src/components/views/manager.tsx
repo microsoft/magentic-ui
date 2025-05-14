@@ -363,25 +363,37 @@ export const SessionManager: React.FC = () => {
   };
 
   const chatViews = useMemo(() => {
-    return sessions.map((s) => (
-      <div
-        key={s.id}
-        className={`${session?.id === s.id ? "block" : "hidden"} relative`}
-      >
-        {isLoading && session?.id === s.id && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center">
-            <Spin size="large" tip="Loading session..." />
-          </div>
-        )}
-        <ChatView
-          session={s}
-          onSessionNameChange={handleSessionName}
-          getSessionSocket={getSessionSocket}
-          visible={session?.id === s.id}
-          onRunStatusChange={updateSessionRunStatus}
-        />
-      </div>
-    ));
+    return sessions.map((s: Session) => {
+      const status = sessionRunStatuses[s.id] as RunStatus;
+      const isSessionPotentiallyActive = [
+        "active",
+        "awaiting_input",
+        "pausing",
+        "paused",
+      ].includes(status);
+
+      if (!isSessionPotentiallyActive && session?.id !== s.id) return null;
+
+      return (
+        <div
+          key={s.id}
+          className={`${session?.id === s.id ? "block" : "hidden"} relative`}
+        >
+          {isLoading && session?.id === s.id && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center">
+              <Spin size="large" tip="Loading session..." />
+            </div>
+          )}
+          <ChatView
+            session={s}
+            onSessionNameChange={handleSessionName}
+            getSessionSocket={getSessionSocket}
+            visible={session?.id === s.id}
+            onRunStatusChange={updateSessionRunStatus}
+          />
+        </div>
+      );
+    });
   }, [
     sessions,
     session?.id,
@@ -389,6 +401,7 @@ export const SessionManager: React.FC = () => {
     getSessionSocket,
     updateSessionRunStatus,
     isLoading,
+    sessionRunStatuses,
   ]);
 
   // Add cleanup handlers for page unload and connection loss
@@ -468,6 +481,25 @@ export const SessionManager: React.FC = () => {
             sessionRunStatuses={sessionRunStatuses}
             activeSubMenuItem={activeSubMenuItem}
             onSubMenuChange={setActiveSubMenuItem}
+            onStopSession={(sessionId: number) => {
+              if (sessionId === undefined || sessionId === null) return;
+              const id = Number(sessionId);
+              // Find the session's socket and close it, update status
+              const ws = sessionSockets[id]?.socket;
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(
+                  JSON.stringify({
+                    type: "stop",
+                    reason: "Cancelled by user (sidebar)",
+                  })
+                );
+                ws.close();
+              }
+              setSessionRunStatuses((prev) => ({
+                ...prev,
+                [id]: "stopped",
+              }));
+            }}
           />
         </div>
 
