@@ -212,8 +212,8 @@ class WebVoyagerBenchmark(Benchmark):
             except Exception as e:
                 print(f"Error: {e}")
                 continue
-        # restrict to last 10 screenshots
-        images = images[-10:]
+        # restrict to last 15 screenshots
+        images = images[-15:]
 
         # The system prompt explains how to evaluate correctness
         user_message: str | list[str | AGImage] = ""

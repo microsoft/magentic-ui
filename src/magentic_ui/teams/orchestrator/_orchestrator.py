@@ -203,6 +203,11 @@ class Orchestrator(BaseGroupChatManager):
                 user_index = user_indices[0]
                 self._agent_execution_names.pop(user_index)
                 self._agent_execution_descriptions.pop(user_index)
+        # add a a new participant for the orchestrator to do nothing
+        self._agent_execution_names.append("no_action_agent")
+        self._agent_execution_descriptions.append(
+            "If for this step no action is needed, you can use this agent to perform no action"
+        )
 
         self._team_description: str = "\n".join(
             [
@@ -372,6 +377,10 @@ class Orchestrator(BaseGroupChatManager):
         self, next_speaker: str, cancellation_token: CancellationToken
     ) -> None:
         """Helper function to request the next speaker."""
+        if next_speaker == "no_action_agent":
+            await self._orchestrate_step(cancellation_token)
+            return
+
         next_speaker_topic_type = self._participant_name_to_topic_type[next_speaker]
         await self.publish_message(
             GroupChatRequestPublish(),
@@ -798,7 +807,7 @@ class Orchestrator(BaseGroupChatManager):
                     plan_response["steps"]
                 )
                 self._state.plan_str = str(self._state.plan)
-                if self._config.cooperative_planning:
+                if not self._config.no_overwrite_of_task:
                     self._state.task = plan_response["task"]
                 # add plan_response to the message thread
                 self._state.message_history.append(

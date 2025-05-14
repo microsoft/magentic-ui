@@ -12,7 +12,8 @@ def is_accepted_str(user_input: str) -> bool:
         "accpt",
         "run plan",
         "sounds good",
-        "I don't know. Use your best judgment.",
+        "i don't know. use your best judgment.",
+        "i don't know, you figure it out, don't ask me again.",
     ]
     user_input = user_input.lower()
     user_input = user_input.strip()
