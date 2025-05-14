@@ -69,37 +69,20 @@ Magentic-UI is a multi-agent system consisting of 5 agents - an Orchestrator tha
   <img src="./docs/magenticui.png" alt="Magentic-UI" height="400">
 </p>
 
-After you submit a task the following steps occur:
+Magentic-UI’s underlying system is a team of specialized agents adapted from AutoGen’s Magentic-One system. The agents work together to create a modular system:
+- **Orchestrator** is the lead agent, powered by a large language model (LLM), that performs co-planning with the user, decides when to ask the user for feedback, and delegates sub-tasks to the remaining agents to complete.
+- **WebSurfer** is an LLM agent equipped with a web browser that it can control. Given a request by the Orchestrator, it can click, type, scroll, and visit pages in multiple rounds to complete the request from the Orchestrator.
+- **Coder** is an LLM agent equipped with a Docker code-execution container. It can write and execute Python and shell commands and provide a response back to the Orchestrator.
+- **FileSurfer** is an LLM agent equipped with a Docker code-execution container and file-conversion tools from the MarkItDown package. It can locate files in the directory controlled by Magentic-UI, convert files to markdown, and answer questions about them.
 
+To interact with Magentic-UI, users can enter a text message and attach images. In response, Magentic-UI creates a natural-language step-by-step plan with which users can interact through a plan-editing interface. Users can add, delete, edit, regenerate steps, and write follow-up messages to iterate on the plan. While the user editing the plan adds an upfront cost to the interaction, it can potentially save a significant amount of time in the agent executing the plan and increase its chance at success.
 
-1. **Planning Phase**:
+The plan is stored inside the Orchestrator and is used to execute the task. For each step of the plan, the Orchestrator determines which of the agents (WebSurfer, Coder, FileSurfer) or the user should complete the step. Once that decision is made, the Orchestrator sends a request to one of the agents or the user and waits for a response. After the response is received, the Orchestrator decides whether that step is complete. If it is, the Orchestrator moves on to the following step. 
 
-   - The Orchestrator generates a step-by-step plan or retrieves a similar plan from memory
-   - With co-planning enabled, the user can review, modify, and approve the plan before execution begins
-   - Each plan step specifies which specialized agent will perform the action
+Once all steps are completed, the Orchestrator generates a final answer that is presented to the user. If, while executing any of the steps, the Orchestrator decides that the plan is inadequate (for example, because a certain website is unreachable), the Orchestrator can replan with user permission and start executing a new plan.
 
-2. **Execution Phase**:
+All intermediate progress steps are clearly displayed to the user. Furthermore, the user can pause the execution of the plan and send additional requests or feedback. The user can also configure through the interface whether agent actions (e.g., clicking a button) require approval.
 
-   - **Step Execution**:
-
-     - The Orchestrator manages step-by-step execution of the approved plan
-     - For each step, the system evaluates if the current step is complete
-     - The system selects the next agent to act and provides instructions
-     - The ApprovalGuard intercepts potentially sensitive actions (file modifications, code execution, website navigation) and may request explicit user approval
-     - The selected agent performs its action and returns a response
-
-   - **Dynamic Replanning**:
-
-     - If progress stalls, the Orchestrator can trigger replanning
-     - Previously completed steps are preserved
-     - A new plan for remaining tasks is generated
-     - With co-planning enabled, the user can review and approve the new plan
-
-   - **Task Completion**:
-     - Once all steps are executed, the Orchestrator synthesizes a final answer
-     - The system can optionally allow for follow-up questions or new tasks
-
-Throughout this process, the user can interrupt and take control provide feedback during both planning and execution, making this a truly collaborative system for complex task completion.
 
 ## How to Use Magentic-UI
 
