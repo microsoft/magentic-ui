@@ -40,7 +40,7 @@ class ModelClientConfigs(BaseModel):
     @classmethod
     def get_default_client_config(cls) -> Dict[str, Any]:
         return cls.default_client_config
-    
+
     @classmethod
     def get_default_action_guard_config(cls) -> Dict[str, Any]:
         return cls.default_action_guard_config
