@@ -43,10 +43,13 @@ async def get_task_team(
 
     def get_model_client(
         model_client_config: Union[ComponentModel, Dict[str, Any], None],
+        is_action_guard: bool = False,
     ) -> ChatCompletionClient:
         if model_client_config is None:
             return ChatCompletionClient.load_component(
                 ModelClientConfigs.get_default_client_config()
+                if not is_action_guard
+                else ModelClientConfigs.get_default_action_guard_config()
             )
         return ChatCompletionClient.load_component(model_client_config)
 
@@ -149,7 +152,8 @@ async def get_task_team(
 
     if magentic_ui_config.user_proxy_type in ["dummy", "metadata"]:
         model_client_action_guard = get_model_client(
-            magentic_ui_config.model_client_configs.action_guard
+            magentic_ui_config.model_client_configs.action_guard,
+            is_action_guard=True,
         )
 
         # Simple approval function that always returns yes

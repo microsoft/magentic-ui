@@ -34,14 +34,19 @@ const defaultConfig: GeneralConfig = {
   model_configs: `model_config: &client
   provider: OpenAIChatCompletionClient
   config:
-    model: gpt-4o-2024-08-06
+    model: gpt-4.1-2025-04-14
+  max_retries: 5
+model_config_action_guard: &client_action_guard
+  provider: OpenAIChatCompletionClient
+  config:
+    model: gpt-4.1-nano-2025-04-14
   max_retries: 5
 
 orchestrator_client: *client
 coder_client: *client
 web_surfer_client: *client
 file_surfer_client: *client
-action_guard_client: *client`,
+action_guard_client: *client_action_guard`,
   retrieve_relevant_plans: "never",
 };
 

@@ -25,14 +25,25 @@ class ModelClientConfigs(BaseModel):
     default_client_config: ClassVar[Dict[str, Any]] = {
         "provider": "OpenAIChatCompletionClient",
         "config": {
-            "model": "gpt-4o-2024-08-06",
+            "model": "gpt-4.1-2025-04-14",
         },
-        "max_retries": 5,
+        "max_retries": 10,
+    }
+    default_action_guard_config: ClassVar[Dict[str, Any]] = {
+        "provider": "OpenAIChatCompletionClient",
+        "config": {
+            "model": "gpt-4.1-nano-2025-04-14",
+        },
+        "max_retries": 10,
     }
 
     @classmethod
     def get_default_client_config(cls) -> Dict[str, Any]:
         return cls.default_client_config
+    
+    @classmethod
+    def get_default_action_guard_config(cls) -> Dict[str, Any]:
+        return cls.default_action_guard_config
 
 
 class MagenticUIConfig(BaseModel):

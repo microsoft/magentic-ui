@@ -8,9 +8,9 @@ const SAMPLE_TASKS = [
   "When does the post office near me close today?",
   "Find the latest publications from the the Microsoft Research AI Frontiers Lab on Human-Agent interaction",
   "Which commit of Microsoft/markitdown repo introduced MCP support?",
-  "Which apple stores near me have the latest (top spec) iphones?",
+  "Can you make a PowerPoint file that summarizes the Microsoft AutoGen repo?",
   "Order me a custom pizza from Tangle Town Pub with sausage, pineapple, and black olives",
-  "find the GitHub link of Hussein Mozannar latest paper with Eric Horvitz",
+  "Search arXiv for the latest papers on computer use agents",
 ];
 
 const SampleTasks: React.FC<SampleTasksProps> = ({ onSelect }) => {
