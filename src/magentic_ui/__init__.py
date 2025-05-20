@@ -10,6 +10,7 @@ from .guarded_action import GuardedAction, ApprovalDeniedError, TrivialGuardedAc
 from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
 
 from .version import __version__
+
 ABOUT = "Magentic-UI - A web browsing assistant."
 __all__ = [
     "get_task_team",
