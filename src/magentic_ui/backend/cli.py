@@ -7,7 +7,7 @@ from typing import Optional
 from pathlib import Path
 import logging
 
-from .version import VERSION
+from ..version import VERSION
 from .._docker import (
     check_docker_running,
     check_browser_image,
