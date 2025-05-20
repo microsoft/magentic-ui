@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "magentic_ui"
 license = "MIT"
-version = "0.0.3"
+dynamic = ["version"]
 description = ''
 readme = "README.md"
 requires-python = ">=3.10"
@@ -126,6 +126,9 @@ reportMissingTypeStubs = false
 [tool.hatch.build.targets.wheel]
 include-package-data = true
 packages = ["src/magentic_ui"]
+
+[tool.hatch.version]
+path = "src/magentic_ui/version.py"
 
 [tool.hatch.build]
 include = [
