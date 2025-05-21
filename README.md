@@ -35,7 +35,7 @@ What differentiates Magentic-UI from other browser use offerings is its transpar
 
 Here's how you can get started with Magentic-UI. It's easy to install and run, and you can even build it from source if you prefer.
 
-> **Note**: Before installing, please read the [pre-requisites](#prerequisites) carefully. Magentic-UI requires Docker to run, and if you are on Windows, you will need WSL2. If you are using Mac or Linux, you can skip the WSL2 step.
+> **Note**: Before installing, please read the [pre-requisites](#prerequisites) carefully. Magentic-UI requires Docker to run, and if you are on Windows, you will need WSL2. We recommend using [uv](https://docs.astral.sh/uv/getting-started/installation/) for a quicker installation. If you are using Mac or Linux, you can skip the WSL2 step.
 
 ```bash
 python3 -m venv .venv
@@ -44,13 +44,15 @@ pip install magentic-ui
 # export OPENAI_API_KEY=<YOUR API KEY>
 magentic ui --port 8081
 ```
+If your port is 8081, you can then access Magentic-UI at <http://localhost:8081>.
+
 
 To use Azure models or Ollama please install with the optional dependencies:
 ```bash
 # for Azure
-pip install magentic-ui[azure] 
+pip install 'magentic-ui[azure]' 
 # for Ollama
-pip install magentic-ui[ollama]
+pip install 'magentic-ui[ollama]'
 ```
 
 
@@ -73,9 +75,10 @@ Magentic-UI is a web application that allows people to interact with a powerful 
 </p>
 
 
-The interface of Magentic-UI is displayed in the screenshot above and consists of two pannels. The left side pannel is the sessions navigator where users can create new sessions to solve new tasks, switch between sessions and check on session progress with the session status indicators (🔴 needs input, ✅ task done, ↺ task in progress).
+The interface of Magentic-UI is displayed in the screenshot above and consists of two panels. The left side panel is the sessions navigator where users can create new sessions to solve new tasks, switch between sessions and check on session progress with the session status indicators (🔴 needs input, ✅ task done, ↺ task in progress).
 
-The right side pannel displays the session selected. This is where you can type your query to Magentic-UI alognside text and image attachments, and observe detailed task progress as well as  interact with the agents. The session display itself is split in two pannels: the left side is where Magentic-UI presents the plan, task progress and asks for action approvals, the right side is a browser view where you can see web agent actions in real time and interact with the browser. Finally, at the top of the session display is a progress bar that updates as Magentic-UI makes progress.
+The right-side panel displays the session selected. This is where you can type your query to Magentic-UI alongside text and image attachments and observe detailed task progress as well as  interact with the agents. The session display itself is split in two panels: the left side is where Magentic-UI presents the plan, task progress and asks for action approvals, the right side is a browser view where you can see web agent actions in real time and interact with the browser. Finally, at the top of the session display is a progress bar that updates as Magentic-UI makes progress.
+
 
 
 
@@ -124,7 +127,7 @@ source .venv/bin/activate
 pip install magentic-ui
 ```
 
-Alternatively, if you use `uv` for dependency management, you can install Magentic-UI with:
+Alternatively, if you use [`uv`](https://docs.astral.sh/uv/getting-started/installation/) for dependency management, you can install Magentic-UI with:
 
 ```bash
 uv venv --python=3.12 .venv
@@ -260,6 +263,13 @@ yarn build
 
 ```bash
 magentic ui --port 8081
+```
+
+>**Note**: Running this command for the first time will build two docker containers required for the Magentic-UI agents. If you encounter problems, you can build them directly with the following commands from inside the repository: 
+```bash
+docker build -t magentic-ui-vnc-browser:latest ./src/magentic_ui/docker/magentic-ui-browser-docker
+
+docker build -t magentic-ui-python-env:latest ./src/magentic_ui/docker/magentic-ui-python-env
 ```
 
 #### Running the UI from source
