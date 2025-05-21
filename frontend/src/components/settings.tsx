@@ -466,16 +466,16 @@ action_guard_client: *client
                           {
                             value: "never",
                             label: (
-                              <Tooltip title="No plan retreival">
-                                No plan retreival
+                              <Tooltip title="No plan retrieval">
+                                No plan retrieval
                               </Tooltip>
                             ),
                           },
                           {
                             value: "hint",
                             label: (
-                              <Tooltip title="Retreive most relevant saved plan as hints for new plans">
-                                Retreive plans as hints
+                              <Tooltip title="Retrieve most relevant saved plan as hints for new plans">
+                                Retrieve plans as hints
                               </Tooltip>
                             ),
                           },
@@ -483,7 +483,7 @@ action_guard_client: *client
                             value: "reuse",
                             label: (
                               <Tooltip title="Retrieve most relevant saved plan to be used directly">
-                                Retreive plans to use directly
+                                Retrieve plans to use directly
                               </Tooltip>
                             ),
                           },
