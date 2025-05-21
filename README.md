@@ -44,7 +44,7 @@ pip install magentic-ui
 # export OPENAI_API_KEY=<YOUR API KEY>
 magentic ui --port 8081
 ```
-You can access Magentic-UI at <http://localhost:8081>.
+If your port is 8081, you can then access Magentic-UI at <http://localhost:8081>.
 
 
 To use Azure models or Ollama please install with the optional dependencies:
