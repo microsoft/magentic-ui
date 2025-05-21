@@ -277,12 +277,21 @@ class FileSurfer(BaseChatAgent, Component[FileSurferConfig]):
             )
 
             # Re-initialize model context to meet token limit quota
-            await self._model_context.clear()
-            for msg in (
-                history + self.DEFAULT_SYSTEM_MESSAGES + [context_message, task_message]
-            ):
-                await self._model_context.add_message(msg)
-            token_limited_history = await self._model_context.get_messages()
+            try:
+                await self._model_context.clear()
+                for msg in (
+                    history
+                    + self.DEFAULT_SYSTEM_MESSAGES
+                    + [context_message, task_message]
+                ):
+                    await self._model_context.add_message(msg)
+                token_limited_history = await self._model_context.get_messages()
+            except Exception:
+                token_limited_history = list(
+                    history
+                    + self.DEFAULT_SYSTEM_MESSAGES
+                    + [context_message, task_message]
+                )
 
             create_result = await self._model_client.create(
                 messages=token_limited_history,

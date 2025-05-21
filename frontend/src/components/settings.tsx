@@ -3,6 +3,7 @@ import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 import { appContext } from "../hooks/provider";
 import SignInModal from "./signin";
 import { useSettingsStore } from "./store";
+import MonacoEditor from "@monaco-editor/react";
 import { settingsAPI } from "./views/api";
 import {
   Input,
@@ -44,14 +45,14 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
 
   const MODEL_OPTIONS = [
     { value: "azure-ai-foundry", label: "Azure AI Foundry Template" },
-    { value: "gpt-4o-2024-08-06", label: "GPT-4o" },
-    { value: "gpt-4o-mini-2024-07-18", label: "GPT-4o Mini" },
     { value: "gpt-4.1-2025-04-14", label: "GPT-4.1" },
     { value: "gpt-4.1-mini-2025-04-14", label: "GPT-4.1 Mini" },
+    { value: "openrouter", label: "OpenRouter" },
     { value: "gpt-4.1-nano-2025-04-14", label: "GPT-4.1 Nano" },
     { value: "o4-mini-2025-04-16", label: "O4 Mini" },
     { value: "o3-mini-2025-01-31", label: "O3 Mini" },
-    { value: "o1-2024-12-17", label: "O1" },
+    { value: "gpt-4o-2024-08-06", label: "GPT-4o" },
+    { value: "gpt-4o-mini-2024-07-18", label: "GPT-4o Mini" },
   ];
 
   const AZURE_AI_FOUNDRY_YAML = `model_config: &client
@@ -68,6 +69,28 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
         scopes:
           - https://cognitiveservices.azure.com/.default
     max_retries: 10
+
+orchestrator_client: *client
+coder_client: *client
+web_surfer_client: *client
+file_surfer_client: *client
+action_guard_client: *client
+`;
+
+  const OPENROUTER_YAML = `model_config: &client
+  provider: OpenAIChatCompletionClient
+  config:
+    model: "MODEL_NAME"
+    base_url: "https://openrouter.ai/api/v1"
+    api_key: "KEY"
+    model_info: # change per model
+       vision: true 
+       function_calling: true # required true for file_surfer, but will still work if file_surfer is not needed
+       json_output: false
+       family: unknown
+       structured_output: false
+  max_retries: 5
+
 
 orchestrator_client: *client
 coder_client: *client
@@ -203,6 +226,11 @@ action_guard_client: *client
       if (modelName === "azure-ai-foundry") {
         handleUpdateConfig({ model_configs: AZURE_AI_FOUNDRY_YAML });
         message.success("Azure AI Foundry configuration applied");
+        return;
+      }
+      if (modelName === "openrouter") {
+        handleUpdateConfig({ model_configs: OPENROUTER_YAML });
+        message.success("OpenRouter configuration applied");
         return;
       }
       const yamlLines = config.model_configs?.split("\n") || [];
@@ -542,21 +570,21 @@ action_guard_client: *client
                         <div className="text-sm mb-1">
                           Advanced Configuration (YAML)
                         </div>
-                        <TextArea
+                        <MonacoEditor
                           value={config.model_configs}
-                          onChange={(
-                            e: React.ChangeEvent<HTMLTextAreaElement>
-                          ) => {
-                            if (validateYamlConfig(e.target.value)) {
-                              handleUpdateConfig({
-                                model_configs: e.target.value,
-                              });
-                            }
+                          onChange={(value) => {
+                            handleUpdateConfig({
+                              model_configs: value,
+                            });
                           }}
-                          placeholder="Enter YAML configuration..."
-                          style={{
-                            minHeight: "300px",
+                          language="yaml"
+                          height="300px"
+                          options={{
                             fontFamily: "monospace",
+                            minimap: { enabled: false },
+                            wordWrap: "on",
+                            scrollBeyondLastLine: false,
+                            theme: darkMode === "dark" ? "vs-dark" : "light",
                           }}
                         />
                       </div>
