@@ -272,6 +272,10 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         self.max_actions_per_step = max_actions_per_step
         self.single_tab_mode = single_tab_mode
         self.json_model_output = json_model_output
+        # If the model does not support function calling, we will use JSON output
+        # override the json_model_output flag
+        if not self._model_client.model_info["function_calling"]:
+            self.json_model_output = True
         self.multiple_tools_per_call = multiple_tools_per_call
         self.viewport_height = viewport_height
         self.viewport_width = viewport_width
@@ -1147,23 +1151,41 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             )
 
         # Re-initialize model context to meet token limit quota
-        await self._model_context.clear()
-        for msg in history:
-            await self._model_context.add_message(msg)
-        token_limited_history = await self._model_context.get_messages()
+        try:
+            await self._model_context.clear()
+            for msg in history:
+                await self._model_context.add_message(msg)
+            token_limited_history = await self._model_context.get_messages()
+        except Exception:
+            token_limited_history = history
 
         if not self.json_model_output:
-            create_args: Dict[str, Any] = {
-                "tool_choice": "required",
-            }
-            if self.multiple_tools_per_call:
-                create_args["parallel_tool_calls"] = True
-            response = await self._model_client.create(
-                token_limited_history,
-                tools=tools,
-                extra_create_args=create_args,
-                cancellation_token=cancellation_token,
-            )
+            create_args: Dict[str, Any] | None = None
+            if self._model_client.model_info["family"] in [
+                "gpt-4o",
+                "gpt-41",
+                "gpt-45",
+                "o3",
+                "o4",
+            ]:
+                create_args = {
+                    "tool_choice": "required",
+                }
+                if self.multiple_tools_per_call:
+                    create_args["parallel_tool_calls"] = True
+            if create_args is not None:
+                response = await self._model_client.create(
+                    token_limited_history,
+                    tools=tools,
+                    cancellation_token=cancellation_token,
+                    extra_create_args=create_args,
+                )
+            else:
+                response = await self._model_client.create(
+                    token_limited_history,
+                    tools=tools,
+                    cancellation_token=cancellation_token,
+                )
         else:
             response = await self._model_client.create(
                 token_limited_history,

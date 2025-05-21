@@ -59,7 +59,7 @@ from ._prompts import (
     validate_ledger_json,
     validate_plan_json,
 )
-from ._utils import is_accepted_str
+from ._utils import is_accepted_str, extract_json_from_string
 from loguru import logger as trace_logger
 
 
@@ -401,11 +401,16 @@ class Orchestrator(BaseGroupChatManager):
             cancellation_token (CancellationToken): A token to cancel the request if needed.
         """
         retries = 0
+        exception_message = ""
         while retries < self._config.max_json_retries:
             # Re-initialize model context to meet token limit quota
             await self._model_context.clear()
             for msg in messages:
                 await self._model_context.add_message(msg)
+            if exception_message != "":
+                await self._model_context.add_message(
+                    UserMessage(content=exception_message, source=self._name)
+                )
             token_limited_messages = await self._model_context.get_messages()
 
             response = await self._model_client.create(
@@ -422,10 +427,19 @@ class Orchestrator(BaseGroupChatManager):
                 if validate_json(json_response):
                     return json_response
                 else:
+                    exception_message = "Validation failed for JSON response, retrying. You must return a valid JSON object parsed from the response."
                     await self._log_message(
                         f"Validation failed for JSON response, retrying ({retries}/{self._config.max_json_retries})"
                     )
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
+                json_response = extract_json_from_string(response.content)
+                if json_response is not None:
+                    if validate_json(json_response):
+                        return json_response
+                    else:
+                        exception_message = "Validation failed for JSON response, retrying. You must return a valid JSON object parsed from the response."
+                else:
+                    exception_message = f"Failed to parse JSON response, retrying. You must return a valid JSON object parsed from the response. Error: {e}"
                 await self._log_message(
                     f"Failed to parse JSON response, retrying ({retries}/{self._config.max_json_retries})"
                 )

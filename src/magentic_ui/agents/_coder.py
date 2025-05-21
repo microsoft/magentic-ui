@@ -145,11 +145,13 @@ async def _coding_and_debug(
         )
 
         # Re-initialize model context to meet token limit quota
-        await model_context.clear()
-        for msg in context:
-            await model_context.add_message(msg)
-        token_limited_context = await model_context.get_messages()
-
+        try:
+            await model_context.clear()
+            for msg in context:
+                await model_context.add_message(msg)
+            token_limited_context = await model_context.get_messages()
+        except Exception:
+            token_limited_context = context
         # Generate code using the model.
         create_result = await model_client.create(
             messages=token_limited_context, cancellation_token=cancellation_token
@@ -263,10 +265,13 @@ async def _summarize_coding(
     )
 
     # Re-initialize model context to meet token limit quota
-    await model_context.clear()
-    for msg in input_messages:
-        await model_context.add_message(msg)
-    token_limited_input_messages = await model_context.get_messages()
+    try:
+        await model_context.clear()
+        for msg in input_messages:
+            await model_context.add_message(msg)
+        token_limited_input_messages = await model_context.get_messages()
+    except Exception:
+        token_limited_input_messages = input_messages
 
     summary_result = await model_client.create(
         messages=token_limited_input_messages, cancellation_token=cancellation_token
