@@ -1,7 +1,6 @@
 import docker
 import os
 import sys
-import re
 from docker.errors import DockerException, ImageNotFound
 
 _PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -35,8 +34,7 @@ def build_image(
             lines = segment["stream"].splitlines()
             for line in lines:
                 if line:
-                    if re.search(r"^Step \d+/\d+", line):
-                        sys.stdout.write(line + "\n")
+                    sys.stdout.write(line + "\n")
                     sys.stdout.flush()
 
 

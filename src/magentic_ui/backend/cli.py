@@ -92,6 +92,12 @@ def ui(
     else:
         typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
 
+    # check the images again and throw an error if they are not found
+    if not check_browser_image() or not check_python_image():
+        typer.echo(typer.style("Failed\n", fg=typer.colors.RED, bold=True))
+        typer.echo("Docker images not found. Please build the images and try again.")
+        raise typer.Exit(1)
+
     typer.echo("Launching Web Application...")
 
     # Write configuration
