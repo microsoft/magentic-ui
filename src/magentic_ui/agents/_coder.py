@@ -32,6 +32,7 @@ from autogen_agentchat.messages import (
     TextMessage,
     MessageFactory,
 )
+from autogen_core.code_executor import CodeResult
 from autogen_ext.code_executors.local import LocalCommandLineCodeExecutor
 from autogen_ext.code_executors.docker import DockerCommandLineCodeExecutor
 
@@ -190,12 +191,22 @@ async def _coding_and_debug(
         try:
             for cb in code_block_list:
                 # execute the code block
-                result = await code_executor.execute_code_blocks(
-                    [cb], cancellation_token
-                )
-                exit_code = result.exit_code or 0
-                code_output = result.output
-                if code_output.strip() == "":
+                exit_code: int = 1
+                encountered_exception: bool = False
+                code_output: str = ""
+                result: CodeResult | None = None
+                try:
+                    result = await code_executor.execute_code_blocks(
+                        [cb], cancellation_token
+                    )
+                    exit_code = result.exit_code or 0
+                    code_output = result.output
+                except Exception as e:
+                    code_output = str(e)
+                    encountered_exception = True
+                if encountered_exception or result is None:
+                    code_output = f"An exception occurred while executing the code block: {code_output}"
+                elif code_output.strip() == "":
                     # No output
                     code_output = f"The script ran but produced no output to console. The POSIX exit code was: {result.exit_code}. If you were expecting output, consider revising the script to ensure content is printed to stdout."
                 elif exit_code != 0:
