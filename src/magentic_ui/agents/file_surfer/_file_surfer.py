@@ -102,7 +102,7 @@ class FileSurfer(BaseChatAgent, Component[FileSurferConfig]):
 
     It cannot manipulate or create files, use the coder agent if that is needed.
      """
-    
+
     system_prompt_file_surfer_template = """
     You are a helpful AI Assistant.
     When given a user query, use available functions to help the user with their request.
@@ -279,17 +279,13 @@ class FileSurfer(BaseChatAgent, Component[FileSurferConfig]):
             try:
                 await self._model_context.clear()
                 for msg in (
-                    history
-                    + default_system_messages
-                    + [context_message, task_message]
+                    history + default_system_messages + [context_message, task_message]
                 ):
                     await self._model_context.add_message(msg)
                 token_limited_history = await self._model_context.get_messages()
             except Exception:
                 token_limited_history = list(
-                    history
-                    + default_system_messages
-                    + [context_message, task_message]
+                    history + default_system_messages + [context_message, task_message]
                 )
 
             create_result = await self._model_client.create(

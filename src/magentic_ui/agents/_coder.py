@@ -320,7 +320,7 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
     It can access files if given the path and manipulate them using python code. Use the coder if you want to manipulate a file or read a csv or excel files.
     In a single step when you ask the agent to do something: it can write code, and then immediately execute the code. If there are errors it can debug the code and try again. 
     """
-    
+
     system_prompt_coder_template = """
     You are helpful assistant.
     In addition to responding with text you can write code and execute code that you generate.
@@ -341,7 +341,7 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
     - For showing plots or other visualizations that are not just text, make sure to save them to file with the right extension for them to be displayed.
 
    VERY IMPORTANT: If you intend to write code to be executed, do not end your response without a code block. If you want to write code you must provide a code block in the current generation.
-    """   
+    """
 
     def __init__(
         self,
