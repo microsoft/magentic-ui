@@ -91,7 +91,7 @@ class FileSurfer(BaseChatAgent, Component[FileSurferConfig]):
     DEFAULT_DESCRIPTION = """
     An agent that can read local files.
 
-    In a single step when you assked to do something, it can do one action among the following:
+    In a single step when you asked to do something, it can do one action among the following:
     - open a file: it will convert the file to text if it is not already text. For instance for audio files, it will transcribe the audio and provide the text.
     - list the current directory: it will list the files in the current directory
     - scroll down in an open file that it has already opened

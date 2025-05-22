@@ -255,7 +255,7 @@ async def _summarize_coding(
         + [
             UserMessage(
                 content="""
-                The above is a transcript of your previous messages and a request that was given to you in the beggining.
+                The above is a transcript of your previous messages and a request that was given to you in the begining.
                 You need to summarize them to answer the request given to you. Generate a summary of everything that happened.
                 If there was code that was executed, please copy the final code that was executed without errors.
                 Don't mention that this is a summary, just give the summary.""",
