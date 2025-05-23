@@ -106,9 +106,9 @@ action_guard_client: *client
     model: "qwen2.5vl:32b" # change to your desired Ollama model
     host: "http://localhost:11434" # change to your ollama host
     model_info: # change per model you use
-      vision: false
-      function_calling: false
-      json_output: false
+      vision: true
+      function_calling: true # will work if false but not fully
+      json_output: false # prefered true
       family: unknown
       structured_output: false
   max_retries: 5
@@ -121,8 +121,8 @@ action_guard_client: *client
 #    model: "qwen2.5vl:32b"
 #    base_url: "http://localhost:11434/v1" # change to your ollama host
 #    model_info: # change per model
-#       vision: false 
-#       function_calling: false # required true for file_surfer, but will still work if file_surfer is not needed
+#       vision: true 
+#       function_calling: true # required true for file_surfer, but will still work if file_surfer is not needed
 #       json_output: false
 #       family: unknown
 #       structured_output: false
