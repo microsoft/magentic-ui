@@ -64,3 +64,18 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
     })),
   resetToDefaults: () => set({ config: defaultConfig }),
 }));
+
+export function generateOpenAIModelConfig(model: string) {
+  return `model_config: &client
+  provider: OpenAIChatCompletionClient
+  config:
+    model: ${model}
+  max_retries: 5
+
+orchestrator_client: *client
+coder_client: *client
+web_surfer_client: *client
+file_surfer_client: *client
+action_guard_client: *client
+`;
+}
