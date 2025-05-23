@@ -33,9 +33,9 @@ What differentiates Magentic-UI from other browser use offerings is its transpar
 - 🧠 **Plan Learning and Retrieval**: Learn from previous runs to improve future task automation and save them in a plan gallery. Automatically or manually retrieve saved plans in future tasks.
 - 🔀 **Parallel Task Execution**: You can run multiple tasks in parallel and session status indicators will let you know when Magentic-UI needs your input or has completed the task.
 
-Here's how you can get started with Magentic-UI. It's easy to install and run, and you can even build it from source if you prefer.
+Here's how you can get started with Magentic-UI. It's easy to install and run.
 
-> **Note**: Before installing, please read the [pre-requisites](#prerequisites) carefully. Magentic-UI requires Docker to run, and if you are on Windows, you will need WSL2. We recommend using [uv](https://docs.astral.sh/uv/getting-started/installation/) for a quicker installation. If you are using Mac or Linux, you can skip the WSL2 step.
+> **Note**: Before installing, please read the [prerequisites](#prerequisites) carefully. Magentic-UI requires Docker to run, and if you are on Windows, you will need WSL2. We recommend using [uv](https://docs.astral.sh/uv/getting-started/installation/) for a quicker installation. If you are using Mac or Linux, you can skip the WSL2 step.
 
 ```bash
 python3 -m venv .venv
@@ -60,9 +60,8 @@ pip install 'magentic-ui[ollama]'
 
 - [About Magentic-UI](#about-magentic-ui)
 - [How does it work?](#how-does-it-work)
-- [How to use?](#how-to-use-magentic-ui)
-- [How to use custom clients?](#custom-client-configuration)
-- [How to build from source?](#building-magentic-ui-from-source)
+- [How to use Magentic-UI](#how-to-use-magentic-ui)
+- [Custom Client Configuration](#custom-client-configuration)
 - [Contributing](#contributing)
 - [Legal Notices](#legal-notices)
 
@@ -212,132 +211,11 @@ file_surfer_client: *client
 action_guard_client: *client
 ```
 
-### Building Magentic-UI from source
-
-#### 1. Make sure the above prerequisites are installed, and that Docker is running.
-
-#### 2. Clone the repository to your local machine:
-
-```bash
-git clone https://github.com/microsoft/magentic-ui.git
-cd magentic-ui
-```
-
-or, if using SSH:
-
-```bash
-git clone git@github.com:microsoft/magentic-ui.git
-cd magentic-ui
-```
-
-#### 3. Install Magentic-UI's dependencies with uv:
-
-```bash
-# install uv through https://docs.astral.sh/uv/getting-started/installation/
-uv venv --python=3.12 .venv
-uv sync --all-extras
-source .venv/bin/activate
-```
-
-#### 4. Build the frontend:
-
-First make sure to have install node:
-
-```bash
-# install nvm to install node
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-nvm install node
-```
-
-Then install the frontend:
-
-```bash
-cd frontend
-npm install -g gatsby-cli
-npm install --global yarn
-yarn install
-yarn build
-```
-
-#### 5. Run Magentic-UI, as usual.
-
-```bash
-magentic ui --port 8081
-```
-
->**Note**: Running this command for the first time will build two docker containers required for the Magentic-UI agents. If you encounter problems, you can build them directly with the following commands from inside the repository: 
-```bash
-docker build -t magentic-ui-vnc-browser:latest ./src/magentic_ui/docker/magentic-ui-browser-docker
-
-docker build -t magentic-ui-python-env:latest ./src/magentic_ui/docker/magentic-ui-python-env
-```
-
-#### Running the UI from source
-
-If you are working on the UI, you can run the frontend in development mode so that it will automatically update when you make changes.
-
-1. Open a separate terminal and change directory to the frontend
-
-```bash
-cd frontend
-```
-
-3. Create a `.env.development` file.
-
-```bash
-cp .env.default .env.development
-```
-
-3. Launch frontend server
-
-```bash
-npm run start
-```
-
-Then run the UI:
-
-```bash
-magentic ui --port 8081
-```
-
-The frontend from source will be available at <http://localhost:8000>, and the compiled frontend will be available at <http://localhost:8081>.
-
 ## Contributing
 
-This project welcomes contributions and suggestions. Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
+This project welcomes contributions and suggestions. For information about contributing to Magentic-UI, please see our [CONTRIBUTING.md](CONTRIBUTING.md) guide, which includes detailed setup instructions and development workflows.
 
-When you submit a pull request, a CLA bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
-
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
-
-### How to Contribute
-
-You can help by looking at issues or helping review PRs. Any issue or PR is welcome, but we have also marked some as 'open for contribution' and 'open for reviewing' to help facilitate community contributions. These are ofcourse just suggestions and you are welcome to contribute in any way you like.
-
-<div align="center">
-
-|            | All                                                           | Especially Needs Help from Community                                                                                                       |
-| ---------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Issues** | [All Issues](https://github.com/microsoft/magentic-ui/issues) | [Issues open for contribution](https://github.com/microsoft/magentic-ui/issues?q=is%3Aissue+is%3Aopen+label%3A%22open+for+contribution%22) |
-| **PRs**    | [All PRs](https://github.com/microsoft/magentic-ui/pulls)     | [PRs open for reviewing](https://github.com/microsoft/magentic-ui/pulls?q=is%3Apr+is%3Aopen+label%3A%22open+for+reviewing%22)              |
-
-</div>
-
-Please note that all PRs contributing new features are expected to include new tests. You can find existing tests in the `tests` directory.
-
-### Running Tests and Checks
-
-All contributions must pass the continuous integration checks. You can run these checks locally before submitting a PR by running:
-
-```sh
-poe check
-```
+This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information, see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
 ## Legal Notices
 
