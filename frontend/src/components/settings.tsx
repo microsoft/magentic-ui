@@ -2,7 +2,7 @@ import React from "react";
 import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 import { appContext } from "../hooks/provider";
 import SignInModal from "./signin";
-import { useSettingsStore } from "./store";
+import { useSettingsStore, generateOpenAIModelConfig } from "./store";
 import MonacoEditor from "@monaco-editor/react";
 import { settingsAPI } from "./views/api";
 import {
@@ -44,15 +44,16 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
   const [allowedlistEnabled, setAllowedlistEnabled] = React.useState(false);
 
   const MODEL_OPTIONS = [
+    { value: "gpt-4.1-2025-04-14", label: "OpenAI GPT-4.1" },
+    { value: "gpt-4.1-mini-2025-04-14", label: "OpenAI GPT-4.1 Mini" },
     { value: "azure-ai-foundry", label: "Azure AI Foundry Template" },
-    { value: "gpt-4.1-2025-04-14", label: "GPT-4.1" },
-    { value: "gpt-4.1-mini-2025-04-14", label: "GPT-4.1 Mini" },
+    { value: "ollama", label: "Ollama (Local)" },
     { value: "openrouter", label: "OpenRouter" },
-    { value: "gpt-4.1-nano-2025-04-14", label: "GPT-4.1 Nano" },
-    { value: "o4-mini-2025-04-16", label: "O4 Mini" },
-    { value: "o3-mini-2025-01-31", label: "O3 Mini" },
-    { value: "gpt-4o-2024-08-06", label: "GPT-4o" },
-    { value: "gpt-4o-mini-2024-07-18", label: "GPT-4o Mini" },
+    { value: "gpt-4.1-nano-2025-04-14", label: "OpenAI GPT-4.1 Nano" },
+    { value: "o4-mini-2025-04-16", label: "OpenAI O4 Mini" },
+    { value: "o3-mini-2025-01-31", label: "OpenAI O3 Mini" },
+    { value: "gpt-4o-2024-08-06", label: "OpenAI GPT-4o" },
+    { value: "gpt-4o-mini-2024-07-18", label: "OpenAI GPT-4o Mini" },
   ];
 
   const AZURE_AI_FOUNDRY_YAML = `model_config: &client
@@ -91,6 +92,41 @@ action_guard_client: *client
        structured_output: false
   max_retries: 5
 
+
+orchestrator_client: *client
+coder_client: *client
+web_surfer_client: *client
+file_surfer_client: *client
+action_guard_client: *client
+`;
+
+  const OLLAMA_YAML = `model_config: &client
+  provider: autogen_ext.models.ollama.OllamaChatCompletionClient
+  config:
+    model: "qwen2.5vl:32b" # change to your desired Ollama model
+    host: "http://localhost:11434" # change to your ollama host
+    model_info: # change per model you use
+      vision: true
+      function_calling: true # will work if false but not fully
+      json_output: false # prefered true
+      family: unknown
+      structured_output: false
+  max_retries: 5
+
+# Note you can define multiple model clients and use them for different agents
+# You can also use the OpenAI client instead and access Ollama models
+#model_config: &client
+#  provider: OpenAIChatCompletionClient
+#  config:
+#    model: "qwen2.5vl:32b"
+#    base_url: "http://localhost:11434/v1" # change to your ollama host
+#    model_info: # change per model
+#       vision: true 
+#       function_calling: true # required true for file_surfer, but will still work if file_surfer is not needed
+#       json_output: false
+#       family: unknown
+#       structured_output: false
+#  max_retries: 5
 
 orchestrator_client: *client
 coder_client: *client
@@ -233,17 +269,16 @@ action_guard_client: *client
         message.success("OpenRouter configuration applied");
         return;
       }
-      const yamlLines = config.model_configs?.split("\n") || [];
-      const updatedLines = yamlLines.map((line: string) => {
-        if (line.includes("model:")) {
-          const indentation = line.match(/^\s*/)?.[0] || "";
-          return `${indentation}model: ${modelName}`;
-        }
-        return line;
+      if (modelName === "ollama") {
+        handleUpdateConfig({ model_configs: OLLAMA_YAML });
+        message.success("Ollama configuration applied");
+        return;
+      }
+      // For OpenAI models, reset YAML to default with only client and selected model
+      handleUpdateConfig({
+        model_configs: generateOpenAIModelConfig(modelName),
       });
-
-      handleUpdateConfig({ model_configs: updatedLines.join("\n") });
-      message.success("Model updated for all clients");
+      message.success("OpenAI model configuration applied");
     } catch (error) {
       console.error("Error updating model in config:", error);
       message.error("Failed to update model configuration");

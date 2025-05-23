@@ -50,9 +50,9 @@ If your port is 8081, you can then access Magentic-UI at <http://localhost:8081>
 To use Azure models or Ollama please install with the optional dependencies:
 ```bash
 # for Azure
-pip install 'magentic-ui[azure]' 
+pip install magentic-ui[azure] 
 # for Ollama
-pip install 'magentic-ui[ollama]'
+pip install magentic-ui[ollama]
 ```
 
 
