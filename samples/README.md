@@ -4,6 +4,22 @@ This directory contains sample scripts to help explore Magentic-UI. Each script 
 
 We will be adding more samples to help you get the most out of magentic-ui.
 
+## Troubleshooting Ollama Integration
+
+If you see an error like:
+
+```
+docker.errors.ImageNotFound: ... Not Found ("No such image: magentic-ui-vnc-browser:latest")
+```
+
+You must build the required Docker images for browser support. Run:
+
+```
+magentic ui --rebuild-docker
+```
+
+This will build the necessary images. After this, restart your Magentic-UI session.
+
 ## 1. `sample_azure_agent.py`
 
 **Description:**
