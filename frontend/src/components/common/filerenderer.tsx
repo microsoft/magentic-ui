@@ -14,11 +14,13 @@ import { AgentMessageConfig } from "../types/datamodel";
 import { getServerUrl } from "../utils";
 
 // Types
+type FileType = "image" | "code" | "text" | "pdf";
+
 interface FileInfo {
   path: string;
   name: string;
   extension: string;
-  type: "image" | "code" | "text" | "pdf" | "unknown";
+  type: FileType | "unknown";
   short_path?: string;
 }
 
@@ -48,7 +50,7 @@ const FILE_ICONS: Record<string, React.ElementType> = {
 };
 
 // Add a mapping of file extensions to file types
-const FILE_EXTENSIONS_MAP: Record<string, "image" | "code" | "text" | "pdf"> = {
+const FILE_EXTENSIONS_MAP: Record<string, FileType> = {
   // Images
   jpg: "image",
   jpeg: "image",

@@ -4,6 +4,7 @@ interface AutoResizeTextareaProps
   extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  className: string;
   minHeight?: string;
   maxHeight?: string;
 }
