@@ -2,7 +2,7 @@
 
 <img src="frontend/src/assets/logo.svg" alt="Magentic-UI Logo" height="100">
 
-# Magentic-UI
+# M1
 
 _Automate your web tasks while you stay in control_
 
