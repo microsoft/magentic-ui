@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Literal, Optional, Sequence
 from autogen_agentchat.base import TaskResult
 from autogen_agentchat.messages import BaseChatMessage, BaseTextChatMessage
 from autogen_core import ComponentModel
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, EmailStr, field_serializer
 
 
 class MessageConfig(BaseModel):
@@ -104,3 +104,40 @@ class SocketMessage(BaseModel):
     connection_id: str
     data: Dict[str, Any]
     type: str
+
+
+# Authentication related models
+class RequestCodeRequest(BaseModel):
+    email: EmailStr
+
+
+class VerifyCodeRequest(BaseModel):
+    email: EmailStr
+    code: str
+
+
+class AuthSuccessResponse(BaseModel):
+    token: str
+    message: Optional[str] = "Authentication successful"
+
+
+class ResponseMessage(BaseModel):
+    message: str
+
+
+# Whitelisted Domain Management Models
+class DomainCreateRequest(BaseModel):
+    domain: str
+
+
+class WhitelistedDomainResponse(BaseModel):
+    id: int
+    domain: str
+    created_at: datetime
+
+    class Config:
+        orm_mode = True # enable ORM mode for easy conversion from SQLModel
+
+
+class DomainListResponse(BaseModel):
+    domains: List[WhitelistedDomainResponse]

@@ -220,4 +220,49 @@ class Plan(SQLModel, table=True):
             return value.isoformat()
 
 
-DatabaseModel = Team | Message | Session | Run | Gallery | Settings | Plan
+class User(SQLModel, table=True):
+    __table_args__ = {"sqlite_autoincrement": True}
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(unique=True, index=True)
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), server_default=func.now()),
+    )  # pylint: disable=not-callable
+    updated_at: datetime = Field(
+        default_factory=datetime.now,
+        sa_column=Column(DateTime(timezone=True), onupdate=func.now()),
+    )  # pylint: disable=not-callable
+
+
+class LoginCode(SQLModel, table=True):
+    __table_args__ = {"sqlite_autoincrement": True}
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(sa_column=Column(Integer, ForeignKey("user.id")))
+    code_hash: str
+    expires_at: datetime
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), server_default=func.now()),
+    )  # pylint: disable=not-callable
+    used: bool = Field(default=False)
+
+
+class WhitelistedDomain(SQLModel, table=True):
+    __table_args__ = {"sqlite_autoincrement": True}
+    id: Optional[int] = Field(default=None, primary_key=True)
+    domain: str = Field(unique=True, index=True)
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), server_default=func.now()),
+    )  # pylint: disable=not-callable
+
+
+DatabaseModel = (
+    Team
+    | Message
+    | Session
+    | Run
+    | Gallery
+    | Settings
+    | Plan
+    | User
+    | LoginCode
+    | WhitelistedDomain
+)
