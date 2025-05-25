@@ -1,9 +1,7 @@
 import {
   PaperAirplaneIcon,
   ExclamationTriangleIcon,
-  CheckCircleIcon,
   PauseCircleIcon,
-  XCircleIcon,
 } from "@heroicons/react/24/outline";
 import * as React from "react";
 import { appContext } from "../../../hooks/provider";
@@ -20,7 +18,7 @@ import {
 } from "antd";
 import type { UploadFile, UploadProps, RcFile } from "antd/es/upload/interface";
 import { FileTextIcon, ImageIcon, XIcon, UploadIcon } from "lucide-react";
-import { InputRequest, ApprovalInputRequest } from "../../types/datamodel";
+import { InputRequest } from "../../types/datamodel";
 import { debounce } from "lodash";
 import { planAPI } from "../api";
 import RelevantPlans from "./relevant_plans";
