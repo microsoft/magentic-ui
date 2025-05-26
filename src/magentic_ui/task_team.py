@@ -7,7 +7,7 @@ from .tools.playwright.browser import get_browser_resource_config
 from .utils import get_internal_urls
 from .teams import GroupChat, RoundRobinGroupChat
 from .teams.orchestrator.orchestrator_config import OrchestratorConfig
-from .agents import WebSurfer, CoderAgent, USER_PROXY_DESCRIPTION, FileSurfer
+from .agents import WebSurfer, CoderAgent, USER_PROXY_DESCRIPTION, FileSurfer, A2AProxyAgent
 from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
 from .types import RunPaths
 from .agents.web_surfer import WebSurferConfig
@@ -25,6 +25,8 @@ from .learning.memory_provider import MemoryControllerProvider
 async def get_task_team(
     magentic_ui_config: Optional[MagenticUIConfig] = None,
     input_func: Optional[InputFuncType] = None,
+    db_manager: Optional[Any] = None, # TODO: Replace Any with DBManager type
+    run_id: Optional[str] = None, # Add run_id
     *,
     paths: RunPaths,
 ) -> GroupChat | RoundRobinGroupChat:
@@ -221,12 +223,34 @@ async def get_task_team(
     else:
         memory_provider = None
 
+    # Instantiate A2AProxyAgent
+    # TODO: Get consultant URIs from magentic_ui_config
+    a2a_consultant_uris = [
+        "http://localhost:8082/mock_a2a_agent1", # Example URI
+        "http://localhost:8083/mock_a2a_agent2", # Example URI
+        "http://localhost:8084/agent_timeout",   # For testing timeout
+        "http://localhost:8085/agent_error",     # For testing error handling
+    ]
+    a2a_proxy_agent = A2AProxyAgent(
+        name="a2a_proxy_agent",
+        a2a_consultant_uris=a2a_consultant_uris,
+        description="Agent that consults other A2A agents for planning suggestions."
+    )
+    # Note: A2AProxyAgent is not added to participants list for the Orchestrator's main loop,
+    # as it's called directly during the planning phase.
+
     team = GroupChat(
         participants=[web_surfer, user_proxy, coder_agent, file_surfer],
         orchestrator_config=orchestrator_config,
         model_client=model_client_orch,
         memory_provider=memory_provider,
+        a2a_proxy_agent=a2a_proxy_agent,
+        db_manager=db_manager, # Pass db_manager
     )
+    # Pass run_id to orchestrator if available
+    if hasattr(team._group_chat_manager, "_set_current_run_id"): # Check if Orchestrator has this method
+        await team._group_chat_manager._set_current_run_id(run_id)
+
 
     await team.lazy_init()
     return team

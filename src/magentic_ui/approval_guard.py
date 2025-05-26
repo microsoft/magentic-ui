@@ -288,15 +288,22 @@ class ApprovalGuard(BaseApprovalGuard):
             except json.JSONDecodeError:
                 pass
 
+        approved: bool
         if result_or_json.lower() in [
             "accept",
             "yes",
             "y",
             "I don't know. Use your best judgment.",
         ]:
-            return True
+            approved = True
         elif result_or_json.lower() in ["deny", "no", "n"]:
-            return False
+            approved = False
         else:
             # If the input is not recognized, default to the default_approval
-            return self.default_approval
+            approved = self.default_approval
+        
+        self.logger.info(
+            f"ApprovalGuard: Action presented='{action_description_str[:200]}...', " # Log first 200 chars
+            f"UserResponse='{str(result_or_json)[:200]}', Outcome='{approved}'"
+        )
+        return approved

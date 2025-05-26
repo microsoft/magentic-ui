@@ -109,6 +109,7 @@ Helpful tips:
 - When creating the plan you only need to add a step to the plan if it requires a different agent to be completed, or if the step is very complicated and can be split into two steps.
 - Remember, there is no requirement to involve all team members -- a team member's particular expertise may not be needed for this task.
 - Aim for a plan with the least number of steps possible.
+- Before finalizing your plan, carefully consider any suggestions provided by consulting agents, which will be included in the user messages if available.
 - Use a search engine or platform to find the information you need. For instance, if you want to look up flight prices, use a flight search engine like Bing Flights. However, your final answer should not stop with a Bing search only.
 - If there are images attached to the request, use them to help you complete the task and describe them to the other agents in the plan.
 
@@ -205,6 +206,7 @@ Helpful tips:
 - When creating the plan you only need to add a step to the plan if it requires a different agent to be completed, or if the step is very complicated and can be split into two steps.
 - Aim for a plan with the least number of steps possible.
 - Use a search engine or platform to find the information you need. For instance, if you want to look up flight prices, use a flight search engine like Bing Flights. However, your final answer should not stop with a Bing search only.
+- Before finalizing your plan, carefully consider any suggestions provided by consulting agents, which will be included in the user messages if available.
 - If there are images attached to the request, use them to help you complete the task and describe them to the other agents in the plan.
 
 """
@@ -328,6 +330,18 @@ Important: it is important to obey the user request and any messages they have s
 
 {additional_instructions}
 
+A2A Intervention Guidance:
+If there are messages in the recent history from an 'A2AInterventionProxy', these are urgent corrections or suggestions from other supervising AI agents. You MUST carefully consider these messages.
+- If an intervention message suggests a problem with the current step's approach or the overall plan's viability, you should strongly lean towards setting 'need_to_replan' to true.
+- When setting 'need_to_replan' to true due to an intervention, clearly state in the 'reason' field for 'need_to_replan' that the decision was influenced by an A2A intervention. For example: "Replanning due to A2A intervention: [summary of intervention advice]."
+- If the intervention provides a specific suggestion for the current step that can be actioned without a full replan, incorporate that into the 'instruction_or_question' for the next agent.
+
+User Action Denial Guidance:
+If the last agent response in the history explicitly states "The action was not approved." or "The user did not approve the code execution." (or similar phrases indicating a human user vetoed a proposed action), this is a critical event.
+- You MUST set 'need_to_replan' to true.
+- The 'reason' for 'need_to_replan' must clearly state this denial. For example: "User denied proposed action: [briefly describe the action that was denied, e.g., 'click button X' or 'execute code for Y']".
+- Do not attempt to retry the denied action or a very similar action. The plan needs a significant change.
+
 Please output an answer in pure JSON format according to the following schema. The JSON object must be parsable as-is. DO NOT OUTPUT ANYTHING OTHER THAN JSON, AND DO NOT DEVIATE FROM THIS SCHEMA:
 
     {{
@@ -356,10 +370,10 @@ We are working on the following task:
 
 The above messages contain the steps that took place to complete the task.
 
-Based on the information gathered, provide a final response to the user in response to the task.
-
+Based on the information gathered and the steps executed, critically evaluate if the original task has been fully addressed.
+Provide a comprehensive final response to the user.
+Clearly state if the task was fully completed. If not, identify any parts of the original task that may not have been fully addressed or any assumptions made.
 Make sure the user can easily verify your answer, include links if there are any.
-
 There is no need to be verbose, but make sure it contains enough information for the user.
 """
 
@@ -428,6 +442,37 @@ def validate_ledger_json(json_response: Dict[str, Any], agent_names: List[str]) 
         return False
 
     return True
+
+
+COMPREHENSIVE_SUMMARY_PROMPT_TEMPLATE = """
+You are an expert AI assistant tasked with generating a comprehensive summary of a collaborative task performed by a team of AI agents and potentially a human user.
+You will be provided with a compiled history of the task, including the initial request, planning phases, A2A suggestions, human adjustments to plans, step-by-step execution details, challenges encountered, and the final outcome.
+
+Your goal is to create a human-readable narrative that clearly explains the entire lifecycle of the task. The summary should highlight:
+1.  **Initial Goal:** What was the user's original request?
+2.  **Planning and Evolution:**
+    *   Describe the initial plan.
+    *   Were there A2A (Agent-to-Agent) suggestions during planning? If so, how did they influence the plan?
+    *   Did a human user adjust or approve the plan? Detail these changes.
+    *   Mention any significant replanning efforts, why they occurred (e.g., step failure, user denial of an action, A2A intervention), and how the plan was modified.
+3.  **Execution Journey & Key Decisions:**
+    *   What were the key steps taken by the agents?
+    *   Were there any significant challenges during execution (e.g., tools failing, unexpected web page content, code errors)?
+    *   Were there any human interventions like denying a proposed agent action? How did this affect the process?
+    *   Were there any A2A interventions during the execution phase? How were these addressed?
+4.  **Final Outcome:**
+    *   What was the final answer or result delivered by the orchestrator/agent team?
+    *   Does this outcome appear to fully address the initial goal? (Based on the provided data).
+
+Structure the summary logically. Use clear and concise language. The summary should provide a complete overview of the task's progression from start to finish, focusing on the "story" of the task.
+
+Compiled Task Data:
+--------------------
+{compiled_task_data}
+--------------------
+
+Generate the comprehensive summary:
+"""
 
 
 def validate_plan_json(json_response: Dict[str, Any]) -> bool:

@@ -189,7 +189,14 @@ async def _coding_and_debug(
         exit_code_list: List[int] = []
         executed_code = True
         try:
-            for cb in code_block_list:
+            for i, cb in enumerate(code_block_list):
+                # Log the code block before execution
+                logger.info(
+                    f"CoderAgent: Attempting to execute code block {i + 1} (language: {cb.language}):\n"
+                    f"-------------------- CODE START --------------------\n"
+                    f"{cb.code}\n"
+                    f"--------------------- CODE END ---------------------"
+                )
                 # execute the code block
                 exit_code: int = 1
                 encountered_exception: bool = False
@@ -218,12 +225,18 @@ async def _coding_and_debug(
                     metadata={"internal": "no", "type": "code_execution"},
                     content=f"Execution result of code block {i + 1}:\n```console\n{code_output}\n```",
                 )
+                # Log the outcome
+                if exit_code == 0:
+                    logger.info(f"CoderAgent: Code block {i + 1} executed successfully.")
+                else:
+                    logger.warning(f"CoderAgent: Code block {i + 1} execution failed with exit code {exit_code}.")
+
                 exit_code_list.append(exit_code)
                 yield code_output_msg
 
             final_code_output = ""
-            for i, code_output in enumerate(code_output_list):
-                final_code_output += f"\n\nExecution Result of Code Block {i + 1}:\n```console\n{code_output}\n```"
+            for idx, code_output_item in enumerate(code_output_list): # Renamed i to idx to avoid conflict
+                final_code_output += f"\n\nExecution Result of Code Block {idx + 1}:\n```console\n{code_output_item}\n```" # Renamed i to idx
 
             # add executors response to thread.
             executor_msg = TextMessage(

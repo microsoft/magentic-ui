@@ -20,6 +20,8 @@ from autogen_core.models import (
     UserMessage,
 )
 from autogen_core.model_context import TokenLimitedChatCompletionContext
+import uuid # For generating unique IDs for DB records
+from ...agents import A2AProxyAgent # Import the new agent
 from autogen_agentchat.base import Response, TerminationCondition
 from autogen_agentchat.messages import (
     BaseChatMessage,
@@ -133,6 +135,8 @@ class Orchestrator(BaseGroupChatManager):
         termination_condition: TerminationCondition | None = None,
         max_turns: int | None = None,
         memory_provider: MemoryControllerProvider | None = None,
+        a2a_proxy_agent: Optional[A2AProxyAgent] = None,
+        db_manager: Optional[Any] = None, # TODO: Replace Any with DBManager type
     ):
         super().__init__(
             name,
@@ -151,6 +155,12 @@ class Orchestrator(BaseGroupChatManager):
             model_client, token_limit=config.model_context_token_limit
         )
         self._config: OrchestratorConfig = config
+        self._a2a_proxy_agent = a2a_proxy_agent
+        self._db_manager = db_manager 
+        self._current_run_id: Optional[str] = None 
+        self._current_plan_version_id: Optional[str] = None
+        self._current_plan_version_number: int = 0
+        self._current_step_execution_id: Optional[str] = None
         self._user_agent_topic = "user_proxy"
         self._web_agent_topic = "web_surfer"
         if self._user_agent_topic not in self._participant_names:
@@ -220,6 +230,35 @@ class Orchestrator(BaseGroupChatManager):
             ]
         )
         self._last_browser_metadata_hash = ""
+
+    async def _set_current_run_id(self, run_id: Optional[str]) -> None:
+        """Sets the current run_id for database operations."""
+        self._current_run_id = run_id
+        # Reset plan versioning for a new run
+        self._current_plan_version_id = None
+        self._current_plan_version_number = 0
+        self._current_step_execution_id = None
+        if self._db_manager and self._current_run_id:
+            # Initialize overall_task_status to 'planning' or 'starting'
+            await self._save_to_db(
+                "UPDATE runs SET overall_task_status = ?, updated_at = ? WHERE id = ?",
+                ("starting", datetime.now().isoformat(), self._current_run_id)
+            )
+
+
+    async def _save_to_db(self, sql: str, params: tuple = ()) -> None:
+        """Helper function to save data to the database."""
+        if not self._db_manager:
+            trace_logger.warning("DBManager not available, skipping save to DB.")
+            return
+        try:
+            with self._db_manager.engine.connect() as connection:
+                with connection.begin(): # Start a transaction
+                    connection.execute(text(sql), params)
+                # connection.commit() # Handled by with connection.begin() context manager
+            trace_logger.debug(f"DB save successful: {sql[:60]}... with params {params}")
+        except Exception as e:
+            trace_logger.error(f"Failed to save to DB: {e}. SQL: {sql}, Params: {params}")
 
     def _get_system_message_planning(
         self,
@@ -471,8 +510,27 @@ class Orchestrator(BaseGroupChatManager):
         )
 
         # handle agent response
+        initial_request_content = ""
         for m in message.messages:
             self._state.message_history.append(m)
+            if isinstance(m, (TextMessage, MultiModalMessage)): # Assuming initial message is one of these
+                if isinstance(m.content, str):
+                    initial_request_content = m.content
+                elif isinstance(m.content, list): # For MultiModalMessage
+                    for item_content in m.content:
+                        if isinstance(item_content, str):
+                            initial_request_content = item_content # Take the first string part
+                            break
+                break # Assuming the first message is the primary user request
+
+        if self._db_manager and self._current_run_id:
+            await self._save_to_db(
+                "UPDATE runs SET initial_user_request = ?, overall_task_status = ?, updated_at = ? WHERE id = ?",
+                (initial_request_content, "planning", datetime.now().isoformat(), self._current_run_id)
+            )
+            # Initialize overall_task_status to 'planning'
+            self._state.task = "TASK: " + initial_request_content # Ensure self._state.task is also set early
+
         await self._orchestrate_step(ctx.cancellation_token)
 
     async def pause(self) -> None:
@@ -493,6 +551,57 @@ class Orchestrator(BaseGroupChatManager):
                 delta.append(inner_message)  # type: ignore
         self._state.message_history.append(message.agent_response.chat_message)
         delta.append(message.agent_response.chat_message)
+
+        # Save agent response as an agent_action
+        if self._db_manager and self._current_step_execution_id:
+            action_id = uuid.uuid4().hex
+            response_content = ""
+            if isinstance(message.agent_response.chat_message, (TextMessage, MultiModalMessage)):
+                if isinstance(message.agent_response.chat_message.content, str):
+                    response_content = message.agent_response.chat_message.content
+                elif isinstance(message.agent_response.chat_message.content, list):
+                    for item in message.agent_response.chat_message.content:
+                        if isinstance(item, str):
+                            response_content += item + "\n"
+                        # Could also serialize image refs if needed
+            
+            # Check for approval denial messages
+            denial_phrases = ["the action was not approved", "user did not approve the code execution"]
+            is_denial = any(phrase in response_content.lower() for phrase in denial_phrases)
+
+            await self._save_to_db(
+                "INSERT INTO agent_actions (action_id, step_execution_id, action_sequence_number, agent_name, action_type, action_name, parameters, outcome_summary, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (action_id, self._current_step_execution_id, 1, # seq 1 for agent response
+                 message.agent_response.chat_message.source, "agent_response_summary", 
+                 "response_received", # Or more specific if available in metadata
+                 json.dumps({"raw_response_preview": response_content[:500]}), # Store preview
+                 response_content[:1000], # Summary is a longer preview for now
+                 datetime.now().isoformat())
+            )
+
+            if is_denial and self._current_run_id:
+                approval_event_id = uuid.uuid4().hex
+                # Try to find the action that was denied from previous orchestrator instruction. This is an approximation.
+                # Ideally, the agent itself would log the approval event with more context.
+                action_presented_guess = "Unknown action (denied by user)"
+                # Find the last orchestrator instruction to this agent for this step.
+                # This is complex to do reliably here. For now, using a generic message.
+                # A better way would be for agents to emit an event that Orchestrator can catch.
+                
+                # For now, we'll just log that a denial occurred during this step.
+                # The specific action denied is often in the agent's denial message.
+                await self._save_to_db(
+                    "INSERT INTO approval_events (approval_event_id, run_id, step_execution_id, action_id, action_presented, user_response, outcome, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (approval_event_id, self._current_run_id, self._current_step_execution_id, None, # action_id is unknown here
+                     response_content, # The denial message itself serves as context
+                     "user_denial_signal", False, datetime.now().isoformat())
+                )
+                 # Update step status to reflect denial
+                await self._save_to_db(
+                    "UPDATE plan_step_executions SET status = ?, agent_response_summary = ?, end_timestamp = ? WHERE step_execution_id = ?",
+                    ("approval_denied", response_content[:1000], datetime.now().isoformat(), self._current_step_execution_id)
+                )
+
 
         if self._termination_condition is not None:
             stop_message = await self._termination_condition(delta)
@@ -738,6 +847,65 @@ class Orchestrator(BaseGroupChatManager):
             if self._config.retrieve_relevant_plans == "hint":
                 await self._handle_relevant_plan_from_memory(context=context)
 
+            # A2A Proxy Agent Consultation
+            if self._a2a_proxy_agent and self._a2a_proxy_agent._a2a_consultant_uris:
+                trace_logger.info("Consulting A2A Proxy Agent for planning suggestions...")
+                try:
+                    # Ensure self._state.task is just the task string, not "TASK: <task>"
+                    task_for_a2a = self._state.task
+                    if task_for_a2a.startswith("TASK: "):
+                        task_for_a2a = task_for_a2a[len("TASK: "):]
+
+                    db_suggestions_to_save = []
+                    suggestions = await self._a2a_proxy_agent.get_planning_suggestions(task_for_a2a)
+                    if suggestions:
+                        formatted_suggestions_list = []
+                        for i, s_content in enumerate(suggestions):
+                            source_uri = self._a2a_proxy_agent._a2a_consultant_uris[i] if i < len(self._a2a_proxy_agent._a2a_consultant_uris) else "unknown_a2a_source"
+                            # Ensure s_content is a string, not a dict or other type
+                            if isinstance(s_content, dict) and "suggestion" in s_content:
+                                suggestion_text = str(s_content["suggestion"])
+                            elif isinstance(s_content, str):
+                                suggestion_text = s_content
+                            else:
+                                suggestion_text = str(s_content) # Fallback
+                            
+                            formatted_suggestions_list.append(f"- {suggestion_text} (from {source_uri})")
+                            if self._db_manager and self._current_run_id:
+                                db_suggestions_to_save.append({
+                                    "id": uuid.uuid4().hex,
+                                    "run_id": self._current_run_id,
+                                    "source_agent_uri": source_uri,
+                                    "content": suggestion_text,
+                                    "timestamp": datetime.now().isoformat()
+                                })
+
+                        if db_suggestions_to_save:
+                            for sug_data in db_suggestions_to_save:
+                                await self._save_to_db(
+                                    "INSERT INTO a2a_planning_suggestions (suggestion_id, run_id, source_agent_uri, suggestion_content, received_timestamp) VALUES (?, ?, ?, ?, ?)",
+                                    (sug_data["id"], sug_data["run_id"], sug_data["source_agent_uri"], sug_data["content"], sug_data["timestamp"])
+                                )
+                        
+                        formatted_suggestions_str = "Suggestions from other agents:\n" + "\n".join(formatted_suggestions_list)
+                        await self._log_message_agentchat(
+                            f"Received A2A suggestions:\n{formatted_suggestions_str}",
+                            metadata={"internal": "yes", "type": "a2a_suggestions"},
+                        )
+                        context.append(
+                            UserMessage(content=formatted_suggestions_str, source="A2AProxy")
+                        )
+                    else:
+                        trace_logger.info("No suggestions received from A2A Proxy Agent.")
+                except Exception as e:
+                    trace_logger.error(f"Error consulting A2A Proxy Agent: {e}")
+            
+            if self._db_manager and self._current_run_id: # Update status if still 'starting'
+                await self._save_to_db(
+                    "UPDATE runs SET overall_task_status = ? WHERE id = ? AND overall_task_status = ?",
+                    ("planning", self._current_run_id, "starting")
+                )
+
             # create a first plan
             context.append(
                 UserMessage(
@@ -755,22 +923,66 @@ class Orchestrator(BaseGroupChatManager):
                 )
                 return
             assert plan_response is not None
+            # Log LLM-generated plan
+            await self._log_message_agentchat(
+                f"LLM-generated plan for review:\n{json.dumps(plan_response, indent=2)}",
+                internal=True,
+                metadata={"type": "llm_proposed_plan"},
+            )
             self._state.plan = Plan.from_list_of_dicts_or_str(plan_response["steps"])
             self._state.plan_str = str(self._state.plan)
+            
+            if self._db_manager and self._current_run_id:
+                self._current_plan_version_number += 1
+                self._current_plan_version_id = uuid.uuid4().hex
+                await self._save_to_db(
+                    "INSERT INTO plan_versions (plan_version_id, run_id, version_number, plan_type, plan_task_description, plan_summary, plan_content, is_current_plan, creation_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (self._current_plan_version_id, self._current_run_id, self._current_plan_version_number, 
+                     'initial_llm_proposal', plan_response.get("task"), plan_response.get("plan_summary"), 
+                     json.dumps(plan_response.get("steps")), True, datetime.now().isoformat())
+                )
+                # Set previous plans for this run_id to is_current_plan = False
+                await self._save_to_db(
+                    "UPDATE plan_versions SET is_current_plan = FALSE WHERE run_id = ? AND plan_version_id != ?",
+                    (self._current_run_id, self._current_plan_version_id)
+                )
+
             # add plan_response to the message thread
             self._state.message_history.append(
                 TextMessage(
                     content=json.dumps(plan_response, indent=4), source=self._name
                 )
             )
-        else:
+        else: # This is the block for subsequent plan adjustments / user feedback
             # what did the user say?
             # Check if user accepted the plan
             if last_user_message.accepted or is_accepted_str(last_user_message.content):
                 user_plan = last_user_message.plan
+                plan_type_for_db = 'user_accepted_prior_llm_plan'
                 if user_plan is not None:
+                    plan_type_for_db = 'user_accepted_adjusted_plan'
+                    await self._log_message_agentchat(
+                        f"User-adjusted and accepted plan:\n{str(user_plan)}",
+                        internal=True,
+                        metadata={"type": "user_adjusted_plan"},
+                    )
                     self._state.plan = user_plan
                     self._state.plan_str = str(user_plan)
+                
+                if self._db_manager and self._current_run_id and self._state.plan:
+                    self._current_plan_version_number += 1
+                    self._current_plan_version_id = uuid.uuid4().hex
+                    await self._save_to_db(
+                        "INSERT INTO plan_versions (plan_version_id, run_id, version_number, plan_type, plan_task_description, plan_summary, plan_content, is_current_plan, creation_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        (self._current_plan_version_id, self._current_run_id, self._current_plan_version_number,
+                         plan_type_for_db, self._state.plan.task, self._state.plan.summary or self._state.task, # Use plan's task and summary
+                         json.dumps([s.model_dump() for s in self._state.plan.steps]), True, datetime.now().isoformat())
+                    )
+                    await self._save_to_db(
+                        "UPDATE plan_versions SET is_current_plan = FALSE WHERE run_id = ? AND plan_version_id != ?",
+                        (self._current_run_id, self._current_plan_version_id)
+                    )
+
                 # switch to execution mode
                 self._state.in_planning_mode = False
                 await self._orchestrate_first_step(cancellation_token)
@@ -780,8 +992,24 @@ class Orchestrator(BaseGroupChatManager):
                 # update the plan
                 user_plan = last_user_message.plan
                 if user_plan is not None:
+                    await self._log_message_agentchat(
+                        f"User-submitted plan for review (not yet accepted):\n{str(user_plan)}",
+                        internal=True,
+                        metadata={"type": "user_submitted_plan"},
+                    )
                     self._state.plan = user_plan
                     self._state.plan_str = str(user_plan)
+                    # Save this user-submitted plan for review, even if not accepted yet
+                    if self._db_manager and self._current_run_id:
+                        # This plan isn't "current" for execution yet, but it's a version
+                        temp_plan_version_id = uuid.uuid4().hex
+                        await self._save_to_db(
+                            "INSERT INTO plan_versions (plan_version_id, run_id, version_number, plan_type, plan_task_description, plan_summary, plan_content, is_current_plan, creation_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            (temp_plan_version_id, self._current_run_id, self._current_plan_version_number + 0.1, # Temp version number
+                             'user_submitted_for_review', user_plan.task, user_plan.summary or user_plan.task, 
+                             json.dumps([s.model_dump() for s in user_plan.steps]), False, datetime.now().isoformat())
+                        )
+
 
                 context = self._thread_to_context()
 
@@ -799,6 +1027,38 @@ class Orchestrator(BaseGroupChatManager):
                         )
                 if self._config.retrieve_relevant_plans == "hint":
                     await self._handle_relevant_plan_from_memory(context=context)
+
+                # A2A Proxy Agent Consultation (for replanning)
+                if self._a2a_proxy_agent and self._a2a_proxy_agent._a2a_consultant_uris:
+                    trace_logger.info("Consulting A2A Proxy Agent for replanning suggestions...")
+                    try:
+                        # Ensure self._state.task is just the task string
+                        task_for_a2a = self._state.task
+                        if task_for_a2a.startswith("TASK: "):
+                            task_for_a2a = task_for_a2a[len("TASK: "):]
+                        
+                        # Maybe also include user feedback for replanning context
+                        a2a_replanning_context = f"Original task: {task_for_a2a}\nUser feedback: {last_user_message.content}"
+                        if self._state.plan_str:
+                             a2a_replanning_context += f"\nCurrent (rejected) plan: {self._state.plan_str}"
+
+                        suggestions = await self._a2a_proxy_agent.get_planning_suggestions(a2a_replanning_context)
+                        if suggestions:
+                            formatted_suggestions = "Suggestions from other agents for replanning:\n" + "\n".join(
+                                [f"- {s}" for s in suggestions]
+                            )
+                            await self._log_message_agentchat(
+                                f"Received A2A suggestions for replanning:\n{formatted_suggestions}",
+                                metadata={"internal": "yes", "type": "a2a_suggestions"},
+                            )
+                            context.append(
+                                UserMessage(content=formatted_suggestions, source="A2AProxy")
+                            )
+                        else:
+                            trace_logger.info("No suggestions for replanning received from A2A Proxy Agent.")
+                    except Exception as e:
+                        trace_logger.error(f"Error consulting A2A Proxy Agent for replanning: {e}")
+                
                 context.append(
                     UserMessage(
                         content=self._get_task_ledger_plan_prompt(
@@ -817,10 +1077,31 @@ class Orchestrator(BaseGroupChatManager):
                     )
                     return
                 assert plan_response is not None
+                # Log LLM-generated plan (after user feedback but no acceptance)
+                await self._log_message_agentchat(
+                    f"LLM-generated plan after user feedback (not accepted):\n{json.dumps(plan_response, indent=2)}",
+                    internal=True,
+                    metadata={"type": "llm_revised_plan"},
+                )
                 self._state.plan = Plan.from_list_of_dicts_or_str(
                     plan_response["steps"]
                 )
                 self._state.plan_str = str(self._state.plan)
+
+                if self._db_manager and self._current_run_id:
+                    self._current_plan_version_number += 1 # Incremented because it's a new LLM plan
+                    self._current_plan_version_id = uuid.uuid4().hex
+                    await self._save_to_db(
+                        "INSERT INTO plan_versions (plan_version_id, run_id, version_number, plan_type, plan_task_description, plan_summary, plan_content, is_current_plan, creation_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        (self._current_plan_version_id, self._current_run_id, self._current_plan_version_number,
+                         'llm_revised_after_feedback', plan_response.get("task"), plan_response.get("plan_summary"),
+                         json.dumps(plan_response.get("steps")), True, datetime.now().isoformat()) # This becomes the current plan for next review
+                    )
+                    await self._save_to_db(
+                        "UPDATE plan_versions SET is_current_plan = FALSE WHERE run_id = ? AND plan_version_id != ?",
+                        (self._current_run_id, self._current_plan_version_id)
+                    )
+
                 if not self._config.no_overwrite_of_task:
                     self._state.task = plan_response["task"]
                 # add plan_response to the message thread
@@ -881,6 +1162,13 @@ class Orchestrator(BaseGroupChatManager):
         self._state.message_history.append(ledger_message)
         await self._log_message_agentchat(ledger_message.content, internal=True)
 
+        # Update overall_task_status to 'executing'
+        if self._db_manager and self._current_run_id:
+            await self._save_to_db(
+                "UPDATE runs SET overall_task_status = ?, updated_at = ? WHERE id = ?",
+                ("executing", datetime.now().isoformat(), self._current_run_id)
+            )
+
         # check if the plan is empty, complete, or we have reached the max turns
         if (
             (not isinstance(self._state.plan, Plan) or len(self._state.plan) == 0)
@@ -890,7 +1178,7 @@ class Orchestrator(BaseGroupChatManager):
                 and self._state.n_rounds > self._config.max_turns
             )
         ):
-            await self._prepare_final_answer("Max rounds reached.", cancellation_token)
+            await self._prepare_final_answer("Max rounds reached or invalid plan.", cancellation_token) # Updated reason
             return
         self._state.n_rounds += 1
         context = self._thread_to_context()
@@ -915,6 +1203,29 @@ class Orchestrator(BaseGroupChatManager):
         assert progress_ledger is not None
 
         await self._log_message_agentchat(dict_to_str(progress_ledger), internal=True)
+
+        # Save Step Execution Start
+        self._current_step_execution_id = uuid.uuid4().hex
+        current_plan_step = self._state.plan[self._state.current_step_idx]
+        assigned_agent_for_step = progress_ledger["instruction_or_question"]["agent_name"]
+        instruction_for_step = progress_ledger["instruction_or_question"]["answer"]
+
+        if self._db_manager and self._current_run_id and self._current_plan_version_id:
+            await self._save_to_db(
+                "INSERT INTO plan_step_executions (step_execution_id, plan_version_id, step_index, step_title, step_details, assigned_agent_name, instruction_given, start_timestamp, status, creation_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (self._current_step_execution_id, self._current_plan_version_id, self._state.current_step_idx,
+                 current_plan_step.title, current_plan_step.details, assigned_agent_for_step,
+                 instruction_for_step, datetime.now().isoformat(), "in_progress", datetime.now().isoformat())
+            )
+            # Save Orchestrator instruction as an agent_action
+            action_id = uuid.uuid4().hex
+            await self._save_to_db(
+                "INSERT INTO agent_actions (action_id, step_execution_id, action_sequence_number, agent_name, action_type, action_name, parameters, outcome_summary, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (action_id, self._current_step_execution_id, 0, self.name, # seq 0 for instruction
+                 "orchestrator_instruction", "provide_instruction", 
+                 json.dumps({"instruction": instruction_for_step, "to_agent": assigned_agent_for_step}), 
+                 "Instruction sent to agent.", datetime.now().isoformat())
+            )
 
         # Broadcast the next step
         new_instruction = self.get_agent_instruction(
@@ -971,8 +1282,59 @@ class Orchestrator(BaseGroupChatManager):
 
         self._state.n_rounds += 1
         context = self._thread_to_context()
-        # Update the progress ledger
+        replan_due_to_intervention = False
 
+        # A2A Proxy Agent Intervention Check
+        if self._a2a_proxy_agent:
+            trace_logger.info("Checking for A2A interventions...")
+            try:
+                interventions = await self._a2a_proxy_agent.check_for_interventions()
+                if interventions:
+                    formatted_interventions_list = []
+                    db_interventions_to_save = []
+                    for i_content in interventions:
+                        # Assuming interventions are strings. If they are complex objects, adjust accordingly.
+                        intervention_text = str(i_content)
+                        formatted_interventions_list.append(f"- {intervention_text}")
+                        if self._db_manager and self._current_run_id:
+                            db_interventions_to_save.append({
+                                "id": uuid.uuid4().hex,
+                                "run_id": self._current_run_id,
+                                "step_execution_id": self._current_step_execution_id, # May be null if before first step exec
+                                "source_agent_uri": "a2a_supervisor", # Placeholder, enhance if A2AProxyAgent can provide source
+                                "content": intervention_text,
+                                "timestamp": datetime.now().isoformat(),
+                                "replan_triggered": False # Will update this later if replan occurs
+                            })
+                    
+                    if db_interventions_to_save:
+                        for int_data in db_interventions_to_save:
+                             await self._save_to_db(
+                                "INSERT INTO a2a_intervention_messages (intervention_id, run_id, step_execution_id, source_agent_uri, intervention_content, received_timestamp, replan_triggered) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                (int_data["id"], int_data["run_id"], int_data["step_execution_id"], int_data["source_agent_uri"], int_data["content"], int_data["timestamp"], int_data["replan_triggered"])
+                            )
+                        # Store intervention_ids to update replan_triggered later if needed
+                        self._last_intervention_ids = [item['id'] for item in db_interventions_to_save]
+
+
+                    formatted_interventions_str = "Received A2A Intervention suggestions:\n" + "\n".join(formatted_interventions_list)
+                    await self._log_message_agentchat(
+                        f"A2A Interventions received:\n{formatted_interventions_str}",
+                        internal=True, 
+                        metadata={"type": "a2a_intervention"},
+                    )
+                    context.append(
+                        UserMessage(content=formatted_interventions_str, source="A2AInterventionProxy")
+                    )
+                else:
+                    trace_logger.info("No A2A interventions received.")
+                    self._last_intervention_ids = [] # Clear last interventions
+            except Exception as e:
+                trace_logger.error(f"Error checking for A2A interventions: {e}")
+                self._last_intervention_ids = []
+
+
+        # Update the progress ledger
         progress_ledger_prompt = self._get_progress_ledger_prompt(
             self._state.task,
             self._state.plan_str,
@@ -992,12 +1354,32 @@ class Orchestrator(BaseGroupChatManager):
         assert progress_ledger is not None
         # log the progress ledger
         await self._log_message_agentchat(dict_to_str(progress_ledger), internal=True)
+        
+        current_progress_summary = progress_ledger.get("progress_summary", "")
 
         # Check for replans
         need_to_replan = progress_ledger["need_to_replan"]["answer"]
         replan_reason = progress_ledger["need_to_replan"]["reason"]
+        
+        # Check if replan was due to intervention
+        if need_to_replan and self._last_intervention_ids and "A2AInterventionProxy" in replan_reason: # Heuristic check
+            replan_due_to_intervention = True
+            if self._db_manager:
+                for int_id in self._last_intervention_ids:
+                    await self._save_to_db(
+                        "UPDATE a2a_intervention_messages SET replan_triggered = TRUE WHERE intervention_id = ?",
+                        (int_id,)
+                    )
+            self._last_intervention_ids = [] # Clear after processing
+
 
         if need_to_replan and self._config.allow_for_replans:
+            # Update current step status before replanning
+            if self._db_manager and self._current_step_execution_id:
+                await self._save_to_db(
+                    "UPDATE plan_step_executions SET status = ?, agent_response_summary = ?, progress_summary_at_step_end = ?, end_timestamp = ? WHERE step_execution_id = ?",
+                    ("replanning_triggered", f"Replanning due to: {replan_reason}", current_progress_summary, datetime.now().isoformat(), self._current_step_execution_id)
+                )
             # Replan
             if self._config.max_replans is None:
                 await self._replan(replan_reason, cancellation_token)
@@ -1005,37 +1387,102 @@ class Orchestrator(BaseGroupChatManager):
                 self._state.n_replans += 1
                 await self._replan(replan_reason, cancellation_token)
                 return
-            else:
+            else: # Max replans reached
+                if self._db_manager and self._current_step_execution_id: # Update status before final answer
+                     await self._save_to_db(
+                        "UPDATE plan_step_executions SET status = ?, agent_response_summary = ?, progress_summary_at_step_end = ?, end_timestamp = ? WHERE step_execution_id = ?",
+                        ("failed_max_replans", f"Max replans reached. Last reason: {replan_reason}", current_progress_summary, datetime.now().isoformat(), self._current_step_execution_id)
+                    )
                 await self._prepare_final_answer(
                     f"We need to replan but max replan attempts reached: {replan_reason}.",
                     cancellation_token,
                 )
                 return
-        elif need_to_replan:
+        elif need_to_replan: # Replanning not allowed or other condition
+            if self._db_manager and self._current_step_execution_id: # Update status before final answer
+                 await self._save_to_db(
+                    "UPDATE plan_step_executions SET status = ?, agent_response_summary = ?, progress_summary_at_step_end = ?, end_timestamp = ? WHERE step_execution_id = ?",
+                    ("failed_replan_needed", f"Replanning needed but not performed: {replan_reason}", current_progress_summary, datetime.now().isoformat(), self._current_step_execution_id)
+                )
             await self._prepare_final_answer(
                 f"The current plan failed to complete the task, we need a new plan to continue. {replan_reason}",
                 cancellation_token,
             )
             return
-        if progress_ledger["is_current_step_complete"]["answer"]:
+        
+        step_completed_flag = progress_ledger["is_current_step_complete"]["answer"]
+        
+        # Update step outcome if it was in progress
+        if self._db_manager and self._current_step_execution_id:
+            step_status = "completed_success" if step_completed_flag else "in_progress_pending_next_action"
+            # If not completed, but we are moving to a new step or finishing, it's effectively 'completed_with_issues' or similar
+            # However, the progress ledger itself determines the next agent and instruction.
+            # If step_completed_flag is false, but we are not replanning, it implies more actions for the *same* step,
+            # so we might not update end_timestamp yet.
+            # For now, only mark as completed_success if flag is true.
+            if step_completed_flag:
+                 await self._save_to_db(
+                    "UPDATE plan_step_executions SET status = ?, agent_response_summary = ?, progress_summary_at_step_end = ?, end_timestamp = ? WHERE step_execution_id = ?",
+                    (step_status, "Step marked complete by progress ledger.", current_progress_summary, datetime.now().isoformat(), self._current_step_execution_id)
+                )
+            # If not completed, the status remains 'in_progress'. We might log agent_actions for sub-step interactions.
+
+        if step_completed_flag:
             self._state.current_step_idx += 1
 
-        if progress_ledger["progress_summary"] != "":
+        if current_progress_summary != "": # Use the one from ledger
             self._state.information_collected += (
-                "\n" + progress_ledger["progress_summary"]
+                "\n" + current_progress_summary
             )
         # Check for plan completion
         if self._state.current_step_idx >= len(self._state.plan):
+            if self._db_manager and self._current_run_id : # Update overall status
+                 await self._save_to_db(
+                    "UPDATE runs SET overall_task_status = ?, updated_at = ? WHERE id = ?",
+                    ("completed_success", datetime.now().isoformat(), self._current_run_id)
+                )
             await self._prepare_final_answer(
                 "Plan completed.",
                 cancellation_token,
             )
             return
 
-        # Broadcast the next step
+        # Broadcast the next step instruction
+        next_agent_name = progress_ledger["instruction_or_question"]["agent_name"]
+        next_instruction_text = progress_ledger["instruction_or_question"]["answer"]
+        
+        # If the step was completed, the current self._current_step_execution_id refers to the *completed* step.
+        # If the step is NOT completed, the next instruction is for the *same* step_execution_id.
+        # If the step WAS completed, we need a new step_execution_id for the new step.
+        if step_completed_flag:
+            self._current_step_execution_id = uuid.uuid4().hex
+            current_plan_step = self._state.plan[self._state.current_step_idx]
+            if self._db_manager and self._current_run_id and self._current_plan_version_id:
+                await self._save_to_db(
+                    "INSERT INTO plan_step_executions (step_execution_id, plan_version_id, step_index, step_title, step_details, assigned_agent_name, instruction_given, start_timestamp, status, creation_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (self._current_step_execution_id, self._current_plan_version_id, self._state.current_step_idx,
+                     current_plan_step.title, current_plan_step.details, next_agent_name,
+                     next_instruction_text, datetime.now().isoformat(), "in_progress", datetime.now().isoformat())
+                )
+        
+        # Save Orchestrator instruction as an agent_action for the current (possibly new) step_execution_id
+        if self._db_manager and self._current_step_execution_id:
+            action_id = uuid.uuid4().hex
+            # Determine action_sequence_number. If this is the first action for this step_execution_id, it's 0 (instruction).
+            # If it's a subsequent action for the same step, it should increment.
+            # This part is tricky as we don't explicitly track sequence here yet.
+            # For now, instruction is 0, agent response will be 1.
+            await self._save_to_db(
+                "INSERT INTO agent_actions (action_id, step_execution_id, action_sequence_number, agent_name, action_type, action_name, parameters, outcome_summary, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (action_id, self._current_step_execution_id, 0, self.name, 
+                 "orchestrator_instruction", "provide_instruction", 
+                 json.dumps({"instruction": next_instruction_text, "to_agent": next_agent_name}), 
+                 "Instruction sent to agent.", datetime.now().isoformat())
+            )
+
         new_instruction = self.get_agent_instruction(
-            progress_ledger["instruction_or_question"]["answer"],
-            progress_ledger["instruction_or_question"]["agent_name"],
+            next_instruction_text,
+            next_agent_name,
         )
         message_to_send = TextMessage(
             content=new_instruction, source=self._name, metadata={"internal": "yes"}
@@ -1082,24 +1529,24 @@ class Orchestrator(BaseGroupChatManager):
         context = self._thread_to_context()
 
         # Store completed steps
-        completed_steps = (
+        completed_steps_objects = (
             list(self._state.plan.steps[: self._state.current_step_idx])
             if self._state.plan
             else []
         )
         completed_plan_str = "\n".join(
-            [f"COMPLETED STEP {i+1}: {step}" for i, step in enumerate(completed_steps)]
+            [f"COMPLETED STEP {i+1}: {step}" for i, step in enumerate(completed_steps_objects)]
         )
 
         # Add completed steps info to replan prompt
-        replan_prompt = self._get_task_ledger_replan_plan_prompt(
+        replan_prompt_text = self._get_task_ledger_replan_plan_prompt(
             self._state.task,
             self._team_description,
             f"Completed steps so far:\n{completed_plan_str}\n\nPrevious plan:\n{self._state.plan_str}",
         )
         context.append(
             UserMessage(
-                content=replan_prompt,
+                content=replan_prompt_text,
                 source=self._name,
             )
         )
@@ -1109,19 +1556,45 @@ class Orchestrator(BaseGroupChatManager):
         assert plan_response is not None
 
         # Create new plan by combining completed steps with new steps
-        new_plan = Plan.from_list_of_dicts_or_str(plan_response["steps"])
-        if new_plan is not None:
-            combined_steps = completed_steps + list(new_plan.steps)
-            self._state.plan = Plan(task=self._state.task, steps=combined_steps)
-            self._state.plan_str = str(self._state.plan)
-        else:
-            # If new plan is None, keep the completed steps
-            self._state.plan = Plan(task=self._state.task, steps=completed_steps)
-            self._state.plan_str = str(self._state.plan)
+        new_plan_steps_from_llm = Plan.from_list_of_dicts_or_str(plan_response["steps"])
+        
+        final_replan_steps = completed_steps_objects
+        if new_plan_steps_from_llm and new_plan_steps_from_llm.steps:
+            final_replan_steps.extend(new_plan_steps_from_llm.steps)
+        
+        self._state.plan = Plan(task=plan_response.get("task", self._state.task), steps=final_replan_steps)
+        self._state.plan_str = str(self._state.plan)
 
-        # Update task if in planning mode
-        if not self._config.no_overwrite_of_task:
-            self._state.task = plan_response["task"]
+
+        # Update task if in planning mode (already handled by plan_response.get("task", self._state.task) above)
+        # if not self._config.no_overwrite_of_task:
+        #     self._state.task = plan_response["task"]
+        
+        if self._db_manager and self._current_run_id:
+            self._current_plan_version_number += 1
+            self._current_plan_version_id = uuid.uuid4().hex
+            plan_type = "llm_replan_after_failure" # Default replan type
+            if "A2AInterventionProxy" in reason: # Check if reason indicates intervention
+                plan_type = "llm_replan_after_intervention"
+            elif "User denied" in reason: # Check if reason indicates user denial
+                 plan_type = "llm_replan_after_denial"
+
+            await self._save_to_db(
+                "INSERT INTO plan_versions (plan_version_id, run_id, version_number, plan_type, plan_task_description, plan_summary, plan_content, is_current_plan, creation_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (self._current_plan_version_id, self._current_run_id, self._current_plan_version_number,
+                 plan_type, self._state.plan.task, plan_response.get("plan_summary"),
+                 json.dumps([s.model_dump() for s in self._state.plan.steps]), True, datetime.now().isoformat())
+            )
+            await self._save_to_db(
+                "UPDATE plan_versions SET is_current_plan = FALSE WHERE run_id = ? AND plan_version_id != ?",
+                (self._current_run_id, self._current_plan_version_id)
+            )
+            # Update overall status if it was something terminal before replan
+            await self._save_to_db(
+                "UPDATE runs SET overall_task_status = ?, updated_at = ? WHERE id = ?",
+                ("planning_after_replan", datetime.now().isoformat(), self._current_run_id)
+            )
+
 
         plan_response["plan_summary"] = "Replanning: " + plan_response["plan_summary"]
         # Log the plan response in the same format as planning mode
@@ -1189,6 +1662,34 @@ class Orchestrator(BaseGroupChatManager):
             cancellation_token,
             metadata={"internal": "no", "type": "final_answer"},
         )
+
+        # Determine final status based on reason
+        final_task_status = "completed_success" # Default assumption
+        if "error" in reason.lower() or "failed" in reason.lower() or "max replan" in reason.lower() or "max rounds" in reason.lower() :
+            final_task_status = "completed_failure"
+        elif "termination condition met" in reason.lower() and not "plan completed" in reason.lower(): # if plan completed, it's success
+            final_task_status = "terminated_by_condition" 
+        elif "cancelled by the user" in reason.lower(): # from CoderAgent
+            final_task_status = "terminated_by_user"
+
+        if self._db_manager and self._current_run_id:
+            await self._save_to_db(
+                "UPDATE runs SET final_answer = ?, termination_reason = ?, overall_task_status = ?, updated_at = ? WHERE id = ?",
+                (final_answer, reason, final_task_status, datetime.now().isoformat(), self._current_run_id)
+            )
+            # Ensure the last step (if any) is marked as completed or failed appropriately
+            if self._current_step_execution_id:
+                 # Check if already in a terminal state for the step
+                # This is a bit complex, as the step might have naturally completed before this final answer
+                # For now, if the task is not success, we mark the last active step as potentially related to the failure reason.
+                if final_task_status != "completed_success":
+                    # Check current status of step first to avoid overwriting a specific failure status
+                    # This part would be better if we fetch current step status before deciding to update
+                    await self._save_to_db(
+                        "UPDATE plan_step_executions SET status = CASE WHEN status LIKE 'completed%' THEN status ELSE ? END, agent_response_summary = CASE WHEN status LIKE 'completed%' THEN agent_response_summary ELSE ? END, end_timestamp = CASE WHEN status LIKE 'completed%' THEN end_timestamp ELSE ? END WHERE step_execution_id = ?",
+                        (f"aborted_{final_task_status}", reason, datetime.now().isoformat(), self._current_step_execution_id)
+                    )
+
 
         # reset internals except message history
         self._state.reset_for_followup()
@@ -1282,3 +1783,160 @@ class Orchestrator(BaseGroupChatManager):
 
         # Update the state
         self._state = new_state
+
+    async def generate_comprehensive_task_summary(self, run_id: str) -> str:
+        """
+        Generates a comprehensive summary of the task execution for a given run_id.
+        This method will fetch all relevant data, compile it, and use an LLM to generate a summary.
+        For now, this is a placeholder.
+        """
+        if not self._db_manager:
+            trace_logger.warning("DBManager not available, cannot generate comprehensive summary.")
+            return "Error: DBManager not available."
+        if not run_id:
+            trace_logger.warning("run_id not provided, cannot generate comprehensive summary.")
+            return "Error: run_id not provided."
+
+        # Step 1: Fetch data for run_id from all relevant tables
+        run_details_list = await self._load_from_db("SELECT initial_user_request, final_answer, termination_reason FROM runs WHERE id = ?", (run_id,))
+        run_details = run_details_list[0] if run_details_list else {}
+
+        a2a_suggestions = await self._load_from_db("SELECT source_agent_uri, suggestion_content, received_timestamp FROM a2a_planning_suggestions WHERE run_id = ? ORDER BY received_timestamp ASC", (run_id,))
+        
+        plan_versions_raw = await self._load_from_db("SELECT plan_version_id, version_number, plan_type, plan_task_description, plan_summary, plan_content, creation_timestamp FROM plan_versions WHERE run_id = ? ORDER BY version_number ASC", (run_id,))
+        
+        plan_versions_compiled = []
+        for pv_raw in plan_versions_raw:
+            pv = dict(pv_raw)
+            steps_executed_raw = await self._load_from_db("SELECT step_execution_id, step_index, step_title, instruction_given, status, agent_response_summary, progress_summary_at_step_end, start_timestamp, end_timestamp FROM plan_step_executions WHERE plan_version_id = ? ORDER BY step_index ASC, start_timestamp ASC", (pv['plan_version_id'],))
+            pv['steps_executed'] = []
+            for pse_raw in steps_executed_raw:
+                pse = dict(pse_raw)
+                agent_actions_raw = await self._load_from_db("SELECT action_type, action_name, parameters, outcome_summary, timestamp FROM agent_actions WHERE step_execution_id = ? ORDER BY timestamp ASC, action_sequence_number ASC", (pse['step_execution_id'],))
+                pse['agent_actions'] = [dict(aa) for aa in agent_actions_raw]
+                pv['steps_executed'].append(pse)
+            plan_versions_compiled.append(pv)
+
+        approval_events = await self._load_from_db("SELECT action_presented, user_response, outcome, timestamp FROM approval_events WHERE run_id = ? ORDER BY timestamp ASC", (run_id,))
+        a2a_interventions = await self._load_from_db("SELECT intervention_content, replan_triggered, received_timestamp FROM a2a_intervention_messages WHERE run_id = ? ORDER BY received_timestamp ASC", (run_id,))
+
+        # Step 2: Compile the data into a structured string format.
+        compiled_data_str = f"Comprehensive Task Review for Run ID: {run_id}\n\n"
+        compiled_data_str += f"1. Initial User Request:\n   - {run_details.get('initial_user_request', 'N/A')}\n\n"
+
+        if a2a_suggestions:
+            compiled_data_str += "2. A2A Planning Suggestions Received:\n"
+            for sug in a2a_suggestions:
+                compiled_data_str += f"   - [{sug['received_timestamp']}] From {sug.get('source_agent_uri', 'Unknown')}: {sug['suggestion_content']}\n"
+            compiled_data_str += "\n"
+        
+        compiled_data_str += "3. Plan Evolution and Execution:\n"
+        for pv_idx, pv in enumerate(plan_versions_compiled):
+            compiled_data_str += f"   Plan Version {pv['version_number']} ({pv['plan_type']} - Created: {pv['creation_timestamp']}):\n"
+            compiled_data_str += f"     Task Description: {pv.get('plan_task_description', 'N/A')}\n"
+            compiled_data_str += f"     Summary: {pv.get('plan_summary', 'N/A')}\n"
+            try:
+                plan_content_json = json.loads(pv['plan_content'])
+                compiled_data_str += f"     Full Plan Content (Steps):\n{json.dumps(plan_content_json, indent=6)}\n"
+            except json.JSONDecodeError:
+                compiled_data_str += f"     Full Plan Content (Steps): {pv['plan_content']}\n" # Raw if not JSON
+            
+            if pv['steps_executed']:
+                compiled_data_str += "     Executed Steps in this Version:\n"
+                for pse in pv['steps_executed']:
+                    compiled_data_str += f"       - Step {pse['step_index']}: {pse['step_title']}\n"
+                    compiled_data_str += f"         Instruction: {pse['instruction_given']}\n"
+                    compiled_data_str += f"         Status: {pse['status']} (Started: {pse['start_timestamp']}, Ended: {pse.get('end_timestamp', 'N/A')})\n"
+                    compiled_data_str += f"         Agent Response Summary: {pse.get('agent_response_summary', 'N/A')}\n"
+                    compiled_data_str += f"         Progress Summary at End: {pse.get('progress_summary_at_step_end', 'N/A')}\n"
+                    if pse['agent_actions']:
+                        compiled_data_str += "         Agent Actions Log:\n"
+                        for aa in pse['agent_actions']:
+                            compiled_data_str += f"           - [{aa['timestamp']}] Type: {aa['action_type']}, Name: {aa.get('action_name', 'N/A')}, Params: {aa.get('parameters', '{}')}, Outcome: {aa.get('outcome_summary', 'N/A')}\n"
+            compiled_data_str += "\n"
+
+        if approval_events:
+            compiled_data_str += "4. Human Approval/Denial Events:\n"
+            for ae in approval_events:
+                compiled_data_str += f"   - [{ae['timestamp']}] Action Presented: {ae['action_presented'][:200]}... | User Response: {ae.get('user_response', 'N/A')} | Outcome: {'Approved' if ae['outcome'] else 'Denied'}\n"
+            compiled_data_str += "\n"
+
+        if a2a_interventions:
+            compiled_data_str += "5. A2A Interventions During Execution:\n"
+            for interv in a2a_interventions:
+                compiled_data_str += f"   - [{interv['received_timestamp']}] Content: {interv['intervention_content']} | Replan Triggered: {interv['replan_triggered']}\n"
+            compiled_data_str += "\n"
+
+        compiled_data_str += f"6. Final Orchestrator Answer (Before this Review Summary):\n   - {run_details.get('final_answer', 'N/A')}\n"
+        compiled_data_str += f"7. Termination Reason (Before this Review Summary):\n   - {run_details.get('termination_reason', 'N/A')}\n"
+        
+        trace_logger.debug(f"Compiled data for summary (run_id: {run_id}):\n{compiled_data_str[:1000]}...") # Log preview
+
+        # Step 3: Call LLM with COMPREHENSIVE_SUMMARY_PROMPT_TEMPLATE
+        from ._prompts import COMPREHENSIVE_SUMMARY_PROMPT_TEMPLATE # Ensure prompt is imported
+        summary_prompt_text = COMPREHENSIVE_SUMMARY_PROMPT_TEMPLATE.format(compiled_task_data=compiled_data_str)
+        
+        llm_messages = [
+            SystemMessage(content="You are an expert AI assistant tasked with creating comprehensive, human-readable summaries of complex agent interactions."),
+            UserMessage(content=summary_prompt_text)
+        ]
+        
+        try:
+            # Use a separate model context for summarization to avoid polluting the main one
+            # Use model's max_input_tokens if available, otherwise default to a large value like 128k
+            # This needs to be carefully managed based on the actual model used for summarization.
+            max_tokens = getattr(self._model_client.model_info, "max_input_tokens", 128000)
+            if max_tokens is None : # Handle cases where model_info might have it as None
+                max_tokens = 128000
+
+            summary_model_context = TokenLimitedChatCompletionContext(
+                model_client=self._model_client, token_limit=max_tokens 
+            )
+            await summary_model_context.add_message(llm_messages[0]) # System
+            await summary_model_context.add_message(llm_messages[1]) # User
+            token_limited_llm_messages = await summary_model_context.get_messages()
+
+            response = await self._model_client.create(token_limited_llm_messages)
+            generated_summary = response.content if isinstance(response.content, str) else str(response.content)
+            trace_logger.info(f"Successfully generated comprehensive summary for run_id: {run_id}")
+        except Exception as e:
+            trace_logger.error(f"LLM call for comprehensive summary failed for run_id {run_id}: {e}")
+            generated_summary = f"Error generating comprehensive summary: {e}\n\nRaw Data Snapshot (first 2000 chars):\n{compiled_data_str[:2000]}" # Provide some raw data on error
+
+        return generated_summary
+
+    async def finalize_task_after_review(self, run_id: str) -> None:
+        """
+        Finalizes a task after human review.
+        Generates a comprehensive summary, saves it, and updates the run status.
+        """
+        if not self._db_manager:
+            trace_logger.error("DBManager not available, cannot finalize task.")
+            return
+        if not run_id:
+            trace_logger.error("run_id not provided, cannot finalize task.")
+            return
+
+        trace_logger.info(f"Finalizing task after review for run_id: {run_id}")
+
+        summary = await self.generate_comprehensive_task_summary(run_id)
+
+        await self._save_to_db(
+            "UPDATE runs SET comprehensive_summary = ?, human_confirmed_completion = TRUE, overall_task_status = ?, updated_at = ? WHERE id = ?",
+            (summary, "completed_reviewed", datetime.now().isoformat(), run_id)
+        )
+        trace_logger.info(f"Task {run_id} finalized: summary saved, status updated to 'completed_reviewed'.")
+
+    async def _load_from_db(self, sql: str, params: tuple = ()) -> List[Dict[str, Any]]:
+        """Helper function to load data from the database."""
+        if not self._db_manager:
+            trace_logger.warning("DBManager not available, cannot load from DB.")
+            return []
+        try:
+            with self._db_manager.engine.connect() as connection:
+                result = connection.execute(text(sql), params)
+                rows = result.mappings().all() # Returns list of dict-like RowMapping objects
+                return [dict(row) for row in rows] if rows else []
+        except Exception as e:
+            trace_logger.error(f"Failed to load from DB: {e}. SQL: {sql}, Params: {params}")
+            return []

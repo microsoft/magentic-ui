@@ -63,6 +63,8 @@ class GroupChat(BaseGroupChat, Component[GroupChatConfig]):
         *,
         termination_condition: TerminationCondition | None = None,
         memory_provider: MemoryControllerProvider | None = None,
+        db_manager: Optional[Any] = None, # TODO: Replace Any with DBManager type
+        a2a_proxy_agent: Optional[Any] = None, # Existing, keep it # TODO: Replace Any
     ):
         super().__init__(
             participants,
@@ -80,6 +82,8 @@ class GroupChat(BaseGroupChat, Component[GroupChatConfig]):
         self.is_paused = False
         self._message_factory = MessageFactory()
         self._memory_provider = memory_provider
+        self._db_manager = db_manager # Store db_manager
+        self._a2a_proxy_agent = a2a_proxy_agent # Store a2a_proxy_agent
 
     def _create_group_chat_manager_factory(
         self,
@@ -110,6 +114,8 @@ class GroupChat(BaseGroupChat, Component[GroupChatConfig]):
             max_turns=max_turns,
             message_factory=self._message_factory,
             memory_provider=self._memory_provider,
+            a2a_proxy_agent=self._a2a_proxy_agent, # Pass it here
+            db_manager=self._db_manager # Pass db_manager
         )
 
     async def run_stream(
@@ -180,6 +186,8 @@ class GroupChat(BaseGroupChat, Component[GroupChatConfig]):
             )
             if config.termination_condition
             else None,
+            # db_manager and a2a_proxy_agent are runtime dependencies, not restored from config here
+            # They should be injected when the team is created/loaded by TeamManager
         )
 
     async def _get_partial_state(self) -> Mapping[str, Any]:

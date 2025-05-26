@@ -15,6 +15,19 @@ from .schema_manager import SchemaManager
 class DatabaseManager:
     _init_lock = threading.Lock()
 
+    def _add_column_if_not_exists(self, connection: Any, table_name: str, column_name: str, column_def: str) -> None:
+        """Helper to add a column to a table if it doesn't already exist."""
+        # For SQLite, checking PRAGMA table_info is more robust than trying/excepting ALTER TABLE
+        result = connection.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
+        if not any(row[1] == column_name for row in result): # row[1] is the column name in PRAGMA table_info
+            try:
+                connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_def}"))
+                logger.info(f"Added column '{column_name}' to table '{table_name}'.")
+            except Exception as e: # Broad exception for safety, specific exceptions (e.g., OperationalError) can be caught
+                logger.warning(f"Could not add column '{column_name}' to table '{table_name}': {e}. It might already exist or table doesn't exist yet.")
+        else:
+            logger.debug(f"Column '{column_name}' already exists in table '{table_name}'.")
+
     def __init__(self, engine_uri: str, base_dir: Optional[Path] = None):
         """
         Initialize DatabaseManager with database connection settings.
@@ -62,8 +75,14 @@ class DatabaseManager:
             inspector = inspect(self.engine)
             tables_exist = inspector.get_table_names()
             if not tables_exist:
-                logger.info("Creating database tables...")
+                logger.info("Creating database tables (base SQLModel)...")
                 SQLModel.metadata.create_all(self.engine)
+                # Further ensure our specific tables are created
+                with self.engine.connect() as connection:
+                    with connection.begin(): # Start a transaction
+                        logger.info("Ensuring Magentic UI review tables and columns exist (initial creation path)...")
+                        self._ensure_review_tables(connection) # This will also try to add columns to 'runs'
+                    logger.info("Magentic UI review tables and columns ensured (initial creation path).")
 
                 if self.schema_manager.initialize_migrations(force=force_init_alembic):
                     return Response(
@@ -71,7 +90,15 @@ class DatabaseManager:
                     )
                 return Response(message="Failed to initialize migrations", status=False)
 
-            # Handle existing database
+            # Handle existing database - also ensure our tables are there
+            # This is important if the DB was created by SQLModel.metadata.create_all
+            # but before these tables were added to this direct execution block.
+            with self.engine.connect() as connection:
+                with connection.begin(): # Start a transaction
+                        logger.info("Ensuring Magentic UI review tables and columns exist (update path)...")
+                        self._ensure_review_tables(connection) # This will also try to add columns to 'runs'
+                logger.info("Magentic UI review tables and columns ensured (update path).")
+
             if auto_upgrade or self._should_auto_upgrade():
                 logger.info("Checking database schema...")
                 if self.schema_manager.ensure_schema_up_to_date():
@@ -88,6 +115,104 @@ class DatabaseManager:
             return Response(message=error_msg, status=False)
         finally:
             self._init_lock.release()
+
+    def _ensure_review_tables(self, connection: Any) -> None:
+        """Helper to execute CREATE TABLE statements for review feature and add new columns to 'runs'."""
+        
+        # Add new columns to the 'runs' table if they don't exist
+        # Assuming 'runs' table is created by SQLModel.metadata.create_all elsewhere or earlier.
+        # These calls are designed to be safe even if 'runs' doesn't exist when this is first called
+        # during initial SQLModel.metadata.create_all, as PRAGMA table_info would return nothing.
+        self._add_column_if_not_exists(connection, "runs", "human_confirmed_completion", "BOOLEAN DEFAULT FALSE")
+        self._add_column_if_not_exists(connection, "runs", "comprehensive_summary", "TEXT")
+
+        # Continue with creating other review-specific tables
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS a2a_planning_suggestions (
+                suggestion_id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                source_agent_uri TEXT,
+                suggestion_content TEXT NOT NULL,
+                received_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (run_id) REFERENCES runs (id) ON DELETE CASCADE
+            );
+        """))
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS plan_versions (
+                plan_version_id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                version_number INTEGER NOT NULL,
+                plan_type TEXT NOT NULL,
+                plan_task_description TEXT,
+                plan_summary TEXT,
+                plan_content TEXT NOT NULL,
+                is_current_plan BOOLEAN DEFAULT FALSE,
+                creation_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (run_id, version_number),
+                FOREIGN KEY (run_id) REFERENCES runs (id) ON DELETE CASCADE
+            );
+        """))
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS plan_step_executions (
+                step_execution_id TEXT PRIMARY KEY,
+                plan_version_id TEXT NOT NULL,
+                step_index INTEGER NOT NULL,
+                step_title TEXT,
+                step_details TEXT,
+                assigned_agent_name TEXT,
+                instruction_given TEXT,
+                start_timestamp DATETIME,
+                end_timestamp DATETIME,
+                status TEXT,
+                agent_response_summary TEXT,
+                progress_summary_at_step_end TEXT,
+                creation_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (plan_version_id) REFERENCES plan_versions (plan_version_id) ON DELETE CASCADE
+            );
+        """))
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS agent_actions (
+                action_id TEXT PRIMARY KEY,
+                step_execution_id TEXT NOT NULL,
+                action_sequence_number INTEGER NOT NULL,
+                agent_name TEXT,
+                action_type TEXT NOT NULL,
+                action_name TEXT,
+                parameters TEXT,
+                outcome_summary TEXT,
+                raw_log_references TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (step_execution_id) REFERENCES plan_step_executions (step_execution_id) ON DELETE CASCADE
+            );
+        """))
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS approval_events (
+                approval_event_id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                step_execution_id TEXT,
+                action_id TEXT,
+                action_presented TEXT NOT NULL,
+                user_response TEXT,
+                outcome BOOLEAN NOT NULL,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (run_id) REFERENCES runs (id) ON DELETE CASCADE,
+                FOREIGN KEY (step_execution_id) REFERENCES plan_step_executions (step_execution_id) ON DELETE SET NULL,
+                FOREIGN KEY (action_id) REFERENCES agent_actions (action_id) ON DELETE SET NULL
+            );
+        """))
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS a2a_intervention_messages (
+                intervention_id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                step_execution_id TEXT,
+                source_agent_uri TEXT,
+                intervention_content TEXT NOT NULL,
+                received_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                replan_triggered BOOLEAN DEFAULT FALSE,
+                FOREIGN KEY (run_id) REFERENCES runs (id) ON DELETE CASCADE,
+                FOREIGN KEY (step_execution_id) REFERENCES plan_step_executions (step_execution_id) ON DELETE SET NULL
+            );
+        """))
 
     def reset_db(self, recreate_tables: bool = True) -> Response:
         """
@@ -112,7 +237,7 @@ class DatabaseManager:
                         session.connection().execute(text("PRAGMA foreign_keys=OFF"))
 
                     # Drop all tables
-                    SQLModel.metadata.drop_all(self.engine)
+                    SQLModel.metadata.drop_all(self.engine) # This will drop all tables including the new ones
                     logger.info("All tables dropped successfully")
 
                     # Re-enable foreign key checks for SQLite
@@ -120,13 +245,12 @@ class DatabaseManager:
                         session.connection().execute(text("PRAGMA foreign_keys=ON"))
 
                     session.commit()
-
                 except Exception as e:
                     session.rollback()
+                    # No need to release lock here, it's handled by the outer finally
                     raise e
                 finally:
-                    session.close()
-                    self._init_lock.release()
+                    session.close() # Close session in its own finally
 
             if recreate_tables:
                 logger.info("Recreating tables...")
@@ -144,10 +268,11 @@ class DatabaseManager:
             error_msg = f"Error while resetting database: {str(e)}"
             logger.error(error_msg)
             return Response(message=error_msg, status=False, data=None)
+        # Ensure lock is released in all paths for reset_db
         finally:
-            if self._init_lock.locked():
+            if self._init_lock.locked(): # Check if the current thread holds the lock
                 self._init_lock.release()
-                logger.info("Database reset lock released")
+                logger.info("Database reset lock released by current thread.")
 
     def upsert(self, model: DatabaseModel, return_json: bool = True) -> Response:
         """Create or update an entity
