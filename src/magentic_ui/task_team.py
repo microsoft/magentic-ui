@@ -73,7 +73,18 @@ async def get_task_team(
         magentic_ui_config.websurfer_loop if magentic_ui_config else False
     )
 
-    model_client_coder = get_model_client(magentic_ui_config.model_client_configs.coder)
+    if magentic_ui_config.model_client_configs.ollama:
+        model_client_coder = get_model_client(
+            magentic_ui_config.model_client_configs.ollama
+        )
+    elif magentic_ui_config.model_client_configs.coder:
+        model_client_coder = get_model_client(
+            magentic_ui_config.model_client_configs.coder
+        )
+    else:
+        model_client_coder = get_model_client(
+            ModelClientConfigs.get_default_ollama_client_config()
+        )
     model_client_file_surfer = get_model_client(
         magentic_ui_config.model_client_configs.file_surfer
     )
