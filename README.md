@@ -135,6 +135,15 @@ uv venv --python=3.12 .venv
 uv pip install magentic-ui
 ```
 
+or use `uvx` to run it
+```bash
+uvx --from magentic-ui magentic ui --port 8081
+```
+with ollama support
+```bash
+uvx --from magentic-ui[ollama] magentic ui --port 8081
+```
+
 ### Running Magentic-UI
 
 To run Magentic-UI, make sure that Docker is running, then run the following command:
