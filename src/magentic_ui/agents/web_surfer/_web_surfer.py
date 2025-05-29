@@ -112,6 +112,11 @@ from ...tools.url_status_manager import (
     URL_ALLOWED,
     URL_REJECTED,
 )
+from ...common.model_error_handler import (
+    ModelErrorHandler,
+    ModelErrorType,
+    ModelErrorException,
+)
 
 
 # New configuration class for WebSurfer
@@ -848,8 +853,26 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 inner_messages=self.inner_messages,
             )
         except Exception as e:
-            self.logger.error(f"Error in on_messages: {e}")
-            pass
+            # Handle different types of errors appropriately
+            if isinstance(e, ModelErrorException):
+                # Model errors with specific handling
+                logger.error(f"Model error in WebSurfer: {e}")
+                yield Response(
+                    chat_message=TextMessage(
+                        content=str(e),
+                        source=self.name,
+                        metadata={"internal": "no", "type": "error_message"},
+                    ),
+                    inner_messages=self.inner_messages,
+                )
+                return
+            else:
+                # Other unexpected errors
+                ModelErrorHandler.handle_model_error(
+                    e, context="WebSurfer.on_messages_stream"
+                )
+                logger.error(f"Error in on_messages: {e}")
+                # Continue with existing error handling for non-model errors
         finally:
             # Cancel the monitor task.
             monitor_pause_task.cancel()
@@ -1173,24 +1196,53 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 }
                 if self.multiple_tools_per_call:
                     create_args["parallel_tool_calls"] = True
-            if create_args is not None:
-                response = await self._model_client.create(
-                    token_limited_history,
-                    tools=tools,
-                    cancellation_token=cancellation_token,
-                    extra_create_args=create_args,
+
+            try:
+                if create_args is not None:
+                    response = await self._model_client.create(
+                        token_limited_history,
+                        tools=tools,
+                        cancellation_token=cancellation_token,
+                        extra_create_args=create_args,
+                    )
+                else:
+                    response = await self._model_client.create(
+                        token_limited_history,
+                        tools=tools,
+                        cancellation_token=cancellation_token,
+                    )
+            except Exception as e:
+                # Handle model client errors using centralized error handler
+                error_type, user_message = ModelErrorHandler.handle_model_error(
+                    e, context="WebSurfer._get_llm_response"
                 )
-            else:
-                response = await self._model_client.create(
-                    token_limited_history,
-                    tools=tools,
-                    cancellation_token=cancellation_token,
-                )
+
+                # For critical errors that prevent execution, raise a custom exception
+                if error_type in [
+                    ModelErrorType.API_VERSION_ERROR,
+                    ModelErrorType.AUTHENTICATION_ERROR,
+                ]:
+                    raise ModelErrorException(user_message, error_type, e)
+
+                # For potentially recoverable errors, return error info but don't stop execution
+                return user_message, {}, [], {}, False
         else:
-            response = await self._model_client.create(
-                token_limited_history,
-                cancellation_token=cancellation_token,
-            )
+            try:
+                response = await self._model_client.create(
+                    token_limited_history,
+                    cancellation_token=cancellation_token,
+                )
+            except Exception as e:
+                error_str = str(e).lower()
+                if "tool_choice" in error_str or "badrequest" in error_str:
+                    error_msg = (
+                        "❌ Model API Error: There was an issue with the model API call. "
+                        f"Original error: {str(e)}"
+                    )
+                    self.logger.error(error_msg)
+                    raise RuntimeError(error_msg) from e
+                else:
+                    raise e
         self.model_usage.append(response.usage)
         self._last_download = None
         if not self.json_model_output:
