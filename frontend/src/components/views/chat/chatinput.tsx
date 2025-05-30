@@ -335,9 +335,14 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
           });
 
           if (matchingPlans.length > 0) {
-            setRelevantPlans(matchingPlans.slice(0, 5));
+            const sortedPlans = matchingPlans.sort((a, b) => {
+              return (
+                new Date(b.created_at || "").getTime() -
+                new Date(a.created_at || "").getTime()
+              );
+            });
+            setRelevantPlans(sortedPlans.slice(0, 5));
             setIsRelevantPlansVisible(true);
-            // TODO: add sorting
           } else {
             setRelevantPlans([]);
             setAttachedPlan(null);
