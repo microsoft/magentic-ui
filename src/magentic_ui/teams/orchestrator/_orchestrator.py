@@ -62,6 +62,8 @@ from ._prompts import (
 from ._utils import is_accepted_str, extract_json_from_string
 from loguru import logger as trace_logger
 
+from ...common.model_error_handler import ModelErrorHandler, ModelErrorType
+
 
 class OrchestratorState(BaseGroupChatManagerState):
     """
@@ -80,6 +82,7 @@ class OrchestratorState(BaseGroupChatManagerState):
     message_history: List[BaseChatMessage | BaseAgentEvent] = []
     participant_topic_types: List[str] = []
     n_replans: int = 0
+    error_details: str = ""  # Add field to track error details
 
     def reset(self) -> None:
         self.task = ""
@@ -92,6 +95,7 @@ class OrchestratorState(BaseGroupChatManagerState):
         self.message_history = []
         self.is_paused = False
         self.n_replans = 0
+        self.error_details = ""
 
     def reset_for_followup(self) -> None:
         self.task = ""
@@ -102,6 +106,7 @@ class OrchestratorState(BaseGroupChatManagerState):
         self.in_planning_mode = True
         self.is_paused = False
         self.n_replans = 0
+        self.error_details = ""
 
 
 class Orchestrator(BaseGroupChatManager):
@@ -413,13 +418,30 @@ class Orchestrator(BaseGroupChatManager):
                 )
             token_limited_messages = await self._model_context.get_messages()
 
-            response = await self._model_client.create(
-                token_limited_messages,
-                json_output=True
-                if self._model_client.model_info["json_output"]
-                else False,
-                cancellation_token=cancellation_token,
-            )
+            try:
+                response = await self._model_client.create(
+                    token_limited_messages,
+                    json_output=True
+                    if self._model_client.model_info["json_output"]
+                    else False,
+                    cancellation_token=cancellation_token,
+                )
+            except Exception as e:
+                # Handle model client errors using centralized error handler
+                ModelErrorHandler.handle_model_error(
+                    e, context="Orchestrator._get_json_response"
+                )
+
+                # For critical errors, return None to signal failure
+                if ModelErrorHandler.classify_error(e) in [
+                    ModelErrorType.API_VERSION_ERROR,
+                    ModelErrorType.AUTHENTICATION_ERROR,
+                ]:
+                    return None
+
+                # For potentially recoverable errors, re-raise to let caller handle
+                raise e
+
             assert isinstance(response.content, str)
             try:
                 json_response = json.loads(response.content)
@@ -493,6 +515,24 @@ class Orchestrator(BaseGroupChatManager):
                 delta.append(inner_message)  # type: ignore
         self._state.message_history.append(message.agent_response.chat_message)
         delta.append(message.agent_response.chat_message)
+
+        # Check if we received a model error message from an agent
+        chat_message = message.agent_response.chat_message
+        if (
+            hasattr(chat_message, "metadata")
+            and chat_message.metadata
+            and chat_message.metadata.get("type") == "error_message"
+            and isinstance(chat_message, TextMessage)
+        ):
+            # Save error details to state for inclusion in final answer
+            self._state.error_details = chat_message.content
+            # Received an error message from an agent, stop execution
+            await self._prepare_final_answer(
+                chat_message.content,
+                ctx.cancellation_token,
+                force_stop=True,
+            )
+            return
 
         if self._termination_condition is not None:
             stop_message = await self._termination_condition(delta)
@@ -754,7 +794,16 @@ class Orchestrator(BaseGroupChatManager):
                     self._user_agent_topic, cancellation_token
                 )
                 return
-            assert plan_response is not None
+
+            # Check if API error caused plan_response to be None
+            if plan_response is None:
+                await self._prepare_final_answer(
+                    "Unable to proceed due to model communication error. Please check your model configuration.",
+                    cancellation_token,
+                    force_stop=True,
+                )
+                return
+
             self._state.plan = Plan.from_list_of_dicts_or_str(plan_response["steps"])
             self._state.plan_str = str(self._state.plan)
             # add plan_response to the message thread
@@ -816,7 +865,16 @@ class Orchestrator(BaseGroupChatManager):
                         self._user_agent_topic, cancellation_token
                     )
                     return
-                assert plan_response is not None
+
+                # Check if API error caused plan_response to be None
+                if plan_response is None:
+                    await self._prepare_final_answer(
+                        "Unable to proceed due to model communication error. Please check your model configuration.",
+                        cancellation_token,
+                        force_stop=True,
+                    )
+                    return
+
                 self._state.plan = Plan.from_list_of_dicts_or_str(
                     plan_response["steps"]
                 )
@@ -830,7 +888,6 @@ class Orchestrator(BaseGroupChatManager):
                     )
                 )
 
-        assert plan_response is not None
         # if we don't need to plan, just send the message
         if self._config.cooperative_planning:
             if not plan_response["needs_plan"]:
@@ -912,7 +969,15 @@ class Orchestrator(BaseGroupChatManager):
             # let user speak next if paused
             await self._request_next_speaker(self._user_agent_topic, cancellation_token)
             return
-        assert progress_ledger is not None
+
+        # Check if API error caused progress_ledger to be None
+        if progress_ledger is None:
+            await self._prepare_final_answer(
+                "Unable to proceed due to model communication error. Please check your model configuration.",
+                cancellation_token,
+                force_stop=True,
+            )
+            return
 
         await self._log_message_agentchat(dict_to_str(progress_ledger), internal=True)
 
@@ -989,8 +1054,16 @@ class Orchestrator(BaseGroupChatManager):
         if self._state.is_paused:
             await self._request_next_speaker(self._user_agent_topic, cancellation_token)
             return
-        assert progress_ledger is not None
-        # log the progress ledger
+
+        # Check if API error caused progress_ledger to be None
+        if progress_ledger is None:
+            await self._prepare_final_answer(
+                "Unable to proceed due to model communication error. Please check your model configuration.",
+                cancellation_token,
+                force_stop=True,
+            )
+            return
+
         await self._log_message_agentchat(dict_to_str(progress_ledger), internal=True)
 
         # Check for replans
@@ -1106,7 +1179,15 @@ class Orchestrator(BaseGroupChatManager):
         plan_response = await self._get_json_response(
             context, self._validate_plan_json, cancellation_token
         )
-        assert plan_response is not None
+
+        # Check if API error caused plan_response to be None
+        if plan_response is None:
+            await self._prepare_final_answer(
+                "Unable to proceed due to model communication error during replanning. Please check your model configuration.",
+                cancellation_token,
+                force_stop=True,
+            )
+            return
 
         # Create new plan by combining completed steps with new steps
         new_plan = Plan.from_list_of_dicts_or_str(plan_response["steps"])
@@ -1172,15 +1253,32 @@ class Orchestrator(BaseGroupChatManager):
                 await self._model_context.add_message(msg)
             token_limited_context = await self._model_context.get_messages()
 
-            response = await self._model_client.create(
-                token_limited_context, cancellation_token=cancellation_token
-            )
-            assert isinstance(response.content, str)
-            final_answer = response.content
+            try:
+                response = await self._model_client.create(
+                    token_limited_context, cancellation_token=cancellation_token
+                )
+                assert isinstance(response.content, str)
+                final_answer = response.content
+            except Exception as e:
+                # Handle model client errors using centralized error handler
+                ModelErrorHandler.handle_model_error(
+                    e, context="Orchestrator._prepare_final_answer"
+                )
+
+                # Use the reason as the final answer instead of raising
+                final_answer = (
+                    f"Unable to generate final answer due to model error: {reason}"
+                )
 
         message = TextMessage(
             content=f"Final Answer: {final_answer}", source=self._name
         )
+
+        # If there are error details, append them to the final answer in a formatted way
+        if self._state.error_details:
+            # Format the final answer with technical details section
+            formatted_content = f"Final Answer: {final_answer}\n\n---\n\n**Technical Details:**\n\n{self._state.error_details}"
+            message = TextMessage(content=formatted_content, source=self._name)
 
         self._state.message_history.append(message)  # My copy
 
