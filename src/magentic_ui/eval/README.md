@@ -189,3 +189,21 @@ from .my_system import MySystem
 - add agentharm
 - add webagentbench
 - add docker
+
+---
+
+## Troubleshooting Ollama Integration
+
+If you encounter an error like:
+
+```
+docker.errors.ImageNotFound: ... Not Found ("No such image: magentic-ui-vnc-browser:latest")
+```
+
+You must build the required Docker images for browser support. Run:
+
+```
+magentic ui --rebuild-docker
+```
+
+This will build the necessary images. After this, restart your Magentic-UI session.

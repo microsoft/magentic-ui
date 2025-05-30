@@ -100,7 +100,13 @@ file_surfer_client: *client
 action_guard_client: *client
 `;
 
-  const OLLAMA_YAML = `model_config: &client
+  const OLLAMA_YAML = `# OLLAMA CONFIGURATION EXAMPLE
+# NOTE: To use Ollama, you must run:
+#   magentic ui --rebuild-docker
+# This will build the required Docker images for browser support.
+# If you see "No such image: magentic-ui-vnc-browser:latest", you must rebuild the docker images.
+
+model_config: &client
   provider: autogen_ext.models.ollama.OllamaChatCompletionClient
   config:
     model: "qwen2.5vl:32b" # change to your desired Ollama model
