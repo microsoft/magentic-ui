@@ -74,7 +74,28 @@ This document lists common issues users have encountered with Magentic-UI and ho
 - Make sure ports are open and forwarded correctly.
 - Check firewall and security group settings.
 
-## 8. ❓ Still Having Issues?
+## 8. 🟪 Magentic Command Not Found
+
+**Issue:**
+- Command not found: Magentic
+    ```bash
+    magentic ui --port 8081
+    zsh: command not found: magentic
+    ```
+
+**Solution**:
+
+- Make sure you have you have activated your virtual environment.
+- You can double check by reactivating it and then running the command again:
+
+    ```bash
+    deactivate
+    source .venv/bin/activate
+    magentic ui --port 8081
+    ```
+
+
+## 9. ❓ Still Having Issues?
 
 - Double-check all [pre-requisites](#pre-requisites-please-read) in the README.
 - Search [GitHub Issues](https://github.com/microsoft/magentic-ui/issues) for similar problems.
