@@ -21,6 +21,7 @@ class ModelClientConfigs(BaseModel):
     coder: Optional[Union[ComponentModel, Dict[str, Any]]] = None
     file_surfer: Optional[Union[ComponentModel, Dict[str, Any]]] = None
     action_guard: Optional[Union[ComponentModel, Dict[str, Any]]] = None
+    ollama: Optional[Union[ComponentModel, Dict[str, Any]]] = None
 
     default_client_config: ClassVar[Dict[str, Any]] = {
         "provider": "OpenAIChatCompletionClient",
@@ -36,6 +37,14 @@ class ModelClientConfigs(BaseModel):
         },
         "max_retries": 10,
     }
+    default_ollama_client_config: ClassVar[Dict[str, Any]] = {
+        "provider": "OllamaChatCompletionClient",  # Assuming this will be the provider name
+        "config": {
+            "model": "llama2",  # A sensible default model
+            "api_base": "http://localhost:11434/api", # Default Ollama API base
+        },
+        "max_retries": 3, # A sensible default for retries
+    }
 
     @classmethod
     def get_default_client_config(cls) -> Dict[str, Any]:
@@ -44,6 +53,10 @@ class ModelClientConfigs(BaseModel):
     @classmethod
     def get_default_action_guard_config(cls) -> Dict[str, Any]:
         return cls.default_action_guard_config
+
+    @classmethod
+    def get_default_ollama_client_config(cls) -> Dict[str, Any]:
+        return cls.default_ollama_client_config
 
 
 class MagenticUIConfig(BaseModel):
