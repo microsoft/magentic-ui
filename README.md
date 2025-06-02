@@ -12,11 +12,17 @@ _Automate your web tasks while you stay in control_
 
 </div>
 
+Magentic-UI is a **research prototype** of a human-centered interface powered by a multi-agent system that can browse and perform actions on the web, generate and execute code, and generate and analyze files.
 
+
+<div align="center">
+  <a href="https://www.youtube.com/watch?v=wOs-5SR8xOc" target="_blank">
 https://github.com/user-attachments/assets/7975fc26-1a18-4acb-8bf9-321171eeade7
 
-
-Magentic-UI is a **research prototype** of a human-centered interface powered by a multi-agent system that can browse and perform actions on the web, generate and execute code, and generate and analyze files.
+  </a>
+  <br>
+  ▶️ <em> Click to watch a video and learn more about Magentic-UI </em>
+</div>
 
 Magentic-UI is especially useful for web tasks that require actions on the web (e.g., filling a form, customizing a food order), deep navigation through websites not indexed by search engines (e.g., filtering flights, finding a link from a personal site) or tasks that need web navigation and code execution (e.g., generate a chart from online data).
 
