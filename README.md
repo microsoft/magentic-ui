@@ -14,11 +14,9 @@ _Automate your web tasks while you stay in control_
 
 Magentic-UI is a **research prototype** of a human-centered interface powered by a multi-agent system that can browse and perform actions on the web, generate and execute code, and generate and analyze files.
 
-
 <div align="center">
   <a href="https://www.youtube.com/watch?v=wOs-5SR8xOc" target="_blank">
-https://github.com/user-attachments/assets/7975fc26-1a18-4acb-8bf9-321171eeade7
-
+    <img src="https://img.youtube.com/vi/wOs-5SR8xOc/maxresdefault.jpg" alt="Watch the demo video" width="600"/>
   </a>
   <br>
   ▶️ <em> Click to watch a video and learn more about Magentic-UI </em>
@@ -90,6 +88,9 @@ The example below shows a step by step user interaction with Magentic-UI:
   <img src="docs/magui-cotasking.png" alt="Co-Tasking UI" width="45%" style="margin:10px;">
   <img src="docs/magui-actionguard.png" alt="Action Guard UI" width="45%" style="margin:10px;">
 </p>
+
+https://github.com/user-attachments/assets/7975fc26-1a18-4acb-8bf9-321171eeade7
+
 
 ### ℹ️ Agentic Workflow
 
