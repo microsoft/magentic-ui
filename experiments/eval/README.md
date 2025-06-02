@@ -6,6 +6,9 @@ To evaluate an existing run or get partial results, replace "--mode run" with "-
 
 The run.py script takes care of running Magentic-UI on the benchmark of choice. It will download the data in ./data folder at the root of the repo and store the run logs inside runs/[SYSTEM NAME]/[DATASET NAME]/[SPLIT NAME]/[RUN ID]. Inside this folder you'll find a folder for each task with files containing the run messages ([TASK_ID]_messages.json), time data (times.json), token usage data (model_tokens_usage.json), evaluation scores (score.json) and any screenshots (screenshot_raw_[TIMESTAMP].png and screenshot*som*[TIMESTAMP].png) or produced files. You will also find a metrics.json file with metrics for the entire run.
 
+
+NOTE: make sure to create a config file with your model client endpoints. We provide a template config file [experiments/endpoint_configs/config_template.yaml](experiments/endpoint_configs/config_template.yaml) that you should adapt.
+
 ## WebGames
 
 ```bash
@@ -15,7 +18,7 @@ python experiments/eval/run.py --mode run --current-dir . --dataset WebGames --s
 ## WebVoyager
 
 ```bash
-python experiments/eval/run.py  --current-dir . --dataset WebVoyager --split webvoyager  --run-id 1 --simulated-user-type none --parallel 1 --config experiments/endpoint_configs/exp_configs/config_o4.yaml --web-surfer-only true --mode run
+python experiments/eval/run.py  --current-dir . --dataset WebVoyager --split webvoyager  --run-id 1 --simulated-user-type none --parallel 1 --config experiments/endpoint_configs/config_template.yaml --web-surfer-only true --mode run
 ```
 
 ## GAIA
@@ -25,19 +28,19 @@ python experiments/eval/run.py  --current-dir . --dataset WebVoyager --split web
 On the validation set we first get autonmous performance:
 
 ```bash
-python experiments/eval/run.py  --current-dir . --dataset Gaia --split validation   --run-id 1 --simulated-user-type none --parallel 1 --config experiments/endpoint_configs/exp_configs/config_4o.yaml  --mode run
+python experiments/eval/run.py  --current-dir . --dataset Gaia --split validation   --run-id 1 --simulated-user-type none --parallel 1 --config experiments/endpoint_configs/config_template.yaml  --mode run
 ```
 
 Then the simulated user with a stronger model (make sure your config file is correct first).
 
 ```bash
-python experiments/eval/run.py  --current-dir . --dataset Gaia --split validation --run-id 2 --simulated-user-type co-planning-and-execution --how-helpful-user-proxy no_hints --parallel 1 --config experiments/endpoint_configs/exp_configs/config_4o.yaml  --mode run
+python experiments/eval/run.py  --current-dir . --dataset Gaia --split validation --run-id 2 --simulated-user-type co-planning-and-execution --how-helpful-user-proxy no_hints --parallel 1 --config experiments/endpoint_configs/config_template.yaml  --mode run
 ```
 
 Then the simulated user with access to metadata.
 
 ```bash
-python experiments/eval/run.py  --current-dir . --dataset Gaia --split validation --run-id 3 --simulated-user-type co-planning-and-execution --how-helpful-user-proxy soft --parallel 1 --config experiments/endpoint_configs/exp_configs/config_4o.yaml  --mode run
+python experiments/eval/run.py  --current-dir . --dataset Gaia --split validation --run-id 3 --simulated-user-type co-planning-and-execution --how-helpful-user-proxy soft --parallel 1 --config experiments/endpoint_configs/config_template.yaml  --mode run
 ```
 
 To explore the results of these runs, you can use the following scripts that generate a csv inside the logs directory:
@@ -55,7 +58,7 @@ python experiments/eval/analyze_sim_user.py --run-dir runs/MagenticUI_co-plannin
 ### Test Set
 
 ```bash
-python experiments/eval/run.py  --current-dir . --dataset Gaia --split test   --run-id 1 --simulated-user-type none --parallel 1 --config experiments/endpoint_configs/exp_configs/config_o4.yaml  --mode run
+python experiments/eval/run.py  --current-dir . --dataset Gaia --split test   --run-id 1 --simulated-user-type none --parallel 1 --config experiments/endpoint_configs/config_template.yaml  --mode run
 ```
 
 You can use the [experiments/eval/prepare_for_submission.py](experiments/eval/prepare_for_submission.py) script to submit to the Gaia and AssistantBench leaderboard.
@@ -63,5 +66,5 @@ You can use the [experiments/eval/prepare_for_submission.py](experiments/eval/pr
 # AssistantBench
 
 ```bash
- python experiments/eval/run.py  --current-dir . --dataset AssistantBench --split test   --run-id 1 --simulated-user-type none --parallel 1 --config experiments/endpoint_configs/exp_configs/config_o4.yaml  --mode run
+ python experiments/eval/run.py  --current-dir . --dataset AssistantBench --split test   --run-id 1 --simulated-user-type none --parallel 1 --config experiments/endpoint_configs/config_template.yaml  --mode run
 ```
