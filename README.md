@@ -87,9 +87,11 @@ The example below shows a step by step user interaction with Magentic-UI:
   <img src="docs/magui-coplanning.png" alt="Co-Planning UI" width="45%" style="margin:10px;">
   <img src="docs/magui-cotasking.png" alt="Co-Tasking UI" width="45%" style="margin:10px;">
   <img src="docs/magui-actionguard.png" alt="Action Guard UI" width="45%" style="margin:10px;">
+
+  https://github.com/user-attachments/assets/7975fc26-1a18-4acb-8bf9-321171eeade7
+
 </p>
 
-https://github.com/user-attachments/assets/7975fc26-1a18-4acb-8bf9-321171eeade7
 
 
 ### ℹ️ Agentic Workflow
