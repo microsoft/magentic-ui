@@ -9,7 +9,8 @@ from .approval_guard import (
 from .guarded_action import GuardedAction, ApprovalDeniedError, TrivialGuardedAction
 from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
 
-__version__ = "0.0.3"
+from .version import __version__
+
 ABOUT = "Magentic-UI - A web browsing assistant."
 __all__ = [
     "get_task_team",

@@ -10,7 +10,7 @@ from ..types import Plan
 def chat_msg_to_llm_message(
     message: Union[TextMessage, MultiModalMessage],
 ) -> LLMMessage:
-    if isinstance(message, TextMessage) or isinstance(message, TextMessage):
+    if isinstance(message, TextMessage):
         if isinstance(message.content, str):
             return UserMessage(
                 content=[message.content],

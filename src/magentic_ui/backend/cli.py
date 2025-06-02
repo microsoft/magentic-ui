@@ -7,7 +7,7 @@ from typing import Optional
 from pathlib import Path
 import logging
 
-from .version import VERSION
+from ..version import VERSION
 from .._docker import (
     check_docker_running,
     check_browser_image,
@@ -16,7 +16,7 @@ from .._docker import (
     build_python_image,
 )
 
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(level=logging.ERROR)
 
 app = typer.Typer()
 
@@ -91,6 +91,12 @@ def ui(
         typer.echo("\n")
     else:
         typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
+
+    # check the images again and throw an error if they are not found
+    if not check_browser_image() or not check_python_image():
+        typer.echo(typer.style("Failed\n", fg=typer.colors.RED, bold=True))
+        typer.echo("Docker images not found. Please build the images and try again.")
+        raise typer.Exit(1)
 
     typer.echo("Launching Web Application...")
 

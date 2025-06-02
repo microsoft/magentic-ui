@@ -91,7 +91,7 @@ class FileSurfer(BaseChatAgent, Component[FileSurferConfig]):
     DEFAULT_DESCRIPTION = """
     An agent that can read local files.
 
-    In a single step when you assked to do something, it can do one action among the following:
+    In a single step when you asked to do something, it can do one action among the following:
     - open a file: it will convert the file to text if it is not already text. For instance for audio files, it will transcribe the audio and provide the text.
     - list the current directory: it will list the files in the current directory
     - scroll down in an open file that it has already opened
@@ -103,20 +103,11 @@ class FileSurfer(BaseChatAgent, Component[FileSurferConfig]):
     It cannot manipulate or create files, use the coder agent if that is needed.
      """
 
-    date_today = datetime.now().strftime("%Y-%m-%d")
     system_prompt_file_surfer_template = """
     You are a helpful AI Assistant.
     When given a user query, use available functions to help the user with their request.
     The date today is: {date_today}
     """
-
-    SYSTEM_PROMPT_FILE_SURFER = system_prompt_file_surfer_template.format(
-        date_today=date_today
-    )
-
-    DEFAULT_SYSTEM_MESSAGES = [
-        SystemMessage(content=SYSTEM_PROMPT_FILE_SURFER),
-    ]
 
     def __init__(
         self,
@@ -276,13 +267,26 @@ class FileSurfer(BaseChatAgent, Component[FileSurferConfig]):
                 content=task_content,
             )
 
+            system_prompt_file_surfer = self.system_prompt_file_surfer_template.format(
+                date_today=datetime.now().strftime("%Y-%m-%d")
+            )
+
+            default_system_messages = [
+                SystemMessage(content=system_prompt_file_surfer),
+            ]
+
             # Re-initialize model context to meet token limit quota
-            await self._model_context.clear()
-            for msg in (
-                history + self.DEFAULT_SYSTEM_MESSAGES + [context_message, task_message]
-            ):
-                await self._model_context.add_message(msg)
-            token_limited_history = await self._model_context.get_messages()
+            try:
+                await self._model_context.clear()
+                for msg in (
+                    history + default_system_messages + [context_message, task_message]
+                ):
+                    await self._model_context.add_message(msg)
+                token_limited_history = await self._model_context.get_messages()
+            except Exception:
+                token_limited_history = list(
+                    history + default_system_messages + [context_message, task_message]
+                )
 
             create_result = await self._model_client.create(
                 messages=token_limited_history,
