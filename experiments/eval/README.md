@@ -1,6 +1,11 @@
 # Reproducing Experimental Results
 
-Make sure to clone the repo and install Magentic-UI. From the root of the repo you can run these commands to reproduce our experimental results.
+Make sure to clone the repo and install Magentic-UI with the following command:
+```bash
+pip install magentic-ui[eval]
+```
+
+From the root of the repo you can run these commands to reproduce our experimental results. Note that running the full experiments may take hours and each task may cost up to $0.5 of API credits when using OpenAI models.
 
 To evaluate an existing run or get partial results, replace "--mode run" with "--mode eval". See [experiments/eval/run.py](experiments/eval/run.py) for more information about the arguments.
 
