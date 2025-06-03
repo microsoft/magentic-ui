@@ -338,14 +338,6 @@ def main() -> None:
         help="ActionGuard policy ('always', 'never', 'auto-conservative', 'auto-permissive'; default: never)",
     )
 
-    parser.add_argument(
-        "--user-proxy-type",
-        dest="user_proxy_type",
-        type=str,
-        default=None,
-        help="UserProxy type ('dummy'; default: None)",
-    )
-
     args = parser.parse_args()
 
     # Validate user proxy type
