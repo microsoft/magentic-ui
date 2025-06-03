@@ -14,6 +14,8 @@ This document lists common issues users have encountered with Magentic-UI and ho
 - Podman and other container engines are **not supported**.
 - Make sure Docker is installed and running.
 
+
+
 ## 2. 🚪 Port 8081 Fails to Start
 
 **Error:**  
@@ -29,6 +31,10 @@ This document lists common issues users have encountered with Magentic-UI and ho
 `build docker image Failed` or similar
 
 **Solution:**  
+- First try to rebuild the docker with the command:
+  ```bash
+  magentic ui --rebuild-docker
+  ```
 - Make sure you have a stable internet connection.
 - Update Docker to the latest version.
 - Check that you have enough disk space.
@@ -37,6 +43,7 @@ This document lists common issues users have encountered with Magentic-UI and ho
   docker build -t magentic-ui-vnc-browser:latest ./src/magentic_ui/docker/magentic-ui-browser-docker
   docker build -t magentic-ui-python-env:latest ./src/magentic_ui/docker/magentic-ui-python-env
   ```
+
 
 ## 4. 🪟 WSL2 Not Set Up on Windows
 
