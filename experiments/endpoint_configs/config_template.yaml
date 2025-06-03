@@ -1,0 +1,14 @@
+# IMPORTANT: This file is a template with default configurations.
+# To use it, make a copy in the same directory and rename it to `config.yaml`
+model_config_4o_openai: &client_4o_openai
+  provider: OpenAIChatCompletionClient
+  config:
+    model: gpt-4o-2024-08-06
+  max_retries: 5
+
+orchestrator_client: *client_4o_openai
+coder_client: *client_4o_openai
+web_surfer_client: *client_4o_openai
+file_surfer_client: *client_4o_openai
+action_guard_client: *client_4o_openai
+user_proxy_client: *client_4o_openai
