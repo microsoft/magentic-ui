@@ -1,9 +1,7 @@
 <div align="center">
-<div align="center" style="display: flex; align-items: center; justify-content: center; gap: 16px;">
-  <img src="frontend/src/assets/logo.svg" alt="Magentic-UI Logo" height="60" style="vertical-align: middle;"/>
-  <span style="font-size: 2.8em; font-weight: bold; color: #444; vertical-align: middle;">Magentic-UI</span>
-</div>
+<img src="frontend/src/assets/logo.svg" alt="Magentic-UI Logo" height="100">
 
+# Magentic-UI
 _Automate your web tasks while you stay in control_
 
 [![image](https://img.shields.io/pypi/v/magentic_ui.svg)](https://pypi.python.org/pypi/magentic_ui)
@@ -14,25 +12,11 @@ _Automate your web tasks while you stay in control_
 
 Magentic-UI is a **research prototype** of a human-centered interface powered by a multi-agent system that can browse and perform actions on the web, generate and execute code, and generate and analyze files.
 
-<div align="center">
-  <a href="https://www.youtube.com/watch?v=wOs-5SR8xOc" target="_blank">
-    <img src="https://img.youtube.com/vi/wOs-5SR8xOc/maxresdefault.jpg" alt="Watch the demo video" width="600"/>
-  </a>
-  <br>
-  ▶️ <em> Click to watch a video and learn more about Magentic-UI </em>
-</div>
+  https://github.com/user-attachments/assets/7975fc26-1a18-4acb-8bf9-321171eeade7
 
-Magentic-UI is especially useful for web tasks that require actions on the web (e.g., filling a form, customizing a food order), deep navigation through websites not indexed by search engines (e.g., filtering flights, finding a link from a personal site) or tasks that need web navigation and code execution (e.g., generate a chart from online data).
 
-What differentiates Magentic-UI from other browser use offerings is its transparent and controllable interface that allows for efficient human-in-the-loop involvement. Magentic-UI is built using [AutoGen](https://github.com/microsoft/autogen) and provides a platform to study human-agent interaction and experiment with web agents. Key features include:
 
-- 🧑‍🤝‍🧑 **Co-Planning**: Collaboratively create and approve step-by-step plans using chat and the plan editor.
-- 🤝 **Co-Tasking**: Interrupt and guide the task execution using the web browser directly or through chat. Magentic-UI can also ask for clarifications and help when needed.
-- 🛡️ **Action Guards**: Sensitive actions are only executed with explicit user approvals.
-- 🧠 **Plan Learning and Retrieval**: Learn from previous runs to improve future task automation and save them in a plan gallery. Automatically or manually retrieve saved plans in future tasks.
-- 🔀 **Parallel Task Execution**: You can run multiple tasks in parallel and session status indicators will let you know when Magentic-UI needs your input or has completed the task.
-
-Here's how you can get started with Magentic-UI. It's easy to install and run, and you can even build it from source if you prefer.
+Here's how you can get started with Magentic-UI:
 
 > **Note**: Before installing, please read the [pre-requisites](#-pre-requisites) carefully. Magentic-UI requires Docker to run, and if you are on Windows, you will need WSL2. We recommend using [uv](https://docs.astral.sh/uv/getting-started/installation/) for a quicker installation. If you are using Mac or Linux, you can skip the WSL2 step.
 
@@ -57,22 +41,12 @@ pip install magentic-ui[ollama]
 For further details on installation please read the   <a href="#🛠️-installation">🛠️ Installation</a> section. For common installation issues their solutions, please refer to the [troubleshooting document](TROUBLESHOOTING.md).
 
 
-## 🚀 Quick Navigation
-
-<p align="center">
-  <a href="#how-it-works"> How it works </a> &nbsp;|&nbsp;
-  <a href="#🛠️-installation">🛠️ Installation</a> &nbsp;|&nbsp;
-  <a href="#⚠️-troubleshooting">⚠️ Troubleshooting</a> &nbsp;|&nbsp; 
-  <a href="#🤝-contributing">🤝 Contributing</a> &nbsp;|&nbsp;
-  <a href="#📄-license">📄 License</a>
-</p>
-
-
 ## How it works
 <p align="center">
   <img src="./docs/magenticui_running.png" alt="Magentic-UI" height="400">
 </p>
 
+Magentic-UI is especially useful for web tasks that require actions on the web (e.g., filling a form, customizing a food order), deep navigation through websites not indexed by search engines (e.g., filtering flights, finding a link from a personal site) or tasks that need web navigation and code execution (e.g., generate a chart from online data).
 
 The interface of Magentic-UI is displayed in the screenshot above and consists of two panels. The left side panel is the sessions navigator where users can create new sessions to solve new tasks, switch between sessions and check on session progress with the session status indicators (🔴 needs input, ✅ task done, ↺ task in progress).
 
@@ -87,12 +61,24 @@ The example below shows a step by step user interaction with Magentic-UI:
   <img src="docs/magui-coplanning.png" alt="Co-Planning UI" width="45%" style="margin:10px;">
   <img src="docs/magui-cotasking.png" alt="Co-Tasking UI" width="45%" style="margin:10px;">
   <img src="docs/magui-actionguard.png" alt="Action Guard UI" width="45%" style="margin:10px;">
-
-  https://github.com/user-attachments/assets/7975fc26-1a18-4acb-8bf9-321171eeade7
-
 </p>
 
 
+What differentiates Magentic-UI from other browser use offerings is its transparent and controllable interface that allows for efficient human-in-the-loop involvement. Magentic-UI is built using [AutoGen](https://github.com/microsoft/autogen) and provides a platform to study human-agent interaction and experiment with web agents. Key features include:
+
+- 🧑‍🤝‍🧑 **Co-Planning**: Collaboratively create and approve step-by-step plans using chat and the plan editor.
+- 🤝 **Co-Tasking**: Interrupt and guide the task execution using the web browser directly or through chat. Magentic-UI can also ask for clarifications and help when needed.
+- 🛡️ **Action Guards**: Sensitive actions are only executed with explicit user approvals.
+- 🧠 **Plan Learning and Retrieval**: Learn from previous runs to improve future task automation and save them in a plan gallery. Automatically or manually retrieve saved plans in future tasks.
+- 🔀 **Parallel Task Execution**: You can run multiple tasks in parallel and session status indicators will let you know when Magentic-UI needs your input or has completed the task.
+
+<div align="center">
+  <a href="https://www.youtube.com/watch?v=wOs-5SR8xOc" target="_blank">
+    <img src="https://img.youtube.com/vi/wOs-5SR8xOc/maxresdefault.jpg" alt="Watch the demo video" width="600"/>
+  </a>
+  <br>
+  ▶️ <em> Click to watch a video and learn more about Magentic-UI </em>
+</div>
 
 ### ℹ️ Agentic Workflow
 
@@ -122,6 +108,7 @@ All intermediate progress steps are clearly displayed to the user. Furthermore, 
 ### Autonomous Evaluation
 
 To evaluate its autonomous capabilities, Magentic-UI has been tested against several benchmarks: [GAIA](https://huggingface.co/datasets/gaia-benchmark/GAIA) test set (42.52%), which assesses general AI assistants across reasoning, tool use, and web interaction tasks ; [AssistantBench](https://huggingface.co/AssistantBench) test set (27.60%), focusing on realistic, time-consuming web tasks ; [WebVoyager](https://github.com/MinorJerry/WebVoyager) (82.2%), measuring end-to-end web navigation in real-world scenarios ; and [WebGames])(https://webgames.convergence.ai/ https://huggingface.co/datasets/convergence-ai/webgames) (45.5%), evaluating general-purpose web-browsing agents through interactive challenges.
+To reproduce these experimental results, please see the following [instructions](experiments/README.md).
 
 
 
