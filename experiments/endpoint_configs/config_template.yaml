@@ -1,3 +1,5 @@
+# IMPORTANT: This file is a template with default configurations.
+# To use it, make a copy in the same directory and rename it to `config.yaml`
 model_config_4o_openai: &client_4o_openai
   provider: OpenAIChatCompletionClient
   config:
