@@ -2,6 +2,7 @@ import docker
 import os
 import sys
 from docker.errors import DockerException, ImageNotFound
+import logging
 
 _PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 VNC_BROWSER_IMAGE = "magentic-ui-vnc-browser"
@@ -68,7 +69,24 @@ def build_python_image(client: docker.DockerClient | None = None) -> None:
     )
 
 
+def check_docker_access():
+    try:
+        client = docker.from_env()
+        client.ping()  # type: ignore
+        return True
+    except DockerException as e:
+        logging.error(
+            f"Error {e}: Cannot access Docker. Make sure your user is in the 'docker' group or run with sudo.\n"
+            "To add your user to the docker group, run:\n"
+            "  sudo usermod -aG docker $USER\n"
+            "Then log out and log back in."
+        )
+        return False
+
+
 def check_browser_image(client: docker.DockerClient | None = None) -> bool:
+    if not check_docker_access():
+        return False
     if client is None:
         client = docker.from_env()
     client = docker.from_env()
@@ -76,6 +94,8 @@ def check_browser_image(client: docker.DockerClient | None = None) -> bool:
 
 
 def check_python_image(client: docker.DockerClient | None = None) -> bool:
+    if not check_docker_access():
+        return False
     if client is None:
         client = docker.from_env()
     client = docker.from_env()
