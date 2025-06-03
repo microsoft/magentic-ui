@@ -776,7 +776,6 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                                 self.logger.error(f"Runtime error executing tool: {e}")
                                 action_result = f"Error occurred while executing action {tool_call_msg}: {e}"
                         except Exception as e:
-
                             self.logger.error(f"Error executing tool: {e}")
                             action_result = f"Error occurred while executing action {tool_call_msg}: {e}"
                         new_screenshot = (

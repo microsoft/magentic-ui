@@ -445,10 +445,17 @@ class Orchestrator(BaseGroupChatManager):
                         f"Failed to parse JSON response, retrying ({retries}/{self._config.max_json_retries})"
                     )
                 retries += 1
-            await self._log_message_agentchat("Failed to get a valid JSON response after multiple retries", internal=False)
-            raise ValueError("Failed to get a valid JSON response after multiple retries")
+            await self._log_message_agentchat(
+                "Failed to get a valid JSON response after multiple retries",
+                internal=False,
+            )
+            raise ValueError(
+                "Failed to get a valid JSON response after multiple retries"
+            )
         except Exception as e:
-            await self._log_message_agentchat(f"Error in Orchestrator: {e}", internal=False)
+            await self._log_message_agentchat(
+                f"Error in Orchestrator: {e}", internal=False
+            )
             raise
 
     @rpc
