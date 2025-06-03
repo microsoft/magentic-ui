@@ -84,7 +84,7 @@ class BaseSystem:
                 f.write(answer.model_dump_json(indent=2))
         except Exception as e:
             logging.error(f"Failed to save answer for {task_id}: {e}")
-            raise e
+            raise
 
 
 def load_system_class(system_name: str) -> Type[BaseSystem]:
