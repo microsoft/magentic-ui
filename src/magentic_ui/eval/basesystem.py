@@ -110,7 +110,4 @@ def load_system_class(system_name: str) -> Type[BaseSystem]:
     except AttributeError:
         raise ImportError(f"Class '{class_name}' not found in module '{module_name}'")
 
-    if not issubclass(system_class, BaseSystem):
-        raise TypeError(f"{class_name} is not a subclass of BaseSystem")
-
     return system_class
