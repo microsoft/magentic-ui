@@ -14,6 +14,12 @@ This document lists common issues users have encountered with Magentic-UI and ho
 - Podman and other container engines are **not supported**.
 - Make sure Docker is installed and running.
 
+One possible fix for Mac/Ubuntu is by setting environment variable for DOCKER_HOST ([see issue 81](https://github.com/microsoft/magentic-ui/issues/81), thank you to serproqnx) to point to docker.sock:
+
+```bash
+export DOCKER_HOST=unix:///home/<your-username>/.docker/desktop/docker.sock
+```
+**Note**: you might have to adjust the path to point to the correct location of docker.sock.
 
 
 ## 2. 🚪 Port 8081 Fails to Start
