@@ -776,6 +776,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                                 self.logger.error(f"Runtime error executing tool: {e}")
                                 action_result = f"Error occurred while executing action {tool_call_msg}: {e}"
                         except Exception as e:
+
                             self.logger.error(f"Error executing tool: {e}")
                             action_result = f"Error occurred while executing action {tool_call_msg}: {e}"
                         new_screenshot = (
@@ -848,6 +849,13 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 inner_messages=self.inner_messages,
             )
         except Exception as e:
+            yield Response(
+                chat_message=TextMessage(
+                    content=f"The WebSurfer encountered an error: {e}",
+                    source=self.name,
+                    metadata={"internal": "no"},
+                ),
+            )
             self.logger.error(f"Error in on_messages: {e}")
             pass
         finally:
@@ -907,7 +915,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 chat_message=TextMessage(
                     content=final_message,
                     source=self.name,
-                    metadata={"internal": "yes"},
+                    metadata={"internal": "no"},
                 )
             )
 
