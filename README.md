@@ -43,7 +43,7 @@ For further details on installation please read the   <a href="#🛠️-installa
 
 ## How it works
 <p align="center">
-  <img src="./docs/magenticui_running.png" alt="Magentic-UI" height="400">
+  <img src="./docs/img/magenticui_running.png" alt="Magentic-UI" height="400">
 </p>
 
 Magentic-UI is especially useful for web tasks that require actions on the web (e.g., filling a form, customizing a food order), deep navigation through websites not indexed by search engines (e.g., filtering flights, finding a link from a personal site) or tasks that need web navigation and code execution (e.g., generate a chart from online data).
@@ -57,10 +57,10 @@ The example below shows a step by step user interaction with Magentic-UI:
 
 <!-- Screenshots -->
 <p align="center">
-  <img src="docs/magui-landing.png" alt="Magentic-UI Landing" width="45%" style="margin:10px;">
-  <img src="docs/magui-coplanning.png" alt="Co-Planning UI" width="45%" style="margin:10px;">
-  <img src="docs/magui-cotasking.png" alt="Co-Tasking UI" width="45%" style="margin:10px;">
-  <img src="docs/magui-actionguard.png" alt="Action Guard UI" width="45%" style="margin:10px;">
+  <img src="docs/img/magui-landing.png" alt="Magentic-UI Landing" width="45%" style="margin:10px;">
+  <img src="docs/img/magui-coplanning.png" alt="Co-Planning UI" width="45%" style="margin:10px;">
+  <img src="docs/img/magui-cotasking.png" alt="Co-Tasking UI" width="45%" style="margin:10px;">
+  <img src="docs/img/magui-actionguard.png" alt="Action Guard UI" width="45%" style="margin:10px;">
 </p>
 
 
@@ -85,7 +85,7 @@ What differentiates Magentic-UI from other browser use offerings is its transpar
 Magentic-UI's underlying system is a team of specialized agents adapted from AutoGen's Magentic-One system illustrated in the figure below.
 
 <p align="center">
-  <img src="./docs/magenticui.jpg" alt="Magentic-UI" height="400">
+  <img src="./docs/img/magenticui.jpg" alt="Magentic-UI" height="400">
 </p>
 
  The agents work together to create a modular system:
