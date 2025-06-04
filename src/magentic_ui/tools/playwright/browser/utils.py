@@ -2,6 +2,8 @@ from pathlib import Path
 from typing import Tuple
 import socket
 from autogen_core import ComponentModel
+
+from .headless_docker_playwright_browser import HeadlessDockerPlaywrightBrowser
 from .vnc_docker_playwright_browser import VncDockerPlaywrightBrowser
 
 
@@ -20,6 +22,7 @@ def get_browser_resource_config(
     novnc_port: int = -1,
     playwright_port: int = -1,
     inside_docker: bool = True,
+    headless: bool = False
 ) -> Tuple[ComponentModel, int, int]:
     """
     Create a VNC Docker Playwright Browser Resource configuration. The requested ports for novnc and playwright may be overwritten. The final values for each port number will be in the return value.
@@ -37,24 +40,35 @@ def get_browser_resource_config(
     """
     opened_sockets: list[socket.socket] = []
 
-    if novnc_port == -1:
-        novnc_port, sock = get_available_port()
-        opened_sockets.append(sock)
     if playwright_port == -1:
         playwright_port, sock = get_available_port()
         opened_sockets.append(sock)
 
+    if not headless and novnc_port == -1:
+        novnc_port, sock = get_available_port()
+        opened_sockets.append(sock)
+    
     # Close the sockets after getting the ports
     for sock in opened_sockets:
         sock.close()
 
-    return (
-        VncDockerPlaywrightBrowser(
-            bind_dir=bind_dir,
-            playwright_port=playwright_port,
-            novnc_port=novnc_port,
-            inside_docker=inside_docker,
-        ).dump_component(),
-        novnc_port,
-        playwright_port,
-    )
+    if headless:
+        return (
+            HeadlessDockerPlaywrightBrowser(
+                playwright_port=playwright_port,
+                inside_docker=inside_docker,
+            ).dump_component(),
+            novnc_port,
+            playwright_port,
+        )
+    else:
+        return (
+            VncDockerPlaywrightBrowser(
+                bind_dir=bind_dir,
+                playwright_port=playwright_port,
+                novnc_port=novnc_port,
+                inside_docker=inside_docker,
+            ).dump_component(),
+            novnc_port,
+            playwright_port,
+        )

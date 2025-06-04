@@ -1,9 +1,11 @@
-from typing import Union, Any, Dict, Optional
+from typing import List, Union, Any, Dict, Optional
 from autogen_core.models import ChatCompletionClient
 from autogen_core import ComponentModel
-from autogen_agentchat.agents import UserProxyAgent
+from autogen_agentchat.base import ChatAgent
+from autogen_agentchat.agents import UserProxyAgent, AssistantAgent
 
 from .tools.playwright.browser import get_browser_resource_config
+from .tools.mcp import AggregateMcpWorkbench
 from .utils import get_internal_urls
 from .teams import GroupChat, RoundRobinGroupChat
 from .teams.orchestrator.orchestrator_config import OrchestratorConfig
@@ -83,6 +85,7 @@ async def get_task_team(
             magentic_ui_config.novnc_port,
             magentic_ui_config.playwright_port,
             magentic_ui_config.inside_docker,
+            headless=magentic_ui_config.headless,
         )
     )
 
@@ -209,6 +212,19 @@ async def get_task_team(
         approval_guard=approval_guard,
     )
 
+    # Setup any mcp_agents
+    mcp_agents: List[AssistantAgent] = []
+    for config in magentic_ui_config.mcp_agent_configs:
+        # Build a workbench for these servers
+        workbench = AggregateMcpWorkbench(named_server_params=config.mcp_servers)
+        # Dump the component so we can load it
+        workbench_component = workbench.dump_component()
+        # Create a copy of the config with the workbench set o the dumped AggregateMcpWorkbench
+        config_copy = config.model_copy(update={"workbench": workbench_component})
+        # Load an AssistantAgent from the config (mcp_servers prop should be ignored)
+        agent = AssistantAgent._from_config(config_copy) # type: ignore
+        mcp_agents.append(agent)
+
     if (
         orchestrator_config.memory_controller_key is not None
         and orchestrator_config.retrieve_relevant_plans in ["reuse", "hint"]
@@ -221,8 +237,11 @@ async def get_task_team(
     else:
         memory_provider = None
 
+    team_participants: List[ChatAgent] = [web_surfer, user_proxy, coder_agent, file_surfer]
+    team_participants.extend(mcp_agents)
+
     team = GroupChat(
-        participants=[web_surfer, user_proxy, coder_agent, file_surfer],
+        participants=team_participants,
         orchestrator_config=orchestrator_config,
         model_client=model_client_orch,
         memory_provider=memory_provider,

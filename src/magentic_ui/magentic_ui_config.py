@@ -1,8 +1,10 @@
-from pydantic import BaseModel
-from typing import Optional, List, Literal, Union, Dict, Any, ClassVar
-from .types import Plan
-from pydantic import Field
+from typing import Any, ClassVar, Dict, List, Literal, Optional, Union
+
 from autogen_core import ComponentModel
+from pydantic import BaseModel, Field
+
+from .agents.mcp import McpAgentConfig
+from .types import Plan
 
 
 class ModelClientConfigs(BaseModel):
@@ -52,6 +54,7 @@ class MagenticUIConfig(BaseModel):
 
     Attributes:
         model_client_configs (ModelClientConfigs): Configurations for the model client.
+        mcp_servers: (List[McpAgentConfig], optional): Configs for AssistantAgents with access to MCP Servers
         cooperative_planning (bool): Disable co-planning mode (default: enabled), user will not be involved in the planning process. Default: True.
         autonomous_execution (bool): Enable autonomous execution mode (default: disabled), user will not be involved in the execution. Default: False.
         allowed_websites (List[str], optional): List of websites that are permitted.
@@ -78,6 +81,7 @@ class MagenticUIConfig(BaseModel):
     """
 
     model_client_configs: ModelClientConfigs = Field(default_factory=ModelClientConfigs)
+    mcp_agent_configs: List[McpAgentConfig] = Field(default_factory=lambda: [])
     cooperative_planning: bool = True
     autonomous_execution: bool = False
     allowed_websites: Optional[List[str]] = None
@@ -103,3 +107,5 @@ class MagenticUIConfig(BaseModel):
     hints: Optional[str] = None
     answer: Optional[str] = None
     inside_docker: bool = True
+    headless: bool = False
+
