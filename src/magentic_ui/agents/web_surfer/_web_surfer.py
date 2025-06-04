@@ -848,6 +848,13 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 inner_messages=self.inner_messages,
             )
         except Exception as e:
+            yield Response(
+                chat_message=TextMessage(
+                    content=f"The WebSurfer encountered an error: {e}",
+                    source=self.name,
+                    metadata={"internal": "no"},
+                ),
+            )
             self.logger.error(f"Error in on_messages: {e}")
             pass
         finally:
@@ -907,7 +914,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 chat_message=TextMessage(
                     content=final_message,
                     source=self.name,
-                    metadata={"internal": "yes"},
+                    metadata={"internal": "no"},
                 )
             )
 
