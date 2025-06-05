@@ -56,7 +56,8 @@ def _dummy_paths():
         run_suffix="test_run",
     )
 
-@pytest.mark.npx # Requires npx available on the system to launch the MCP servers
+
+@pytest.mark.npx  # Requires npx available on the system to launch the MCP servers
 @pytest.mark.asyncio
 async def test_mcp_agent_integration(mcp_agent_config: List[McpAgentConfig]):
     # Create MagenticUIConfig with MCP agent config
@@ -82,7 +83,7 @@ async def test_mcp_agent_integration(mcp_agent_config: List[McpAgentConfig]):
                     break
 
             elif isinstance(event, TaskResult):
-                 break
+                break
 
             # stop this test from getting stuck in a loop
             if message_counter > MAX_MESSAGES:

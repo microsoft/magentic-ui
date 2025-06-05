@@ -21,6 +21,7 @@ NAMESPACE_SEPARATOR = "-"
 # The 'escape' value to use for NAMESPACE_SEPARATOR (specificaly a value outside of the allowable range)
 NAMESPACE_ESCAPE = ":"
 
+
 def escape_tool_name(name: str) -> str:
     """
     Escapes all occurrences of the NAMESPACE_SEPARATOR in the tool name by replacing them with NAMESPACE_ESCAPE.
@@ -103,10 +104,11 @@ class AggregateMcpWorkbench(Workbench, Component[AggregateMcpWorkbenchConfig]):
         # Create a copy of server_params
         self._workbenches: Dict[str, McpWorkbench] = {}
         for params in named_server_params:
-            
             # Check if valid
             if escape_tool_name(params.server_name) != params.server_name:
-                raise ValueError(f"Invalid server_name '{params.server_name}'. Server names must not include {NAMESPACE_SEPARATOR} characters.")
+                raise ValueError(
+                    f"Invalid server_name '{params.server_name}'. Server names must not include {NAMESPACE_SEPARATOR} characters."
+                )
 
             if params.server_name in self._workbenches:
                 raise ValueError(
@@ -133,9 +135,7 @@ class AggregateMcpWorkbench(Workbench, Component[AggregateMcpWorkbenchConfig]):
             for tool in workbench_tools:
                 # Make a copy of the tool updating the name to be escaped and within this server's 'namespace'
                 tool_name = escape_tool_name(tool["name"])
-                namespaced_tool_name = (
-                    f"{server_name}{NAMESPACE_SEPARATOR}{tool_name}"
-                )
+                namespaced_tool_name = f"{server_name}{NAMESPACE_SEPARATOR}{tool_name}"
                 namespaced_tool = ToolSchema({**tool, "name": namespaced_tool_name})
                 schema.append(namespaced_tool)
 

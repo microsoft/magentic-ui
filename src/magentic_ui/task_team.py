@@ -223,7 +223,7 @@ async def get_task_team(
         # Create a copy of the config with the workbench set o the dumped AggregateMcpWorkbench
         config_copy = config.model_copy(update={"workbench": workbench_component})
         # Load an AssistantAgent from the config (mcp_servers prop should be ignored)
-        agent = AssistantAgent._from_config(config_copy) # type: ignore
+        agent = AssistantAgent._from_config(config_copy)  # type: ignore
         mcp_agents.append(agent)
 
     if (
@@ -238,7 +238,12 @@ async def get_task_team(
     else:
         memory_provider = None
 
-    team_participants: List[ChatAgent] = [web_surfer, user_proxy, coder_agent, file_surfer]
+    team_participants: List[ChatAgent] = [
+        web_surfer,
+        user_proxy,
+        coder_agent,
+        file_surfer,
+    ]
     team_participants.extend(mcp_agents)
 
     team = GroupChat(
