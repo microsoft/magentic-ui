@@ -83,7 +83,7 @@ This document lists common issues users have encountered with Magentic-UI and ho
     zsh: command not found: magentic
     ```
 
-**Solution**:
+**Solution 1**:
 
 - Make sure you have you have activated your virtual environment.
 - You can double check by reactivating it and then running the command again:
@@ -93,6 +93,16 @@ This document lists common issues users have encountered with Magentic-UI and ho
     source .venv/bin/activate
     magentic ui --port 8081
     ```
+
+**Solution 2**:
+
+- You may have accidentally installed the package named `magentic` instead of ours `magentic-ui`
+- Make sure you are running the following command:
+
+  ```bash
+  pip install magentic-ui
+  ```
+  
 
 
 ## 9. ❓ Still Having Issues?
