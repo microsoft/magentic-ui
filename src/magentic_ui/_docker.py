@@ -76,10 +76,7 @@ def check_docker_access():
         return True
     except DockerException as e:
         logging.error(
-            f"Error {e}: Cannot access Docker. Make sure your user is in the 'docker' group or run with sudo.\n"
-            "To add your user to the docker group, run:\n"
-            "  sudo usermod -aG docker $USER\n"
-            "Then log out and log back in."
+            f"Error {e}: Cannot access Docker. Please refer to the TROUBLESHOOTING.md document for possible solutions."
         )
         return False
 

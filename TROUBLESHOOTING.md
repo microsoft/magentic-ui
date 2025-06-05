@@ -21,6 +21,7 @@ export DOCKER_HOST=unix:///home/<your-username>/.docker/desktop/docker.sock
 ```
 **Note**: you might have to adjust the path to point to the correct location of docker.sock.
 
+Another possible fix on Ubuntu if docker is not running is to make sure your user is in the 'docker' group or run with sudo. 
 
 ## 2. 🚪 Port 8081 Fails to Start
 
