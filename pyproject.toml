@@ -91,7 +91,7 @@ pyright = "pyright src"
 test.env = { PYTHONPATH = "src" }
 test.sequence = [
     "playwright install",
-    "pytest tests --cov=src --cov-report=xml --cov-report=term-missing",
+    "pytest -m \"not npx\" tests --cov=src --cov-report=xml --cov-report=term-missing",
 ]
 test.default_item_type = "cmd"
 check = ["fmt", "lint", "pyright", "test"]
