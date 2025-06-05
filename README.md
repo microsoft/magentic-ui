@@ -38,10 +38,18 @@ pip install magentic-ui[azure]
 pip install magentic-ui[ollama]
 ```
 
-For further details on installation please read the   <a href="#🛠️-installation">🛠️ Installation</a> section. For common installation issues their solutions, please refer to the [troubleshooting document](TROUBLESHOOTING.md).
+For further details on installation please read the   <a href="#🛠️-installation">🛠️ Installation</a> section. For common installation issues and their solutions, please refer to the [troubleshooting document](TROUBLESHOOTING.md).
 
+Quick Navigation:
+<p align="center">
+  <a href="#how-it-works"> How it Works</a> &nbsp;|&nbsp;
+  <a href="#🛠️-installation">🛠️ Installation</a> &nbsp;|&nbsp;
+  <a href="#⚠️-troubleshooting">⚠️ Troubleshooting</a> &nbsp;|&nbsp; 
+  <a href="#🤝-contributing">🤝 Contributing</a> &nbsp;|&nbsp;
+  <a href="#📄-license">📄 License</a>
+</p>
 
-## How it works
+## How it Works
 <p align="center">
   <img src="./docs/img/magenticui_running.png" alt="Magentic-UI" height="400">
 </p>
@@ -107,7 +115,7 @@ All intermediate progress steps are clearly displayed to the user. Furthermore, 
 
 ### Autonomous Evaluation
 
-To evaluate its autonomous capabilities, Magentic-UI has been tested against several benchmarks: [GAIA](https://huggingface.co/datasets/gaia-benchmark/GAIA) test set (42.52%), which assesses general AI assistants across reasoning, tool use, and web interaction tasks ; [AssistantBench](https://huggingface.co/AssistantBench) test set (27.60%), focusing on realistic, time-consuming web tasks ; [WebVoyager](https://github.com/MinorJerry/WebVoyager) (82.2%), measuring end-to-end web navigation in real-world scenarios ; and [WebGames])(https://webgames.convergence.ai/ https://huggingface.co/datasets/convergence-ai/webgames) (45.5%), evaluating general-purpose web-browsing agents through interactive challenges.
+To evaluate its autonomous capabilities, Magentic-UI has been tested against several benchmarks when running with o4-mini: [GAIA](https://huggingface.co/datasets/gaia-benchmark/GAIA) test set (42.52%), which assesses general AI assistants across reasoning, tool use, and web interaction tasks ; [AssistantBench](https://huggingface.co/AssistantBench) test set (27.60%), focusing on realistic, time-consuming web tasks; [WebVoyager](https://github.com/MinorJerry/WebVoyager) (82.2%), measuring end-to-end web navigation in real-world scenarios; and [WebGames](https://webgames.convergence.ai/ https://huggingface.co/datasets/convergence-ai/webgames) (45.5%), evaluating general-purpose web-browsing agents through interactive challenges.
 To reproduce these experimental results, please see the following [instructions](experiments/README.md).
 
 
@@ -163,6 +171,12 @@ magentic ui --port 8081
 ```
 
 The first time that you run this command, it will take a while to build the Docker images -- go grab a coffee or something. The next time you run it, it will be much faster as it doesn't have to build the Docker again.
+
+If you have trouble building the dockers, please try to rebuild them with the command:
+```bash
+magentic ui --rebuild-docker --port 8081
+```
+If you face further issues, please refer to the [TROUBLESHOOTING.md](TROUBLESHOOTING.md) document.
 
 Once the server is running, you can access the UI at <http://localhost:8081>.
 
