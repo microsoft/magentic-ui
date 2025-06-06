@@ -4,7 +4,7 @@ from typing import List
 import pytest
 from autogen_agentchat.base import TaskResult
 from autogen_agentchat.messages import BaseTextChatMessage
-from autogen_core import ComponentModel
+from autogen_core import CancellationToken, ComponentModel
 from autogen_ext.tools.mcp import StdioServerParams
 from magentic_ui.agents.mcp import McpAgentConfig
 from magentic_ui.magentic_ui_config import MagenticUIConfig, ModelClientConfigs
@@ -70,12 +70,15 @@ async def test_mcp_agent_integration(mcp_agent_config: List[McpAgentConfig]):
         browser_headless=True,
         browser_local=True,
     )
+    
     team = await get_task_team(magentic_ui_config=config, paths=_dummy_paths())
+    cancellation_token = CancellationToken()
     # Send a test message to the team and get a response
     try:
         message_counter = 0
         async for event in team.run_stream(
             task=f"Ask the {MCP_AGENT_NAME} to list its tools. Then ask it to compute 5 + 3.",
+            cancellation_token=cancellation_token
         ):
             if isinstance(event, BaseTextChatMessage):
                 message_counter += 1
@@ -89,4 +92,4 @@ async def test_mcp_agent_integration(mcp_agent_config: List[McpAgentConfig]):
             if message_counter > MAX_MESSAGES:
                 assert False, f"Test failed: No {MCP_AGENT_NAME} messages were received within the first {MAX_MESSAGES} messages."
     finally:
-        await team.close()
+        cancellation_token.cancel()
