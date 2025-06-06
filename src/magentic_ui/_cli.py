@@ -285,7 +285,7 @@ def main() -> None:
         "--work-dir",
         dest="work_dir",
         type=str,
-        default=None,
+        default="./work_dir",
         help="Working directory path when running outside docker (required if not inside docker)",
     )
     parser.add_argument(
