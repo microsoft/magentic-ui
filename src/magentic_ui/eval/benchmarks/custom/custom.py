@@ -74,13 +74,13 @@ class CustomBenchmark(Benchmark):
         """
         # If df is not provided, assume data_dir is a path to a CSV
         assert self.data_dir is not None
-        if self.df is None:
+        if self.df is None:  # type: ignore
             if not os.path.isfile(self.data_dir):
                 raise FileNotFoundError(f"No CSV file found at: {self.data_dir}")
             self.df: pd.DataFrame = pd.read_csv(self.data_dir)  # type: ignore
 
         self.tasks: Dict[str, CustomTask] = {}
-        for _, row in self.df.iterrows():
+        for _, row in self.df.iterrows():  # type: ignore
             # Safely handle metadata if it might be missing or is not a dict
             metadata_value = row.get("metadata", {})  # type: ignore
             # If metadata might be a string of JSON, parse it. Otherwise store as is.

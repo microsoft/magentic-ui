@@ -1,25 +1,28 @@
-from typing import Union, Any, Dict, Optional
-from autogen_core.models import ChatCompletionClient
-from autogen_core import ComponentModel
-from autogen_agentchat.agents import UserProxyAgent
+from typing import Any, Dict, List, Optional, Union
 
-from .tools.playwright.browser import get_browser_resource_config
-from .utils import get_internal_urls
-from .teams import GroupChat, RoundRobinGroupChat
-from .teams.orchestrator.orchestrator_config import OrchestratorConfig
-from .agents import WebSurfer, CoderAgent, USER_PROXY_DESCRIPTION, FileSurfer
-from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
-from .types import RunPaths
-from .agents.web_surfer import WebSurferConfig
+from autogen_agentchat.agents import UserProxyAgent
+from autogen_agentchat.base import ChatAgent
+from autogen_core import ComponentModel
+from autogen_core.models import ChatCompletionClient
+
+from .agents import USER_PROXY_DESCRIPTION, CoderAgent, FileSurfer, WebSurfer
+from .agents.mcp import McpAgent
 from .agents.users import DummyUserProxy, MetadataUserProxy
+from .agents.web_surfer import WebSurferConfig
 from .approval_guard import (
+    ApprovalConfig,
     ApprovalGuard,
     ApprovalGuardContext,
-    ApprovalConfig,
     BaseApprovalGuard,
 )
 from .input_func import InputFuncType, make_agentchat_input_func
 from .learning.memory_provider import MemoryControllerProvider
+from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
+from .teams import GroupChat, RoundRobinGroupChat
+from .teams.orchestrator.orchestrator_config import OrchestratorConfig
+from .tools.playwright.browser import get_browser_resource_config
+from .types import RunPaths
+from .utils import get_internal_urls
 
 
 async def get_task_team(
@@ -83,6 +86,8 @@ async def get_task_team(
             magentic_ui_config.novnc_port,
             magentic_ui_config.playwright_port,
             magentic_ui_config.inside_docker,
+            headless=magentic_ui_config.browser_headless,
+            local=magentic_ui_config.browser_local,
         )
     )
 
@@ -209,6 +214,13 @@ async def get_task_team(
         approval_guard=approval_guard,
     )
 
+    # Setup any mcp_agents
+    mcp_agents: List[McpAgent] = [
+        # TODO: Init from constructor?
+        McpAgent._from_config(config)  # type: ignore
+        for config in magentic_ui_config.mcp_agent_configs
+    ]
+
     if (
         orchestrator_config.memory_controller_key is not None
         and orchestrator_config.retrieve_relevant_plans in ["reuse", "hint"]
@@ -221,8 +233,16 @@ async def get_task_team(
     else:
         memory_provider = None
 
+    team_participants: List[ChatAgent] = [
+        web_surfer,
+        user_proxy,
+        coder_agent,
+        file_surfer,
+    ]
+    team_participants.extend(mcp_agents)
+
     team = GroupChat(
-        participants=[web_surfer, user_proxy, coder_agent, file_surfer],
+        participants=team_participants,
         orchestrator_config=orchestrator_config,
         model_client=model_client_orch,
         memory_provider=memory_provider,

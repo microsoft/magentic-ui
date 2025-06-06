@@ -157,7 +157,7 @@ class LocalPlaywrightBrowser(
         )
 
     @classmethod
-    def from_config(
+    def _from_config(
         cls, config: LocalPlaywrightBrowserConfig
     ) -> LocalPlaywrightBrowser:
         return cls(
