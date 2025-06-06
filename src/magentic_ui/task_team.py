@@ -1,27 +1,28 @@
-from typing import List, Union, Any, Dict, Optional
-from autogen_core.models import ChatCompletionClient
-from autogen_core import ComponentModel
-from autogen_agentchat.base import ChatAgent
-from autogen_agentchat.agents import UserProxyAgent, AssistantAgent
+from typing import Any, Dict, List, Optional, Union
 
-from .tools.playwright.browser import get_browser_resource_config
-from .tools.mcp import AggregateMcpWorkbench
-from .utils import get_internal_urls
-from .teams import GroupChat, RoundRobinGroupChat
-from .teams.orchestrator.orchestrator_config import OrchestratorConfig
-from .agents import WebSurfer, CoderAgent, USER_PROXY_DESCRIPTION, FileSurfer
-from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
-from .types import RunPaths
-from .agents.web_surfer import WebSurferConfig
+from autogen_agentchat.agents import UserProxyAgent
+from autogen_agentchat.base import ChatAgent
+from autogen_core import ComponentModel
+from autogen_core.models import ChatCompletionClient
+
+from .agents import USER_PROXY_DESCRIPTION, CoderAgent, FileSurfer, WebSurfer
+from .agents.mcp import McpAgent
 from .agents.users import DummyUserProxy, MetadataUserProxy
+from .agents.web_surfer import WebSurferConfig
 from .approval_guard import (
+    ApprovalConfig,
     ApprovalGuard,
     ApprovalGuardContext,
-    ApprovalConfig,
     BaseApprovalGuard,
 )
 from .input_func import InputFuncType, make_agentchat_input_func
 from .learning.memory_provider import MemoryControllerProvider
+from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
+from .teams import GroupChat, RoundRobinGroupChat
+from .teams.orchestrator.orchestrator_config import OrchestratorConfig
+from .tools.playwright.browser import get_browser_resource_config
+from .types import RunPaths
+from .utils import get_internal_urls
 
 
 async def get_task_team(
@@ -214,17 +215,11 @@ async def get_task_team(
     )
 
     # Setup any mcp_agents
-    mcp_agents: List[AssistantAgent] = []
-    for config in magentic_ui_config.mcp_agent_configs:
-        # Build a workbench for these servers
-        workbench = AggregateMcpWorkbench(named_server_params=config.mcp_servers)
-        # Dump the component so we can load it
-        workbench_component = workbench.dump_component()
-        # Create a copy of the config with the workbench set o the dumped AggregateMcpWorkbench
-        config_copy = config.model_copy(update={"workbench": workbench_component})
-        # Load an AssistantAgent from the config (mcp_servers prop should be ignored)
-        agent = AssistantAgent._from_config(config_copy)  # type: ignore
-        mcp_agents.append(agent)
+    mcp_agents: List[McpAgent] = [
+        # TODO: Init from constructor?
+        McpAgent._from_config(config)  # type: ignore
+        for config in magentic_ui_config.mcp_agent_configs
+    ]
 
     if (
         orchestrator_config.memory_controller_key is not None

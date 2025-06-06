@@ -1,3 +1,3 @@
-from ._config import McpAgentConfig
+from ._agent import McpAgent, McpAgentConfig
 
-__all__ = ["McpAgentConfig"]
+__all__ = ["McpAgent", "McpAgentConfig"]
