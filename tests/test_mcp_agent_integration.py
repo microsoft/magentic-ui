@@ -70,7 +70,7 @@ async def test_mcp_agent_integration(mcp_agent_config: List[McpAgentConfig]):
         browser_headless=True,
         browser_local=True,
     )
-    
+
     team = await get_task_team(magentic_ui_config=config, paths=_dummy_paths())
     cancellation_token = CancellationToken()
     # Send a test message to the team and get a response
@@ -78,7 +78,7 @@ async def test_mcp_agent_integration(mcp_agent_config: List[McpAgentConfig]):
         message_counter = 0
         async for event in team.run_stream(
             task=f"Ask the {MCP_AGENT_NAME} to list its tools. Then ask it to compute 5 + 3.",
-            cancellation_token=cancellation_token
+            cancellation_token=cancellation_token,
         ):
             if isinstance(event, BaseTextChatMessage):
                 message_counter += 1

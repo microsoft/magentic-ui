@@ -10,8 +10,9 @@ from ._config import McpAgentConfig
 
 class McpAgent(AssistantAgent):
     """A general agent that can call tools on one or more MCP Servers.
-    
+
     McpAgent is a thin wrapper around `autogen_agentchat.agents.AssistantAgent`"""
+
     def __init__(
         self,
         name: str,
@@ -30,8 +31,12 @@ class McpAgent(AssistantAgent):
             )
             kwargs["model_context"] = model_context
 
-        assert mcp_server_params or kwargs.get("workbench", False), "Must provide either mcp_server_params or workbench."
-        assert not (mcp_server_params and kwargs.get("workbench", False)), "Cannot provide both mcp_server_params and workbench. Only one is allowed."
+        assert mcp_server_params or kwargs.get(
+            "workbench", False
+        ), "Must provide either mcp_server_params or workbench."
+        assert not (
+            mcp_server_params and kwargs.get("workbench", False)
+        ), "Cannot provide both mcp_server_params and workbench. Only one is allowed."
 
         if mcp_server_params:
             workbench = AggregateMcpWorkbench(named_server_params=mcp_server_params)
