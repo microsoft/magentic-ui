@@ -15,15 +15,23 @@ model_client_configs:
     max_retries: 10
 
 mcp_agent_configs:
-  - name: mcp_agent
-    description: "Test MCP Agent"
+  - name: airbnb_surfer
+    description: "The airbnb_surfer has direct access to AirBnB."
+    model_client: *default_client
+    system_message: |-
+      You are AirBnb Surfer, a helpful digital assistant that can help users acces AirBnB.
+
+      You have access to a suite of tools provided by the AirBnB API. Use those tools to satisfy the users requests.
     reflect_on_tool_use: false
-    tool_call_summary_format: "{tool_name}({arguments}): {result}"
     mcp_servers:
-      - server_name: EverythingServer
+      - server_name: AirBnB
         server_params:
-          type: SseServerParams
-          url: http://localhost:3001/sse
+          type: StdioServerParams
+          command: npx
+          args:
+            - -y
+            - "@openbnb/mcp-server-airbnb"
+            - --ignore-robots-txt
 
 cooperative_planning: true
 autonomous_execution: false
