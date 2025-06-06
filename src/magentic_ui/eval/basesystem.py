@@ -1,4 +1,5 @@
 import os
+import logging
 import json
 import importlib
 from typing import Optional, Type
@@ -54,9 +55,16 @@ class BaseSystem:
         answer_path = os.path.join(output_dir, f"{task_id}_answer.json")
         if not os.path.exists(answer_path):
             return None
-        with open(answer_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return self.candidate_class.model_validate(data)
+
+        try:
+            with open(answer_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return self.candidate_class.model_validate(data)
+        except json.JSONDecodeError as e:
+            logging.error(f"Failed to decode JSON for {task_id}: {e}")
+        except Exception as e:
+            logging.error(f"Unexpected error loading answer for {task_id}: {e}")
+        return None
 
     def save_answer_to_disk(
         self, task_id: str, answer: AllCandidateTypes, output_dir: str
@@ -71,8 +79,12 @@ class BaseSystem:
         """
         os.makedirs(output_dir, exist_ok=True)
         answer_path = os.path.join(output_dir, f"{task_id}_answer.json")
-        with open(answer_path, "w", encoding="utf-8") as f:
-            f.write(answer.model_dump_json(indent=2))
+        try:
+            with open(answer_path, "w", encoding="utf-8") as f:
+                f.write(answer.model_dump_json(indent=2))
+        except Exception as e:
+            logging.error(f"Failed to save answer for {task_id}: {e}")
+            raise
 
 
 def load_system_class(system_name: str) -> Type[BaseSystem]:
@@ -87,6 +99,15 @@ def load_system_class(system_name: str) -> Type[BaseSystem]:
     """
     module_name = "magentic_ui.eval.systems"
     class_name = f"{system_name}System"
-    module = importlib.import_module(module_name)
-    system_class = getattr(module, class_name)
+
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError as e:
+        raise ImportError(f"Could not import module '{module_name}': {e}")
+
+    try:
+        system_class = getattr(module, class_name)
+    except AttributeError:
+        raise ImportError(f"Class '{class_name}' not found in module '{module_name}'")
+
     return system_class
