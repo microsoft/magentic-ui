@@ -1,7 +1,7 @@
 <div align="center">
-<img src="frontend/src/assets/logo.svg" alt="Magentic-UI Logo" height="100">
+<img src="docs/img/magui-readme-logo.png" alt="Magentic-UI Logo">
 
-# Magentic-UI
+
 _Automate your web tasks while you stay in control_
 
 [![image](https://img.shields.io/pypi/v/magentic_ui.svg)](https://pypi.python.org/pypi/magentic_ui)
@@ -9,6 +9,8 @@ _Automate your web tasks while you stay in control_
 ![Python Versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)
 
 </div>
+
+---
 
 Magentic-UI is a **research prototype** of a human-centered interface powered by a multi-agent system that can browse and perform actions on the web, generate and execute code, and generate and analyze files.
 
@@ -18,7 +20,7 @@ Magentic-UI is a **research prototype** of a human-centered interface powered by
 
 Here's how you can get started with Magentic-UI:
 
-> **Note**: Before installing, please read the [pre-requisites](#-pre-requisites) carefully. Magentic-UI requires Docker to run, and if you are on Windows, you will need WSL2. We recommend using [uv](https://docs.astral.sh/uv/getting-started/installation/) for a quicker installation. If you are using Mac or Linux, you can skip the WSL2 step.
+> **Note**: Before installing, please read the [pre-requisites](#pre-requisites) carefully. Magentic-UI requires Docker to run, and if you are on Windows, you will need WSL2. We recommend using [uv](https://docs.astral.sh/uv/getting-started/installation/) for a quicker installation. If you are using Mac or Linux, you can skip the WSL2 step.
 
 ```bash
 python3 -m venv .venv
@@ -38,18 +40,21 @@ pip install magentic-ui[azure]
 pip install magentic-ui[ollama]
 ```
 
-For further details on installation please read the   <a href="#🛠️-installation">🛠️ Installation</a> section. For common installation issues and their solutions, please refer to the [troubleshooting document](TROUBLESHOOTING.md).
+For further details on installation please read the   <a href="#installation">🛠️ Installation</a> section. For common installation issues and their solutions, please refer to the [troubleshooting document](TROUBLESHOOTING.md).
 
-Quick Navigation:
+
+## Quick Navigation:
 <p align="center">
-  <a href="#how-it-works"> How it Works</a> &nbsp;|&nbsp;
-  <a href="#🛠️-installation">🛠️ Installation</a> &nbsp;|&nbsp;
-  <a href="#⚠️-troubleshooting">⚠️ Troubleshooting</a> &nbsp;|&nbsp; 
-  <a href="#🤝-contributing">🤝 Contributing</a> &nbsp;|&nbsp;
-  <a href="#📄-license">📄 License</a>
+  <a href="#how-it-works">🟪 How it Works</a> &nbsp;|&nbsp;
+  <a href="#installation">🛠️ Installation</a> &nbsp;|&nbsp;
+  <a href="#troubleshooting">⚠️ Troubleshooting</a> &nbsp;|&nbsp; 
+  <a href="#contributing">🤝 Contributing</a> &nbsp;|&nbsp;
+  <a href="#license">📄 License</a>
 </p>
 
-## How it Works
+---
+
+## 🟪 How it Works
 <p align="center">
   <img src="./docs/img/magenticui_running.png" alt="Magentic-UI" height="400">
 </p>
@@ -115,7 +120,7 @@ All intermediate progress steps are clearly displayed to the user. Furthermore, 
 
 ### Autonomous Evaluation
 
-To evaluate its autonomous capabilities, Magentic-UI has been tested against several benchmarks when running with o4-mini: [GAIA](https://huggingface.co/datasets/gaia-benchmark/GAIA) test set (42.52%), which assesses general AI assistants across reasoning, tool use, and web interaction tasks ; [AssistantBench](https://huggingface.co/AssistantBench) test set (27.60%), focusing on realistic, time-consuming web tasks; [WebVoyager](https://github.com/MinorJerry/WebVoyager) (82.2%), measuring end-to-end web navigation in real-world scenarios; and [WebGames](https://webgames.convergence.ai/ https://huggingface.co/datasets/convergence-ai/webgames) (45.5%), evaluating general-purpose web-browsing agents through interactive challenges.
+To evaluate its autonomous capabilities, Magentic-UI has been tested against several benchmarks when running with o4-mini: [GAIA](https://huggingface.co/datasets/gaia-benchmark/GAIA) test set (42.52%), which assesses general AI assistants across reasoning, tool use, and web interaction tasks ; [AssistantBench](https://huggingface.co/AssistantBench) test set (27.60%), focusing on realistic, time-consuming web tasks; [WebVoyager](https://github.com/MinorJerry/WebVoyager) (82.2%), measuring end-to-end web navigation in real-world scenarios; and [WebGames](https://webgames.convergence.ai/) (45.5%), evaluating general-purpose web-browsing agents through interactive challenges.
 To reproduce these experimental results, please see the following [instructions](experiments/README.md).
 
 
@@ -310,7 +315,7 @@ If you are making changes to the source code of the UI, you can run the frontend
 cd frontend
 ```
 
-3. Create a `.env.development` file.
+2. Create a `.env.development` file.
 
 ```bash
 cp .env.default .env.development
@@ -322,7 +327,7 @@ cp .env.default .env.development
 npm run start
 ```
 
-Then run the UI:
+4. Then run the UI:
 
 ```bash
 magentic ui --port 8081
@@ -333,7 +338,7 @@ The frontend from source will be available at <http://localhost:8000>, and the c
 
 ## ⚠️ Troubleshooting
 
-If you were unable to get Magentic-UI running, do not worry! The first step is to make sure you have followed the steps outlined above, particularly with the [pre-requisites](#📝-pre-requisites) and the [For Windows Users](#🪟-for-windows-users) (if you are on Windows) sections.
+If you were unable to get Magentic-UI running, do not worry! The first step is to make sure you have followed the steps outlined above, particularly with the [pre-requisites](#pre-requisites).
 
 For common issues and their solutions, please refer to the [TROUBLESHOOTING.md](TROUBLESHOOTING.md) file in this repository. If you do not see your problem there, please open a `GitHub Issue`. 
 
