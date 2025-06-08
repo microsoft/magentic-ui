@@ -97,7 +97,7 @@ Another possible fix on Ubuntu if docker is not running is to make sure your use
     zsh: command not found: magentic
     ```
 
-**Solution**:
+**Solution 1**:
 
 - Make sure you have you have activated your virtual environment.
 - You can double check by reactivating it and then running the command again:
@@ -107,6 +107,16 @@ Another possible fix on Ubuntu if docker is not running is to make sure your use
     source .venv/bin/activate
     magentic ui --port 8081
     ```
+
+**Solution 2**:
+
+- You may have accidentally installed the package named `magentic` instead of ours `magentic-ui`
+- Make sure you are running the following command:
+
+  ```bash
+  pip install magentic-ui
+  ```
+  
 
 
 ## 9. ❓ Still Having Issues?
