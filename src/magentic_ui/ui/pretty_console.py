@@ -228,7 +228,7 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
     is_user_proxy = "user" in agent_name and "proxy" in agent_name
 
     # Steps
-    steps = obj.get("steps") or []
+    steps: list[dict[str, Any]] = obj.get("steps", []) or []
     if steps:
         print(f"{left}\n{left}{BOLD}Steps:{RESET}")
         for i, step in enumerate(steps, 1):
@@ -321,18 +321,6 @@ async def _PrettyConsole(
         warnings.filterwarnings("ignore")
         logging.disable(logging.CRITICAL)
 
-    # Streamline stdout/stderr filtering
-    class _LogFilter:
-        def __init__(self, dbg: bool):
-            self.dbg = dbg
-
-        def write(self, txt: str):
-            if self.dbg or not txt.startswith("INFO:autogen_core.events"):
-                sys.__stdout__.write(txt)
-
-        def flush(self):
-            sys.__stdout__.flush()
-
     class _Gate:
         """Allow writes only when inside `process_message`."""
 
@@ -341,10 +329,12 @@ async def _PrettyConsole(
 
         def write(self, txt: str):
             if self.dbg or self.flag["open"]:
-                sys.__stdout__.write(txt)
+                if sys.__stdout__ is not None:
+                    sys.__stdout__.write(txt)
 
         def flush(self):
-            sys.__stdout__.flush()
+            if sys.__stdout__ is not None:
+                sys.__stdout__.flush()
 
     gate = {"open": False}
     sys.stdout = _Gate(debug, gate)

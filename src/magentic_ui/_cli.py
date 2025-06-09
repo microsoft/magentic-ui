@@ -287,7 +287,7 @@ async def get_team(
             log_debug("User input task completed", debug)
 
         log_debug(
-            f"Task to execute: {task[:50]}{'...' if task and len(task) > 50 else ''}",
+            f"Task to execute: {task[:50] if task else ''}{'...' if task and len(task) > 50 else ''}",
             debug,
         )
 
@@ -302,16 +302,12 @@ async def get_team(
         if use_pretty_ui:
             await PrettyConsole(stream, debug=debug)
         else:
-            try:
-                # Try to pass debug parameter to Console
-                await Console(stream, debug=debug)
-            except TypeError:
-                # If Console doesn't accept debug parameter, call it without debug
-                log_debug(
-                    "Console doesn't accept debug parameter, using default Console",
-                    debug,
-                )
-                await Console(stream)
+            # Console doesn't accept debug parameter, using default Console
+            log_debug(
+                "Using default Console without debug parameter",
+                debug,
+            )
+            await Console(stream)
 
         log_debug("Console processing completed", debug)
 
@@ -500,9 +496,6 @@ def main() -> None:
 
     args = parser.parse_args()
     log_debug(f"Command line arguments parsed: debug={args.debug}", args.debug)
-
-    # Set debug attribute on cancellation tokens for nested debug printing
-    CancellationToken._debug = args.debug
 
     # Show summary of important arguments when debug is enabled
     if args.debug:
