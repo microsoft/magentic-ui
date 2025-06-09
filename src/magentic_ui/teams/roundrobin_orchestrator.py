@@ -190,9 +190,9 @@ class RoundRobinGroupChatManager(BaseGroupChatManager):
         )
 
     @event
-    async def handle_agent_response( # type: ignore
+    async def handle_agent_response(  # type: ignore
         self, message: GroupChatAgentResponse, ctx: MessageContext
-    ) -> None:  
+    ) -> None:
         """Handle an agent's response in the group chat."""
         # Add any inner messages to the thread
         delta: List[BaseChatMessage] = []

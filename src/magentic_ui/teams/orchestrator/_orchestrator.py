@@ -496,7 +496,7 @@ class Orchestrator(BaseGroupChatManager):
         self._state.is_paused = False
 
     @event
-    async def handle_agent_response( # type: ignore
+    async def handle_agent_response(  # type: ignore
         self, message: GroupChatAgentResponse, ctx: MessageContext
     ) -> None:
         delta: List[BaseChatMessage] = []
