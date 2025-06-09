@@ -1,22 +1,25 @@
-import os
-from pathlib import Path
-import sys
-import json
-import asyncio
 import argparse
-import signal
-from datetime import datetime
-import types
-import yaml
-from typing import Any, Optional, Literal, cast
-from autogen_core import EVENT_LOGGER_NAME, CancellationToken
-from autogen_agentchat.ui import Console
-from .task_team import get_task_team
-from loguru import logger
+import asyncio
+import json
 import logging
-from .utils import LLMCallFilter
-from .types import RunPaths
+import os
+import signal
+import sys
+import types
+from datetime import datetime
+from pathlib import Path
+from typing import Any, List, Literal, Optional, cast
+
+import yaml
+from autogen_agentchat.ui import Console
+from autogen_core import EVENT_LOGGER_NAME, CancellationToken
+from loguru import logger
+
+from .agents.mcp._config import McpAgentConfig
 from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
+from .task_team import get_task_team
+from .types import RunPaths
+from .utils import LLMCallFilter
 
 logging.basicConfig(level=logging.WARNING, handlers=[])
 logger_llm = logging.getLogger(EVENT_LOGGER_NAME)
@@ -76,6 +79,7 @@ async def get_team(
     task_metadata: str | None = None,
     hints: str | None = None,
     answer: str | None = None,
+    mcp_agents: List[McpAgentConfig] | None = None,
 ) -> None:
     if reset:
         print(f"Resetting state file: {state_file}")
@@ -139,6 +143,8 @@ async def get_team(
         file_surfer=client_config_dict.get("file_surfer_client", None),
     )
 
+    mcp_agents = mcp_agents or []
+
     magentic_ui_config = MagenticUIConfig(
         model_client_configs=model_client_configs,
         approval_policy=action_policy,
@@ -156,6 +162,7 @@ async def get_team(
         hints=hints,
         answer=answer,
         inside_docker=inside_docker,
+        mcp_agent_configs=mcp_agents,
     )
 
     team = await get_task_team(
@@ -337,6 +344,13 @@ def main() -> None:
         default="never",
         help="ActionGuard policy ('always', 'never', 'auto-conservative', 'auto-permissive'; default: never)",
     )
+    parser.add_argument(
+        "--mcp-agents-file",
+        dest="mcp_agents_file",
+        type=str,
+        default=None,
+        help="Path to a .yaml file containing configuration compatible with MagenticUIConfig.mcp_agents",
+    )
 
     args = parser.parse_args()
 
@@ -400,6 +414,24 @@ def main() -> None:
         args.autonomous_execution = True
         args.cooperative_planning = False
 
+    # Try and load an MCP Agents file
+    mcp_agents: List[McpAgentConfig] = []
+    if args.mcp_agents_file:
+        with open(args.mcp_agents_file) as fd:
+            mcp_agents_data: Any = yaml.safe_load(fd)
+
+        if not isinstance(mcp_agents_data, list):
+            raise TypeError(
+                f"Expected root element of mcp_agents_file to be a list but found: {type(mcp_agents_data)}"
+            )
+
+        for value in mcp_agents_data:  # type: ignore
+            mcp_agent = McpAgentConfig.model_validate(value)
+            mcp_agents.append(mcp_agent)
+            logger.info(
+                f"Loaded MCP Agent '{mcp_agent.name}' with MCP Servers [{', '.join(server.server_name for server in mcp_agent.mcp_servers)}]"
+            )
+
     # Add a basic signal handler to log as soon as SIGINT is received
     def signal_handler(sig: int, frame: types.FrameType | None) -> Any:
         logger.info("magentic-ui cli caught SIGINT...")
@@ -430,6 +462,7 @@ def main() -> None:
             else task,
             hints=args.metadata_hints if args.user_proxy_type == "metadata" else None,
             answer=args.metadata_answer if args.user_proxy_type == "metadata" else None,
+            mcp_agents=mcp_agents,
         )
     )
 

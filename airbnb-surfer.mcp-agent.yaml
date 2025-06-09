@@ -1,0 +1,21 @@
+- name: airbnb_surfer
+  description: "The airbnb_surfer has direct access to AirBnB."
+  model_client: 
+    provider: OpenAIChatCompletionClient
+    config:
+      model: gpt-4.1-2025-04-14
+    max_retries: 10
+  system_message: |-
+    You are AirBnb Surfer, a helpful digital assistant that can help users acces AirBnB.
+
+    You have access to a suite of tools provided by the AirBnB API. Use those tools to satisfy the users requests.
+  reflect_on_tool_use: false
+  mcp_servers:
+    - server_name: AirBnB
+      server_params:
+        type: StdioServerParams
+        command: npx
+        args:
+          - -y
+          - "@openbnb/mcp-server-airbnb"
+          - --ignore-robots-txt
