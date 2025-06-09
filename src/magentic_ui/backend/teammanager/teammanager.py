@@ -158,9 +158,13 @@ class TeamManager:
                 settings_model_configs: Dict[str, Any] = {}
                 if "model_configs" in settings_config:
                     try:
-                        settings_model_configs = yaml.safe_load(settings_config["model_configs"])
+                        settings_model_configs = yaml.safe_load(
+                            settings_config["model_configs"]
+                        )
                     except Exception as e:
-                        logger.warning(f"Error loading model configs from UI. Using defaults. Inner exception: {e}")
+                        logger.warning(
+                            f"Error loading model configs from UI. Using defaults. Inner exception: {e}"
+                        )
 
                 # Use settings_config values if available, otherwise fall back to instance defaults (self.config)
                 model_client_configs = ModelClientConfigs(
@@ -184,7 +188,6 @@ class TeamManager:
                         self.config.get("action_guard_client", None),
                     ),
                 )
-
 
                 magentic_ui_config = MagenticUIConfig(
                     **{
