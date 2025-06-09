@@ -83,7 +83,7 @@ exclude = ["src/benchmarks/assistantbench"]
 allow-direct-references = true
 
 [tool.poe.tasks]
-fmt = "ruff format src"
+fmt = "ruff format src tests samples"
 format.ref = "fmt src"
 lint = "ruff check src"
 mypy = "mypy src"
