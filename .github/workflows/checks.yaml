@@ -24,7 +24,7 @@ jobs:
           version: "0.5.18"
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version-file: ".python-version"
       - run: uv sync --all-extras
         working-directory: .
       - name: Run task
@@ -45,7 +45,7 @@ jobs:
           version: "0.5.18"
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version-file: ".python-version"
       - run: uv sync --all-extras
         working-directory: .
       - name: Run task
@@ -64,7 +64,7 @@ jobs:
           version: "0.5.18"
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version-file: ".python-version"
       - run: uv sync --all-extras
         working-directory: .
       - name: Run task
@@ -82,7 +82,7 @@ jobs:
           version: "0.5.18"
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version-file: ".python-version"
       - run: uv sync --all-extras
         working-directory: .
       - name: Run tests
