@@ -21,7 +21,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-          version: "0.5.18"
+          version: "0.7.11"
       - uses: actions/setup-python@v5
         with:
           python-version-file: ".python-version"
@@ -42,7 +42,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-          version: "0.5.18"
+          version: "0.7.11"
       - uses: actions/setup-python@v5
         with:
           python-version-file: ".python-version"
@@ -61,7 +61,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-          version: "0.5.18"
+          version: "0.7.11"
       - uses: actions/setup-python@v5
         with:
           python-version-file: ".python-version"
@@ -79,7 +79,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-          version: "0.5.18"
+          version: "0.7.11"
       - uses: actions/setup-python@v5
         with:
           python-version-file: ".python-version"
