@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
-import builtins
-import inspect
 import json
 import logging
 import re
 import sys
 import textwrap
 import warnings
-from typing import Any, AsyncGenerator, Dict, Optional, Set
+from typing import Any, AsyncGenerator, Dict, Optional
 
 from autogen_agentchat.base import Response, TaskResult
 from autogen_agentchat.messages import BaseAgentEvent, BaseChatMessage
@@ -38,17 +35,41 @@ INFO_REGEX = re.compile(
     r"|".join(
         [
             r"Task received:",
-            r"Analyzing", r"Submitting", r"Reviewing", r"checks passed",
-            r"Deciding which agent", r"Received task:", r"Searching for",
-            r"Processing", r"Executing", r"Reading file", r"Writing to",
-            r"Running", r"Starting", r"Completed", r"Looking up", r"Loading",
-            r"Generating", r"Creating", r"Downloading", r"Installing",
-            r"Checking", r"Fetching", r"Exploring", r"Building", r"Setting up",
-            r"Finding", r"Identifying", r"Testing", r"Compiling",
-            r"Validating", r"Cloning",
+            r"Analyzing",
+            r"Submitting",
+            r"Reviewing",
+            r"checks passed",
+            r"Deciding which agent",
+            r"Received task:",
+            r"Searching for",
+            r"Processing",
+            r"Executing",
+            r"Reading file",
+            r"Writing to",
+            r"Running",
+            r"Starting",
+            r"Completed",
+            r"Looking up",
+            r"Loading",
+            r"Generating",
+            r"Creating",
+            r"Downloading",
+            r"Installing",
+            r"Checking",
+            r"Fetching",
+            r"Exploring",
+            r"Building",
+            r"Setting up",
+            r"Finding",
+            r"Identifying",
+            r"Testing",
+            r"Compiling",
+            r"Validating",
+            r"Cloning",
         ]
     )
 )
+
 
 # ╭────────────────────────────────────────────────────────────────────────────╮
 # │  Helper utilities                                                          │
@@ -80,6 +101,7 @@ def try_parse_json(raw: str) -> tuple[bool, Any]:
 # │  Pretty‑printers                                                           │
 # ╰────────────────────────────────────────────────────────────────────────────╯
 
+
 def format_info_line(msg: str) -> str:
     return f"{BOLD}{GREEN}[INFO]{RESET} {UNDERLINE}{msg}{RESET}"
 
@@ -106,6 +128,7 @@ _AGENT_COLORS = {
 }
 _COLOR_POOL = [BLUE, GREEN, YELLOW, CYAN, MAGENTA]
 
+
 def agent_color(name: str) -> str:
     ln = name.lower()
     for key, col in _AGENT_COLORS.items():
@@ -119,11 +142,11 @@ def agent_color(name: str) -> str:
 # ╰────────────────────────────────────────────────────────────────────────────╯
 def header_box(agent: str) -> str:
     """Return a symmetric ASCII box with the agent name centred."""
-    INNER = 24                         # number of "═" characters (and usable chars in mid line)
+    INNER = 24  # number of "═" characters (and usable chars in mid line)
 
     colour = agent_color(agent)
-    text   = agent.upper()[:INNER]     # truncate if the name is longer than the box
-    pad    = INNER - len(text)
+    text = agent.upper()[:INNER]  # truncate if the name is longer than the box
+    pad = INNER - len(text)
     left, right = pad // 2, pad - pad // 2
 
     top = f"{BOLD}{colour}╔{'═' * INNER}╗"
@@ -145,6 +168,7 @@ def transition_line(prev: str, curr: str) -> str:
 # │  JSON pretty printer                                                       │
 # ╰────────────────────────────────────────────────────────────────────────────╯
 
+
 def pretty_print_json(raw: str, colour: str) -> bool:
     ok, obj = try_parse_json(raw)
     if not ok or obj in ([], {}):
@@ -153,7 +177,7 @@ def pretty_print_json(raw: str, colour: str) -> bool:
     width = _terminal_width()
     left = f"{colour}┃{RESET} "
     indent_json = json.dumps(obj, indent=2, ensure_ascii=False)
-    indent_json = re.sub(r'"([^"\\]+)":', fr'"{BOLD}\1{RESET}":', indent_json)
+    indent_json = re.sub(r'"([^"\\]+)":', rf'"{BOLD}\1{RESET}":', indent_json)
 
     print()  # top spacer
     for line in indent_json.splitlines():
@@ -163,7 +187,9 @@ def pretty_print_json(raw: str, colour: str) -> bool:
             lead = len(line) - len(line.lstrip())
             body = line[lead:]
             for i, chunk in enumerate(
-                textwrap.wrap(body, width=width - len(left) - lead, break_long_words=False)
+                textwrap.wrap(
+                    body, width=width - len(left) - lead, break_long_words=False
+                )
             ):
                 prefix = " " * lead if i else ""
                 print(f"{left}{prefix}{chunk}")
@@ -175,6 +201,7 @@ def pretty_print_json(raw: str, colour: str) -> bool:
 # │  Plan & step formatters                                                    │
 # ╰────────────────────────────────────────────────────────────────────────────╯
 
+
 def format_plan(obj: dict[str, Any], colour: str) -> None:
     width = _terminal_width()
     left = f"{colour}┃{RESET} "
@@ -184,13 +211,13 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
         for ln in textwrap.wrap(text, body_w - indent):
             print(f"{left}{' ' * indent}{ln}")
 
-    # Task / title 
+    # Task / title
     if "task" in obj:
         print(f"{left}{BOLD}Task:{RESET} {obj['task']}")
     elif "title" in obj:
         print(f"{left}{BOLD}Plan:{RESET} {obj['title']}")
 
-    # Summary 
+    # Summary
     if obj.get("plan_summary"):
         print()  # tail spacer
         print(f"{left}{BOLD}Plan Summary:{RESET}")
@@ -216,12 +243,14 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
                     print(f"{left}{' ' * 5}{BOLD}Progress:{RESET}")
                     _wrap(step["progress_summary"], 7)
                 if step.get("agent_name"):
-                    print(f"{left}{' ' * 5}{BOLD}Agent:{RESET} {step['agent_name'].upper()}")
+                    print(
+                        f"{left}{' ' * 5}{BOLD}Agent:{RESET} {step['agent_name'].upper()}"
+                    )
 
         # Always show acceptance prompt for full plans
         print()  # tail spacer
         print(f"{BOLD}{YELLOW}Type 'accept' to proceed or describe changes:{RESET}")
-        
+
     # Single‑step orchestrator JSON (title/index style)
     elif {"title", "index", "agent_name"}.issubset(obj):
         idx = obj["index"] + 1 if isinstance(obj.get("index"), int) else obj["index"]
@@ -236,9 +265,9 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
         if obj.get("progress_summary"):
             print(f"{left}{BOLD}Progress:{RESET}")
             _wrap(obj["progress_summary"])
-        
+
         print()  # tail spacer
-        
+
         # Only show the prompt if this is a user proxy agent interaction
         if is_user_proxy:
             print(f"{BOLD}{YELLOW}Type 'accept' to proceed or describe changes:{RESET}")
@@ -258,7 +287,7 @@ def pretty_print_plan(raw: str, colour: str) -> bool:
     return False
 
 
-# Step formatter (simple schema: {step, content}) 
+# Step formatter (simple schema: {step, content})
 def try_format_step(raw: str, colour: str) -> bool:
     ok, obj = try_parse_json(raw)
     if not ok or not {"step", "content"}.issubset(obj):
@@ -287,12 +316,12 @@ async def _PrettyConsole(
     previous_agent: Optional[str] = None
     last_processed: Any = None
 
-    # Quiet libraries unless debugging 
+    # Quiet libraries unless debugging
     if not debug:
         warnings.filterwarnings("ignore")
         logging.disable(logging.CRITICAL)
 
-    # Streamline stdout/stderr filtering 
+    # Streamline stdout/stderr filtering
     class _LogFilter:
         def __init__(self, dbg: bool):
             self.dbg = dbg
@@ -322,7 +351,6 @@ async def _PrettyConsole(
     sys.stderr = _Gate(debug, gate)
     sys.__stdout__ = sys.__stdout__  # keep a reference for raw writes
 
-   
     async def process(msg: BaseChatMessage | BaseAgentEvent | TaskResult | Response):
         nonlocal current_agent, previous_agent, last_processed
         last_processed = msg
@@ -380,7 +408,7 @@ async def _PrettyConsole(
                     f"║     SESSION COMPLETE    ║\n"
                     f"╚═════════════════════════╝{RESET}\n"
                 )
-            # Fallback unknown type 
+            # Fallback unknown type
             else:
                 print(f"{BOLD}{RED}[WARN]{RESET} Unhandled message type: {type(msg)}")
 

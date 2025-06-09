@@ -22,6 +22,7 @@ BOLD = "\033[1m"
 RESET = "\033[0m"
 MAGENTA = "\033[35m"
 
+
 # Simple debug logging helper - no formatting, just output
 # This lets the StylizedConsole handle all the formatting consistently
 def log_debug(msg: str, debug: bool = False) -> None:
@@ -29,6 +30,7 @@ def log_debug(msg: str, debug: bool = False) -> None:
     if debug:
         # Simple logging - StylizedConsole will handle formatting
         print(f"DEBUG: {msg}")
+
 
 logging.basicConfig(level=logging.WARNING, handlers=[])
 logger_llm = logging.getLogger(EVENT_LOGGER_NAME)
@@ -44,23 +46,32 @@ async def cancellable_input(
 ) -> str:
     # Copied from autogen_agentchat.agents.UserProxyAgent
     assert input_type in ["text_input", "approval"]
-    log_debug(f"Starting cancellable_input with type: {input_type}", getattr(cancellation_token, "_debug", False))
-    
+    log_debug(
+        f"Starting cancellable_input with type: {input_type}",
+        getattr(cancellation_token, "_debug", False),
+    )
+
     # Suppress the "Enter your response:" prompt which appears at the wrong time in the UI
     if prompt.strip() == "Enter your response:":
         prompt = ""
-    
+
     # Add a newline before the prompt to ensure it appears on a new line
     # This fixes the issue where the prompt appears on the same line as previous output
     if input_type == "text_input" and not prompt.startswith("\n"):
         prompt = f"\n{prompt}"
-    
+
     task: asyncio.Task[str] = asyncio.create_task(asyncio.to_thread(input, prompt))
     if cancellation_token is not None:
-        log_debug("Linking cancellation token to input task", getattr(cancellation_token, "_debug", False))
+        log_debug(
+            "Linking cancellation token to input task",
+            getattr(cancellation_token, "_debug", False),
+        )
         cancellation_token.link_future(task)
     result = await task
-    log_debug(f"Cancellable input completed with result length: {len(result)}", getattr(cancellation_token, "_debug", False))
+    log_debug(
+        f"Cancellable input completed with result length: {len(result)}",
+        getattr(cancellation_token, "_debug", False),
+    )
     return result
 
 
@@ -106,9 +117,15 @@ async def get_team(
     use_pretty_ui: bool = True,
 ) -> None:
     log_debug("=== Starting get_team function ===", debug)
-    log_debug(f"Args: cooperative_planning={cooperative_planning}, autonomous_execution={autonomous_execution}, reset={reset}", debug)
-    log_debug(f"Args: inside_docker={inside_docker}, action_policy={action_policy}, user_proxy_type={user_proxy_type}", debug)
-    
+    log_debug(
+        f"Args: cooperative_planning={cooperative_planning}, autonomous_execution={autonomous_execution}, reset={reset}",
+        debug,
+    )
+    log_debug(
+        f"Args: inside_docker={inside_docker}, action_policy={action_policy}, user_proxy_type={user_proxy_type}",
+        debug,
+    )
+
     if reset:
         print(f"Resetting state file: {state_file}")
         # delete the state file if it exists
@@ -122,10 +139,16 @@ async def get_team(
         # Use environment variables as fallback if paths not provided
         if internal_workspace_root is None:
             internal_workspace_root = os.environ.get("INTERNAL_WORKSPACE_ROOT")
-            log_debug(f"Using INTERNAL_WORKSPACE_ROOT from env: {internal_workspace_root}", debug)
+            log_debug(
+                f"Using INTERNAL_WORKSPACE_ROOT from env: {internal_workspace_root}",
+                debug,
+            )
         if external_workspace_root is None:
             external_workspace_root = os.environ.get("EXTERNAL_WORKSPACE_ROOT")
-            log_debug(f"Using EXTERNAL_WORKSPACE_ROOT from env: {external_workspace_root}", debug)
+            log_debug(
+                f"Using EXTERNAL_WORKSPACE_ROOT from env: {external_workspace_root}",
+                debug,
+            )
 
         if not internal_workspace_root or not external_workspace_root:
             error_msg = "When running inside docker, both internal and external workspace root paths must be provided either via arguments or environment variables"
@@ -146,7 +169,9 @@ async def get_team(
             internal_run_dir=Path(cli_files_path),
             external_run_dir=Path(os.path.join(external_workspace_root, "cli_files")),
         )
-        log_debug(f"RunPaths created with internal_root_dir: {paths.internal_root_dir}", debug)
+        log_debug(
+            f"RunPaths created with internal_root_dir: {paths.internal_root_dir}", debug
+        )
     else:
         log_debug("Running outside Docker container", debug)
         if not work_dir:
@@ -169,15 +194,16 @@ async def get_team(
             internal_run_dir=work_dir_files,
             external_run_dir=work_dir_files,
         )
-        log_debug(f"RunPaths created with internal/external run dirs", debug)
+        log_debug("RunPaths created with internal/external run dirs", debug)
 
     client_config_dict: dict[str, Any] = {}
     if client_config:
         log_debug(f"Loading client configuration from: {client_config}", debug)
         with open(client_config, "r") as f:
             client_config_dict = yaml.safe_load(f)
-            log_debug(f"Client config loaded with {len(client_config_dict)} keys", debug)
-
+            log_debug(
+                f"Client config loaded with {len(client_config_dict)} keys", debug
+            )
 
     # sets the configurations for each different agent
     model_client_configs = ModelClientConfigs(
@@ -206,14 +232,17 @@ async def get_team(
         answer=answer,
         inside_docker=inside_docker,
     )
-    log_debug(f"MagenticUIConfig created with planning={cooperative_planning}, execution={autonomous_execution}", debug)
+    log_debug(
+        f"MagenticUIConfig created with planning={cooperative_planning}, execution={autonomous_execution}",
+        debug,
+    )
 
     log_debug("Starting team creation", debug)
 
     # Creates and returns a RoundRobinGroupChat or a GroupChat with the passed configs
     log_debug("Calling get_task_team to create team object", debug)
     team = await get_task_team(
-        magentic_ui_config=magentic_ui_config, 
+        magentic_ui_config=magentic_ui_config,
         input_func=cancellable_input,
         paths=paths,
     )
@@ -226,8 +255,6 @@ async def get_team(
         display_magentic_ui_logo()
     log_debug("Logo displayed", debug)
 
-    
-
     try:
         if state_file and os.path.exists(state_file) and not reset:
             state = None
@@ -236,14 +263,14 @@ async def get_team(
             with open(state_file, "r") as f:
                 state = json.load(f)
                 log_debug("State loaded successfully", debug)
-                #print("State: ", state)
+                # print("State: ", state)
             log_debug("Calling team.load_state with loaded state", debug)
             await team.load_state(state)
             log_debug("State loading completed", debug)
-           
+
         if not task:
             log_debug("No task provided, prompting user for input", debug)
-            
+
             def flushed_input(prompt: str) -> str:
                 # Prompt for input, but flush the prompt to ensure it appears immediately
                 print(prompt, end="", flush=True)
@@ -253,16 +280,24 @@ async def get_team(
 
             log_debug("Creating input task in event loop", debug)
             task = await asyncio.get_event_loop().run_in_executor(
-                None, flushed_input, f"{MAGENTA}{BOLD}Enter your task (or press Ctrl+C to cancel):  {RESET}"
+                None,
+                flushed_input,
+                f"{MAGENTA}{BOLD}Enter your task (or press Ctrl+C to cancel):  {RESET}",
             )
             log_debug("User input task completed", debug)
 
-        log_debug(f"Task to execute: {task[:50]}{'...' if task and len(task) > 50 else ''}", debug)
+        log_debug(
+            f"Task to execute: {task[:50]}{'...' if task and len(task) > 50 else ''}",
+            debug,
+        )
 
         log_debug("Creating team run stream with task", debug)
         stream = team.run_stream(task=task)
-        log_debug(f"Stream created, passing to {'PrettyConsole' if use_pretty_ui else 'Console'} with debug={debug}", debug)
-        
+        log_debug(
+            f"Stream created, passing to {'PrettyConsole' if use_pretty_ui else 'Console'} with debug={debug}",
+            debug,
+        )
+
         # Use PrettyConsole or the regular console based on the use_pretty_ui parameter
         if use_pretty_ui:
             await PrettyConsole(stream, debug=debug)
@@ -272,9 +307,12 @@ async def get_team(
                 await Console(stream, debug=debug)
             except TypeError:
                 # If Console doesn't accept debug parameter, call it without debug
-                log_debug("Console doesn't accept debug parameter, using default Console", debug)
+                log_debug(
+                    "Console doesn't accept debug parameter, using default Console",
+                    debug,
+                )
                 await Console(stream)
-            
+
         log_debug("Console processing completed", debug)
 
         log_debug("Saving team state", debug)
@@ -311,7 +349,6 @@ def display_magentic_ui_logo():
 
 
 def main() -> None:
-    
     parser = argparse.ArgumentParser(description="Magentic-UI CLI")
     parser.add_argument(
         "--disable-planning",
@@ -461,13 +498,12 @@ def main() -> None:
         help="Use the old console without fancy formatting for slightly better performance (default: use pretty terminal)",
     )
 
-    
     args = parser.parse_args()
     log_debug(f"Command line arguments parsed: debug={args.debug}", args.debug)
-    
+
     # Set debug attribute on cancellation tokens for nested debug printing
     CancellationToken._debug = args.debug
-    
+
     # Show summary of important arguments when debug is enabled
     if args.debug:
         log_debug(f"Cooperative planning: {args.cooperative_planning}", args.debug)
@@ -481,7 +517,9 @@ def main() -> None:
         log_debug(f"Config file: {args.config}", args.debug)
         log_debug(f"User proxy type: {args.user_proxy_type}", args.debug)
         log_debug(f"LLM log directory: {args.llmlog_dir}", args.debug)
-        log_debug(f"Console mode: {'Pretty' if args.use_pretty_ui else 'Old'}", args.debug)
+        log_debug(
+            f"Console mode: {'Pretty' if args.use_pretty_ui else 'Old'}", args.debug
+        )
 
     # Validate user proxy type
     log_debug("Validating user proxy type", args.debug)
@@ -520,9 +558,13 @@ def main() -> None:
     if not client_config:
         if os.path.isfile("config.yaml"):
             client_config = "config.yaml"
-            log_debug("Using default config.yaml file found in current directory", args.debug)
+            log_debug(
+                "Using default config.yaml file found in current directory", args.debug
+            )
         else:
-            log_debug("No config file provided or found. Using default settings.", args.debug)
+            log_debug(
+                "No config file provided or found. Using default settings.", args.debug
+            )
             logger.info("Config file not provided. Using default settings.")
 
     # Expand the task and final answer prompt
@@ -532,33 +574,54 @@ def main() -> None:
         if args.task == "-":
             log_debug("Reading task from stdin", args.debug)
             task = sys.stdin.buffer.read().decode("utf-8")
-            log_debug(f"Task read from stdin, length: {len(task if task else '')}", args.debug)
+            log_debug(
+                f"Task read from stdin, length: {len(task if task else '')}", args.debug
+            )
         elif os.path.isfile(args.task):
             log_debug(f"Reading task from file: {args.task}", args.debug)
             with open(args.task, "r") as f:
                 task = f.read()
-                log_debug(f"Task read from file, length: {len(task if task else '')}", args.debug)
+                log_debug(
+                    f"Task read from file, length: {len(task if task else '')}",
+                    args.debug,
+                )
         else:
             log_debug("Using task from command line argument", args.debug)
             task = args.task
-            log_debug(f"Task from argument, length: {len(task if task else '')}", args.debug)
+            log_debug(
+                f"Task from argument, length: {len(task if task else '')}", args.debug
+            )
 
     log_debug("Processing final answer prompt", args.debug)
     final_answer_prompt: str | None = None
     if args.final_answer_prompt:
         if os.path.isfile(args.final_answer_prompt):
-            log_debug(f"Reading final answer prompt from file: {args.final_answer_prompt}", args.debug)
+            log_debug(
+                f"Reading final answer prompt from file: {args.final_answer_prompt}",
+                args.debug,
+            )
             with open(args.final_answer_prompt, "r") as f:
                 final_answer_prompt = f.read()
-                log_debug(f"Final answer prompt read from file, length: {len(final_answer_prompt if final_answer_prompt else '')}", args.debug)
+                log_debug(
+                    f"Final answer prompt read from file, length: {len(final_answer_prompt if final_answer_prompt else '')}",
+                    args.debug,
+                )
         else:
-            log_debug("Using final answer prompt from command line argument", args.debug)
+            log_debug(
+                "Using final answer prompt from command line argument", args.debug
+            )
             final_answer_prompt = args.final_answer_prompt
-            log_debug(f"Final answer prompt from argument, length: {len(final_answer_prompt if final_answer_prompt else '')}", args.debug)
+            log_debug(
+                f"Final answer prompt from argument, length: {len(final_answer_prompt if final_answer_prompt else '')}",
+                args.debug,
+            )
 
     # Set up autonomous execution mode if requested
     if args.autonomous:
-        log_debug("Autonomous mode enabled, setting autonomous_execution=True and cooperative_planning=False", args.debug)
+        log_debug(
+            "Autonomous mode enabled, setting autonomous_execution=True and cooperative_planning=False",
+            args.debug,
+        )
         args.autonomous_execution = True
         args.cooperative_planning = False
 
