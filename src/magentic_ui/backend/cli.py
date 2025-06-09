@@ -21,9 +21,7 @@ logging.basicConfig(level=logging.ERROR)
 
 # Create a Typer application instance with a descriptive help message
 # This is the main entry point for CLI commands
-app = typer.Typer(
-    help="Magentic-UI: A human-centered interface for web agents."
-)
+app = typer.Typer(help="Magentic-UI: A human-centered interface for web agents.")
 
 # Ignore deprecation warnings from websockets
 warnings.filterwarnings("ignore", message="websockets.legacy is deprecated*")
@@ -40,7 +38,7 @@ def get_env_file_path():
     """
     Create a temporary environment file path in the user's home directory.
     Used to pass environment variables to Uvicorn workers.
-    
+
     Returns:
         str: The full path to the temporary environment file
     """
@@ -91,7 +89,7 @@ def main(
     if version:
         typer.echo(f"Magentic-UI version: {VERSION}")
         raise typer.Exit()
-        
+
     # This conditional checks if a subcommand was provided
     # If no subcommand was specified (e.g., just 'magentic-ui'), run the UI
     if ctx.invoked_subcommand is None:
@@ -124,7 +122,7 @@ def run_ui(
     """
     Core logic to run the Magentic-UI web application.
     This function is used by both the main entry point and the legacy 'ui' command.
-    
+
     Args:
         host (str, optional): Host to run the UI on. Defaults to 127.0.0.1 (localhost).
         port (int, optional): Port to run the UI on. Defaults to 8081.
@@ -270,6 +268,32 @@ def version():
     Print the version of the Magentic-UI backend CLI.
     """
     typer.echo(f"Magentic-UI version: {VERSION}")
+
+
+@app.command(hidden=True)
+def help():
+    """
+    Show help information about available commands and options.
+    """
+    # Use a system call to run the command with --help
+    import subprocess
+    import sys
+    import os
+
+    # Get the command that was used to run this script
+    command = os.path.basename(sys.argv[0])
+
+    # If running directly as a module, use the appropriate command name
+    if command == "python" or command == "python3":
+        command = "magentic-ui"
+
+    # Run the command with --help
+    try:
+        subprocess.run([command, "--help"])
+    except FileNotFoundError:
+        # Fallback if the command isn't found in PATH
+        typer.echo(f"Error: Command '{command}' not found in PATH.")
+        typer.echo(f"For more information, run `{command} --help`")
 
 
 def run():
