@@ -10,14 +10,17 @@ import types
 import yaml
 from typing import Any, Optional, Literal, cast
 from autogen_core import EVENT_LOGGER_NAME, CancellationToken
-from .ui import StylizedConsole
-from autogen_agentchat.ui import Console
+from .ui import PrettyConsole, Console
 from .task_team import get_task_team
 from loguru import logger
 import logging
 from .utils import LLMCallFilter
 from .types import RunPaths
 from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
+
+BOLD = "\033[1m"
+RESET = "\033[0m"
+MAGENTA = "\033[35m"
 
 # Simple debug logging helper - no formatting, just output
 # This lets the StylizedConsole handle all the formatting consistently
@@ -42,6 +45,10 @@ async def cancellable_input(
     # Copied from autogen_agentchat.agents.UserProxyAgent
     assert input_type in ["text_input", "approval"]
     log_debug(f"Starting cancellable_input with type: {input_type}", getattr(cancellation_token, "_debug", False))
+    
+    # Suppress the "Enter your response:" prompt which appears at the wrong time in the UI
+    if prompt.strip() == "Enter your response:":
+        prompt = ""
     
     # Add a newline before the prompt to ensure it appears on a new line
     # This fixes the issue where the prompt appears on the same line as previous output
@@ -96,6 +103,7 @@ async def get_team(
     task_metadata: str | None = None,
     hints: str | None = None,
     answer: str | None = None,
+    use_pretty_ui: bool = True,
 ) -> None:
     log_debug("=== Starting get_team function ===", debug)
     log_debug(f"Args: cooperative_planning={cooperative_planning}, autonomous_execution={autonomous_execution}, reset={reset}", debug)
@@ -200,7 +208,6 @@ async def get_team(
     )
     log_debug(f"MagenticUIConfig created with planning={cooperative_planning}, execution={autonomous_execution}", debug)
 
-    print("CREATING THE TEAM")
     log_debug("Starting team creation", debug)
 
     # Creates and returns a RoundRobinGroupChat or a GroupChat with the passed configs
@@ -213,10 +220,10 @@ async def get_team(
     log_debug(f"Team created with type: {type(team).__name__}", debug)
 
     # Team is a RoundRobinGroupChat or GroupChat instance
-    print("TEAM CREATED")
     log_debug("Team creation completed successfully", debug)
 
-    display_magentic_ui_logo()
+    if use_pretty_ui:
+        display_magentic_ui_logo()
     log_debug("Logo displayed", debug)
 
     
@@ -224,7 +231,6 @@ async def get_team(
     try:
         if state_file and os.path.exists(state_file) and not reset:
             state = None
-            print(f"Loading state from {state_file}")
             log_debug(f"Loading state from: {state_file}", debug)
 
             with open(state_file, "r") as f:
@@ -234,14 +240,12 @@ async def get_team(
             log_debug("Calling team.load_state with loaded state", debug)
             await team.load_state(state)
             log_debug("State loading completed", debug)
-
+           
         if not task:
             log_debug("No task provided, prompting user for input", debug)
             
             def flushed_input(prompt: str) -> str:
                 # Prompt for input, but flush the prompt to ensure it appears immediately
-                log_debug("Requesting user input with flushed prompt", debug)
-                print("Enter your task (or press Ctrl+C to cancel): ", end="", flush=True)
                 print(prompt, end="", flush=True)
                 user_input = input()
                 log_debug(f"User input received, length: {len(user_input)}", debug)
@@ -249,18 +253,29 @@ async def get_team(
 
             log_debug("Creating input task in event loop", debug)
             task = await asyncio.get_event_loop().run_in_executor(
-                None, flushed_input, ">: "
+                None, flushed_input, f"{MAGENTA}{BOLD}Enter your task (or press Ctrl+C to cancel):  {RESET}"
             )
             log_debug("User input task completed", debug)
 
-        print("Task received: ", task)
         log_debug(f"Task to execute: {task[:50]}{'...' if task and len(task) > 50 else ''}", debug)
 
         log_debug("Creating team run stream with task", debug)
         stream = team.run_stream(task=task)
-        log_debug(f"Stream created, passing to StylizedConsole with debug={debug}", debug)
-        await StylizedConsole(stream, debug=debug)
-        log_debug("StylizedConsole processing completed", debug)
+        log_debug(f"Stream created, passing to {'PrettyConsole' if use_pretty_ui else 'Console'} with debug={debug}", debug)
+        
+        # Use PrettyConsole or the regular console based on the use_pretty_ui parameter
+        if use_pretty_ui:
+            await PrettyConsole(stream, debug=debug)
+        else:
+            try:
+                # Try to pass debug parameter to Console
+                await Console(stream, debug=debug)
+            except TypeError:
+                # If Console doesn't accept debug parameter, call it without debug
+                log_debug("Console doesn't accept debug parameter, using default Console", debug)
+                await Console(stream)
+            
+        log_debug("Console processing completed", debug)
 
         log_debug("Saving team state", debug)
         state = await team.save_state()
@@ -281,10 +296,6 @@ async def get_team(
 def display_magentic_ui_logo():
     """Display the MAGENTIC UI entry text."""
 
-    BOLD = "\033[1m"
-    RESET = "\033[0m"
-    MAGENTA = "\033[35m"
-    
     magentic_logo = f"""{MAGENTA}{BOLD}
 ╔═══════════════════════════════════════════════════════════════════╗
 ║    __  __    _    ____ _____ _   _ _____ ___ ____    _   _ ___    ║
@@ -300,7 +311,7 @@ def display_magentic_ui_logo():
 
 
 def main() -> None:
-    log_debug("=== Starting Magentic-UI CLI ===", True)
+    
     parser = argparse.ArgumentParser(description="Magentic-UI CLI")
     parser.add_argument(
         "--disable-planning",
@@ -442,8 +453,15 @@ def main() -> None:
         default="never",
         help="ActionGuard policy ('always', 'never', 'auto-conservative', 'auto-permissive'; default: never)",
     )
+    parser.add_argument(
+        "--old-cli",
+        dest="use_pretty_ui",
+        action="store_false",
+        default=True,
+        help="Use the old console without fancy formatting for slightly better performance (default: use pretty terminal)",
+    )
 
-    log_debug("Parsing command line arguments", True)
+    
     args = parser.parse_args()
     log_debug(f"Command line arguments parsed: debug={args.debug}", args.debug)
     
@@ -463,6 +481,7 @@ def main() -> None:
         log_debug(f"Config file: {args.config}", args.debug)
         log_debug(f"User proxy type: {args.user_proxy_type}", args.debug)
         log_debug(f"LLM log directory: {args.llmlog_dir}", args.debug)
+        log_debug(f"Console mode: {'Pretty' if args.use_pretty_ui else 'Old'}", args.debug)
 
     # Validate user proxy type
     log_debug("Validating user proxy type", args.debug)
@@ -578,12 +597,11 @@ def main() -> None:
             else task,
             hints=args.metadata_hints if args.user_proxy_type == "metadata" else None,
             answer=args.metadata_answer if args.user_proxy_type == "metadata" else None,
+            use_pretty_ui=args.use_pretty_ui,
         )
     )
     log_debug("Asyncio event loop and get_team function completed", args.debug)
 
 
 if __name__ == "__main__":
-    log_debug("CLI started via __main__", True)
     main()
-    log_debug("CLI execution completed", True)
