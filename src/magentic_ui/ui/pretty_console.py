@@ -379,7 +379,7 @@ async def _PrettyConsole(
                     f"\n{BOLD}{MAGENTA}╔═════════════════════════╗\n"
                     f"║     SESSION COMPLETE    ║\n"
                     f"╚═════════════════════════╝{RESET}\n"
-            
+                )
             # Fallback unknown type 
             else:
                 print(f"{BOLD}{RED}[WARN]{RESET} Unhandled message type: {type(msg)}")
