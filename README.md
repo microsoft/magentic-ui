@@ -185,6 +185,13 @@ If you face further issues, please refer to the [TROUBLESHOOTING.md](TROUBLESHOO
 
 Once the server is running, you can access the UI at <http://localhost:8081>.
 
+
+You can also run a command line interface (CLI) for Magentic-UI with the command:
+
+```bash
+magentic-cli --work-dir PATH_TO_STORE_LOGS
+```
+
 ### Custom Client Configuration
 
 If you want to use a different OpenAI key, or if you want to configure use with Azure OpenAI or Ollama, you can do so inside the UI by navigating to settings (top right icon) and changing model configuration with the format of the `config.yaml` file below. You can also create a `config.yaml` and import it inside the UI or point Magentic-UI to its path at startup time: 

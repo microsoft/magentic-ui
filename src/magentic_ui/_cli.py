@@ -96,6 +96,7 @@ def setup_llm_logging(log_dir: str) -> None:
 async def get_team(
     cooperative_planning: bool,
     autonomous_execution: bool,
+    work_dir: str,
     reset: bool = False,
     task: str | None = None,
     final_answer_prompt: str | None = None,
@@ -106,7 +107,6 @@ async def get_team(
     playwright_port: int = -1,
     novnc_port: int = -1,
     inside_docker: bool = False,
-    work_dir: str | None = None,
     model_context_token_limit: int = 128000,
     client_config: str | None = None,
     action_policy: ApprovalPolicy = "never",
@@ -347,95 +347,11 @@ def display_magentic_ui_logo():
 def main() -> None:
     parser = argparse.ArgumentParser(description="Magentic-UI CLI")
     parser.add_argument(
-        "--disable-planning",
-        dest="cooperative_planning",
-        action="store_false",
-        default=True,
-        help="Disable co-planning mode (default: enabled), user will not be involved in the planning process",
-    )
-    parser.add_argument(
-        "--autonomous-execution",
-        dest="autonomous_execution",
-        action="store_true",
-        default=False,
-        help="Enable autonomous execution mode (default: disabled), user will not be involved in the execution",
-    )
-    parser.add_argument(
-        "--autonomous",
-        dest="autonomous",
-        action="store_true",
-        default=False,
-        help="Enable autonomous mode (default: disabled), no co-planning and no human involvment in execution",
-    )
-    parser.add_argument(
-        "--reset",
-        dest="reset",
-        action="store_true",
-        default=False,
-        help="Reset the team state before running the task otherwise continue with the previous state (default: False)",
-    )
-    parser.add_argument(
-        "--task",
-        dest="task",
-        type=str,
-        default="",
-        help="Specifies the initial task. If a plain string, use this input verbatim. If the string matches a filename, read the initial task from a file. Use '-' to read from stdin. (default: prompt's the user for the task)",
-    )
-    parser.add_argument(
-        "--final-answer-prompt",
-        dest="final_answer_prompt",
-        type=str,
-        default="",
-        help="Overrides the final answer prompt used to summarize the conversation. If a plain string, use this input verbatim. If the string matches a filename, read the prompt from a file. (default: use orchestrator's built-in prompt)",
-    )
-    parser.add_argument(
-        "--debug",
-        dest="debug",
-        action="store_true",
-        default=False,
-        help="Enable debug mode to show internal messages and detailed agent interactions (default: disabled)",
-    )
-    parser.add_argument(
-        "--internal-root",
-        dest="internal_workspace_root",
-        type=str,
-        default=None,
-        help="Internal workspace root directory path (default: use INTERNAL_WORKSPACE_ROOT environment variable)",
-    )
-    parser.add_argument(
-        "--external-root",
-        dest="external_workspace_root",
-        type=str,
-        default=None,
-        help="External workspace root directory path (default: use EXTERNAL_WORKSPACE_ROOT environment variable)",
-    )
-    parser.add_argument(
-        "--playwright-port",
-        dest="playwright_port",
-        type=int,
-        default=-1,
-        help="Port to run the Playwright browser on (default: -1 means use default port)",
-    )
-    parser.add_argument(
-        "--novnc-port",
-        dest="novnc_port",
-        type=int,
-        default=-1,
-        help="Port to run the noVNC server on (default: -1 means use default port)",
-    )
-    parser.add_argument(
-        "--inside-docker",
-        dest="inside_docker",
-        action="store_true",
-        default=False,
-        help="Indicates if running inside docker container (default: False)",
-    )
-    parser.add_argument(
         "--work-dir",
         dest="work_dir",
         type=str,
-        default="./work_dir",
-        help="Working directory path when running outside docker (required if not inside docker)",
+        required=True,
+        help="Working directory path: where the team will store its state and files (required)",
     )
     parser.add_argument(
         "--config",
@@ -445,53 +361,140 @@ def main() -> None:
         help="Path to the configuration file (default: 'config.yaml')",
     )
     parser.add_argument(
+        "--debug",
+        dest="debug",
+        action="store_true",
+        default=False,
+        help="Enable debug mode to show internal messages and detailed agent interactions (default: disabled)",
+    )
+    parser.add_argument(
+        "--use-state",
+        dest="use_state",
+        action="store_true",
+        default=False,
+        help="Use and save the team state before and after running the task (default: always start fresh and do not use state)",
+    )
+
+    # Advanced options group
+    advanced = parser.add_argument_group("Advanced options")
+    advanced.add_argument(
+        "--disable-planning",
+        dest="cooperative_planning",
+        action="store_false",
+        default=True,
+        help="Disable co-planning mode (default: enabled), user will not be involved in the planning process",
+    )
+    advanced.add_argument(
+        "--autonomous-execution",
+        dest="autonomous_execution",
+        action="store_true",
+        default=False,
+        help="Enable autonomous execution mode (default: disabled), user will not be involved in the execution",
+    )
+    advanced.add_argument(
+        "--autonomous",
+        dest="autonomous",
+        action="store_true",
+        default=False,
+        help="Enable autonomous mode (default: disabled), no co-planning and no human involvment in execution",
+    )
+    advanced.add_argument(
+        "--task",
+        dest="task",
+        type=str,
+        default="",
+        help="Specifies the initial task. If a plain string, use this input verbatim. If the string matches a filename, read the initial task from a file. Use '-' to read from stdin. (default: prompt's the user for the task)",
+    )
+    advanced.add_argument(
+        "--final-answer-prompt",
+        dest="final_answer_prompt",
+        type=str,
+        default="",
+        help="Overrides the final answer prompt used to summarize the conversation. If a plain string, use this input verbatim. If the string matches a filename, read the prompt from a file. (default: use orchestrator's built-in prompt)",
+    )
+    advanced.add_argument(
+        "--internal-root",
+        dest="internal_workspace_root",
+        type=str,
+        default=None,
+        help="Deprecated: Internal workspace root directory path (default: use INTERNAL_WORKSPACE_ROOT environment variable)",
+    )
+    advanced.add_argument(
+        "--external-root",
+        dest="external_workspace_root",
+        type=str,
+        default=None,
+        help="Deprecated: External workspace root directory path (default: use EXTERNAL_WORKSPACE_ROOT environment variable)",
+    )
+    advanced.add_argument(
+        "--playwright-port",
+        dest="playwright_port",
+        type=int,
+        default=-1,
+        help="Port to run the Playwright browser on (default: -1 means use default port)",
+    )
+    advanced.add_argument(
+        "--novnc-port",
+        dest="novnc_port",
+        type=int,
+        default=-1,
+        help="Port to run the noVNC server on (default: -1 means use default port)",
+    )
+    advanced.add_argument(
+        "--inside-docker",
+        dest="inside_docker",
+        action="store_true",
+        default=False,
+        help="Deprecated:Indicates if running inside docker container (default: False)",
+    )
+    advanced.add_argument(
         "--user-proxy-type",
         dest="user_proxy_type",
         type=str,
         choices=["dummy", "metadata"],
         default=None,
-        help="Type of user proxy agent to use ('dummy', 'metadata', or None for default; default: None)",
+        help="Type of user proxy agent to use for simulations ('dummy', 'metadata', or None for default; default: None)",
     )
-    parser.add_argument(
+    advanced.add_argument(
         "--metadata-task",
         dest="metadata_task",
         type=str,
         default=None,
         help="Task description for metadata user proxy (required if user-proxy-type is 'metadata')",
     )
-    parser.add_argument(
+    advanced.add_argument(
         "--metadata-hints",
         dest="metadata_hints",
         type=str,
         default=None,
         help="Task hints for metadata user proxy (required if user-proxy-type is 'metadata')",
     )
-    parser.add_argument(
+    advanced.add_argument(
         "--metadata-answer",
         dest="metadata_answer",
         type=str,
         default=None,
         help="Task answer for metadata user proxy (required if user-proxy-type is 'metadata')",
     )
-    parser.add_argument(
+    advanced.add_argument(
         "--llmlog-dir",
         dest="llmlog_dir",
         type=str,
         help="Directory path to save LLM call logs (if not provided, LLM logging is disabled)",
     )
-    parser.add_argument(
+    advanced.add_argument(
         "--action-policy",
         dest="action_policy",
         type=str,
         default="never",
         help="ActionGuard policy ('always', 'never', 'auto-conservative', 'auto-permissive'; default: never)",
     )
-    parser.add_argument(
+    advanced.add_argument(
         "--old-cli",
         dest="use_pretty_ui",
         action="store_false",
         default=True,
-        help="Use the old console without fancy formatting for slightly better performance (default: use pretty terminal)",
+        help="Use the old console without fancy formatting (default: use pretty terminal)",
     )
 
     args = parser.parse_args()
@@ -502,7 +505,7 @@ def main() -> None:
         log_debug(f"Cooperative planning: {args.cooperative_planning}", args.debug)
         log_debug(f"Autonomous execution: {args.autonomous_execution}", args.debug)
         log_debug(f"Autonomous mode: {args.autonomous}", args.debug)
-        log_debug(f"Reset state: {args.reset}", args.debug)
+        log_debug(f"Use state: {args.use_state}", args.debug)
         log_debug(f"Task specified: {bool(args.task)}", args.debug)
         log_debug(f"Action policy: {args.action_policy}", args.debug)
         log_debug(f"Inside Docker: {args.inside_docker}", args.debug)
@@ -635,7 +638,7 @@ def main() -> None:
         get_team(
             cooperative_planning=args.cooperative_planning,
             autonomous_execution=args.autonomous_execution,
-            reset=args.reset,
+            reset=not args.use_state,  # Invert logic: if not using state, reset is True
             task=task,
             final_answer_prompt=final_answer_prompt,
             debug=args.debug,
