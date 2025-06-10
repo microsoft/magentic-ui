@@ -62,7 +62,7 @@ magentic = "magentic_ui.backend.cli:run"
 [tool.uv]
 dev-dependencies = [
     "poethepoet",
-    "pyright==1.1.389",
+    "pyright==1.1.401",
     "mypy==1.13.0",
     "ruff==0.4.8",
     "pytest_asyncio",
@@ -73,7 +73,7 @@ dev-dependencies = [
     "sphinx_rtd_theme",
     "types-aiofiles",
     "types-docker",
-    "types-PyYaml"
+    "types-PyYaml",
 ]
 
 [tool.ruff]
@@ -83,7 +83,7 @@ exclude = ["src/benchmarks/assistantbench"]
 allow-direct-references = true
 
 [tool.poe.tasks]
-fmt = "ruff format src"
+fmt = "ruff format src tests samples"
 format.ref = "fmt src"
 lint = "ruff check src"
 mypy = "mypy src"
