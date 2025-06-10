@@ -454,8 +454,11 @@ def _evaluate_single_task(
     if task is None:
         logger.info(f"Task {task_id} not found")
         return (task_id, None, duration)
-
-    candidate = system.load_answer_from_disk(task_id, question_dir)
+    try:
+        candidate = system.load_answer_from_disk(task_id, question_dir)
+    except Exception as e:
+        logger.info(f"Error loading candidate for {task_id}: {e}")
+        return (task_id, None, duration)
     if candidate is None:
         logger.info(f"No candidate found for {task_id}")
         return (task_id, None, duration)

@@ -14,6 +14,15 @@ This document lists common issues users have encountered with Magentic-UI and ho
 - Podman and other container engines are **not supported**.
 - Make sure Docker is installed and running.
 
+One possible fix for Mac/Ubuntu (especially if using Colima) is by setting environment variable for DOCKER_HOST ([see issue 81](https://github.com/microsoft/magentic-ui/issues/81), thank you to serproqnx) to point to docker.sock:
+
+```bash
+export DOCKER_HOST=unix:///home/<your-username>/.docker/desktop/docker.sock
+```
+**Note**: you might have to adjust the path to point to the correct location of docker.sock.
+
+Another possible fix on Ubuntu if docker is not running is to make sure your user is in the 'docker' group or run with sudo. 
+
 ## 2. 🚪 Port 8081 Fails to Start
 
 **Error:**  
@@ -29,6 +38,10 @@ This document lists common issues users have encountered with Magentic-UI and ho
 `build docker image Failed` or similar
 
 **Solution:**  
+- First try to rebuild the docker with the command:
+  ```bash
+  magentic ui --rebuild-docker
+  ```
 - Make sure you have a stable internet connection.
 - Update Docker to the latest version.
 - Check that you have enough disk space.
@@ -37,6 +50,7 @@ This document lists common issues users have encountered with Magentic-UI and ho
   docker build -t magentic-ui-vnc-browser:latest ./src/magentic_ui/docker/magentic-ui-browser-docker
   docker build -t magentic-ui-python-env:latest ./src/magentic_ui/docker/magentic-ui-python-env
   ```
+
 
 ## 4. 🪟 WSL2 Not Set Up on Windows
 
@@ -83,7 +97,7 @@ This document lists common issues users have encountered with Magentic-UI and ho
     zsh: command not found: magentic
     ```
 
-**Solution**:
+**Solution 1**:
 
 - Make sure you have you have activated your virtual environment.
 - You can double check by reactivating it and then running the command again:
@@ -93,6 +107,16 @@ This document lists common issues users have encountered with Magentic-UI and ho
     source .venv/bin/activate
     magentic ui --port 8081
     ```
+
+**Solution 2**:
+
+- You may have accidentally installed the package named `magentic` instead of ours `magentic-ui`
+- Make sure you are running the following command:
+
+  ```bash
+  pip install magentic-ui
+  ```
+  
 
 
 ## 9. ❓ Still Having Issues?

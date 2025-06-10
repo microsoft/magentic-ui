@@ -77,7 +77,7 @@ class AssistantBenchBenchmark(Benchmark):
                     explanation=str(example.get("explanation", "")),
                     metadata={"metadata": str(example.get("metadata", ""))},
                     gold_url=str(example.get("gold_url", "")),
-                    set=example.get("set", "dev"),
+                    set="dev",
                 )
                 self.tasks[task.id] = task
 
@@ -93,10 +93,9 @@ class AssistantBenchBenchmark(Benchmark):
                     explanation=str(example.get("explanation", "")),
                     metadata={"metadata": str(example.get("metadata", ""))},
                     gold_url=str(example.get("gold_url", "")),
-                    set=example.get("set", "test"),
+                    set="test",
                 )
                 self.tasks[task.id] = task
-
         logging.info(f"[AssistantBench] Loaded {len(self.tasks)} total examples.")
 
     def get_split_tasks(self, split: str) -> List[str]:

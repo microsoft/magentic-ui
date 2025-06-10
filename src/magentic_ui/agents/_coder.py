@@ -579,7 +579,7 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
             )
             yield Response(
                 chat_message=TextMessage(
-                    content="An error occurred while executing the code.",
+                    content=f"An error occurred in the coder agent: {e}",
                     source=self.name,
                     metadata={"internal": "no"},
                 ),
