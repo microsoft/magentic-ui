@@ -46,6 +46,8 @@ def ui(
     upgrade_database: bool = False,
     config: Optional[str] = None,
     rebuild_docker: Optional[bool] = False,
+    ssl_certfile: Optional[str] = None,
+    ssl_keyfile: Optional[str] = None,
 ):
     """
     Run Magentic-UI.
@@ -60,6 +62,8 @@ def ui(
         database-uri (str, optional): Database URI to connect to. Defaults to None.
         config (str, optional): Path to the config file. Defaults to `config.yaml`.
         rebuild_docker: bool, optional: Rebuild the docker images. Defaults to False.
+        ssl_certfile (str, optional): Path to SSL certificate file. Defaults to None.
+        ssl_keyfile (str, optional): Path to SSL key file. Defaults to None.
     """
 
     typer.echo(typer.style("Starting Magentic-UI", fg=typer.colors.GREEN, bold=True))
@@ -133,17 +137,32 @@ def ui(
         for key, value in env_vars.items():
             temp_env.write(f"{key}={value}\n")
 
-    uvicorn.run(
-        "magentic_ui.backend.web.app:app",
-        host=host,
-        port=port,
-        workers=workers,
-        reload=reload,
-        reload_excludes=["**/alembic/*", "**/alembic.ini", "**/versions/*"]
-        if reload
-        else None,
-        env_file=env_file_path,
-    )
+    if ssl_certfile and ssl_keyfile:
+        uvicorn.run(
+            "magentic_ui.backend.web.app:app",
+            host=host,
+            port=port,
+            workers=workers,
+            reload=reload,
+            reload_excludes=["**/alembic/*", "**/alembic.ini", "**/versions/*"]
+            if reload
+            else None,
+            env_file=env_file_path,
+            ssl_certfile=ssl_certfile,
+            ssl_keyfile=ssl_keyfile,
+        )
+    else:
+        uvicorn.run(
+            "magentic_ui.backend.web.app:app",
+            host=host,
+            port=port,
+            workers=workers,
+            reload=reload,
+            reload_excludes=["**/alembic/*", "**/alembic.ini", "**/versions/*"]
+            if reload
+            else None,
+            env_file=env_file_path,
+        )
 
 
 @app.command()

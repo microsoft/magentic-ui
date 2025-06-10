@@ -1,5 +1,6 @@
 import docker
 import os
+import platform
 import sys
 from docker.errors import DockerException, ImageNotFound
 import logging
@@ -12,9 +13,15 @@ VNC_BROWSER_BUILD_CONTEXT = "magentic-ui-browser-docker"
 PYTHON_BUILD_CONTEXT = "magentic-ui-python-env"
 
 
+def get_docker_client() -> docker.DockerClient:
+    if platform.system() == "Windows":
+        os.environ["DOCKER_HOST"] = "npipe:////./pipe/dockerDesktopLinuxEngine"
+    return docker.from_env()
+
+
 def check_docker_running() -> bool:
     try:
-        client = docker.from_env()
+        client = get_docker_client()
         client.ping()  # type: ignore
         return True
     except (DockerException, ConnectionError):
@@ -49,8 +56,8 @@ def check_docker_image(image_name: str, client: docker.DockerClient) -> bool:
 
 def build_browser_image(client: docker.DockerClient | None = None) -> None:
     if client is None:
-        client = docker.from_env()
-    client = docker.from_env()
+        client = get_docker_client()
+    client = get_docker_client()
     build_image(
         VNC_BROWSER_IMAGE + ":latest",
         os.path.join(_PACKAGE_DIR, "docker", VNC_BROWSER_BUILD_CONTEXT),
@@ -60,8 +67,8 @@ def build_browser_image(client: docker.DockerClient | None = None) -> None:
 
 def build_python_image(client: docker.DockerClient | None = None) -> None:
     if client is None:
-        client = docker.from_env()
-    client = docker.from_env()
+        client = get_docker_client()
+    client = get_docker_client()
     build_image(
         PYTHON_IMAGE + ":latest",
         os.path.join(_PACKAGE_DIR, "docker", PYTHON_BUILD_CONTEXT),
@@ -85,8 +92,8 @@ def check_browser_image(client: docker.DockerClient | None = None) -> bool:
     if not check_docker_access():
         return False
     if client is None:
-        client = docker.from_env()
-    client = docker.from_env()
+        client = get_docker_client()
+    client = get_docker_client()
     return check_docker_image(VNC_BROWSER_IMAGE, client)
 
 
@@ -94,6 +101,6 @@ def check_python_image(client: docker.DockerClient | None = None) -> bool:
     if not check_docker_access():
         return False
     if client is None:
-        client = docker.from_env()
-    client = docker.from_env()
+        client = get_docker_client()
+    client = get_docker_client()
     return check_docker_image(PYTHON_IMAGE, client)
