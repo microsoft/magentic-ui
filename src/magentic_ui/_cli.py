@@ -239,7 +239,15 @@ async def get_team(
         inside_docker=inside_docker,
         mcp_agent_configs=mcp_agents,
     )
+    log_debug(
+        f"MagenticUIConfig created with planning={cooperative_planning}, execution={autonomous_execution}",
+        debug,
+    )
 
+    log_debug("Starting team creation", debug)
+
+    # Creates and returns a RoundRobinGroupChat or a GroupChat with the passed configs
+    log_debug("Calling get_task_team to create team object", debug)
     team = await get_task_team(
         magentic_ui_config=magentic_ui_config,
         input_func=cancellable_input,
@@ -488,14 +496,20 @@ def main() -> None:
         default="never",
         help="ActionGuard policy ('always', 'never', 'auto-conservative', 'auto-permissive'; default: never)",
     )
-    parser.add_argument(
+    advanced.add_argument(
         "--mcp-agents-file",
         dest="mcp_agents_file",
         type=str,
         default=None,
         help="Path to a .yaml file containing configuration compatible with MagenticUIConfig.mcp_agents",
     )
-
+    advanced.add_argument(
+        "--old-cli",
+        dest="use_pretty_ui",
+        action="store_false",
+        default=True,
+        help="Use the old console without fancy formatting (default: use pretty terminal)",
+    )
     args = parser.parse_args()
     log_debug(f"Command line arguments parsed: debug={args.debug}", args.debug)
 
@@ -673,6 +687,7 @@ def main() -> None:
             else task,
             hints=args.metadata_hints if args.user_proxy_type == "metadata" else None,
             answer=args.metadata_answer if args.user_proxy_type == "metadata" else None,
+            use_pretty_ui=args.use_pretty_ui,
             mcp_agents=mcp_agents,
         )
     )
