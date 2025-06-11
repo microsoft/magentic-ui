@@ -23,6 +23,9 @@ export DOCKER_HOST=unix:///home/<your-username>/.docker/desktop/docker.sock
 
 Another possible fix on Ubuntu if docker is not running is to make sure your user is in the 'docker' group or run with sudo. 
 
+Please read [Linux post-installation steps for Docker Engine
+](https://docs.docker.com/engine/install/linux-postinstall/) for more information.
+
 ## 2. 🚪 Port 8081 Fails to Start
 
 **Error:**  
