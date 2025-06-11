@@ -12,7 +12,7 @@ from typing import Any, List, Literal, Optional, cast
 
 import yaml
 from autogen_core import EVENT_LOGGER_NAME, CancellationToken
-from .ui import Console, PrettyConsole
+from .cli import Console, PrettyConsole
 from .task_team import get_task_team
 from loguru import logger
 
