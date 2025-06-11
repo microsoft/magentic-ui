@@ -5,7 +5,7 @@ import { appContext } from "../hooks/provider";
 import { useConfigStore } from "../hooks/store";
 import { Settings } from "lucide-react";
 import SignInModal from "./signin";
-import SettingsMenu from "./settings";
+import SettingsMenu from "./settings/SettingsMenu";
 import logo from "../assets/logo.svg";
 import { Button } from "./common/Button";
 

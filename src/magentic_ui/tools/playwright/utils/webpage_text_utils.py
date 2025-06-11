@@ -5,7 +5,6 @@ import os
 import tempfile
 
 import tiktoken
-from markitdown import MarkItDown  # type: ignore
 from playwright.async_api import Page
 
 logger = logging.getLogger(__name__)
@@ -99,6 +98,8 @@ class WebpageTextUtilsPlaywright:
 
         # Regular webpage processing
         if self._markdown_converter is None:
+            from markitdown import MarkItDown  # Lazy import
+
             self._markdown_converter = MarkItDown()
         html = await page.evaluate("document.documentElement.outerHTML;")
         res = self._markdown_converter.convert_stream(
@@ -176,6 +177,8 @@ class WebpageTextUtilsPlaywright:
 
             # Use MarkItDown to extract content
             if self._markdown_converter is None:
+                from markitdown import MarkItDown  # Lazy import
+
                 self._markdown_converter = MarkItDown()
             result = self._markdown_converter.convert(temp_file_path)
 
