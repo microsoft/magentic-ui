@@ -103,13 +103,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const renderSessionGroup = (sessions: Session[]) => (
     <>
       {sessions.map((s) => {
-        const status = sessionRunStatuses[s.id];
-        const isActive = [
+        const status = s.id ? sessionRunStatuses[s.id] : undefined;
+        const isActive = status ? [
           "active",
           "awaiting_input",
           "pausing",
           "paused",
-        ].includes(status);
+        ].includes(status) : false;
         return (
           <div key={s.id} className="relative">
             <div

@@ -364,13 +364,13 @@ export const SessionManager: React.FC = () => {
 
   const chatViews = useMemo(() => {
     return sessions.map((s: Session) => {
-      const status = sessionRunStatuses[s.id] as RunStatus;
-      const isSessionPotentiallyActive = [
+      const status = s.id ? sessionRunStatuses[s.id] as RunStatus : undefined;
+      const isSessionPotentiallyActive = status ? [
         "active",
         "awaiting_input",
         "pausing",
         "paused",
-      ].includes(status);
+      ].includes(status) : false;
 
       if (!isSessionPotentiallyActive && session?.id !== s.id) return null;
 
