@@ -22,7 +22,6 @@ const ApprovalButtons: React.FC<ApprovalButtonsProps> = ({
   onAcceptPlan,
   onRegeneratePlan,
 }) => {
-  const [planAcceptText, setPlanAcceptText] = React.useState("");
 
   if (status !== "awaiting_input") {
     return null;

@@ -41,7 +41,7 @@ export const LoadingDots = ({ size = 8 }) => {
   );
 };
 
-export const TruncatableText = memo(
+const TruncatableTextComponent = memo(
   ({
     content,
     isJson = false,
@@ -113,6 +113,9 @@ export const TruncatableText = memo(
   }
 );
 
+TruncatableTextComponent.displayName = 'TruncatableText';
+export const TruncatableText = TruncatableTextComponent;
+
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -148,8 +151,13 @@ const Modal: React.FC<ModalProps> = ({
       className="fixed inset-0 z-50"
       aria-modal="true"
       role="dialog"
-      onClick={onClose}
     >
+      <button
+        className="absolute inset-0 w-full h-full bg-transparent border-0 cursor-default"
+        onClick={onClose}
+        aria-label="Close modal"
+        type="button"
+      />
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
       <div
         className={`
@@ -184,7 +192,18 @@ const FullScreenImage: React.FC<{
       >
         <X size={24} />
       </button>
-      <div className="relative" onClick={(e) => e.stopPropagation()}>
+      <div 
+        className="relative" 
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.stopPropagation();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label="Image container"
+      >
         <img
           src={src}
           alt={alt}
@@ -210,17 +229,24 @@ export const ClickableImage: React.FC<{
 
   return (
     <>
-      <img
-        src={src}
-        alt={alt}
+      <button
+        onClick={() => setIsFullScreen(true)}
         className={`
           ${className} 
           cursor-zoom-in 
           transition-all duration-300 
           hover:brightness-110
+          border-0 p-0 bg-transparent
         `}
-        onClick={() => setIsFullScreen(true)}
-      />
+        aria-label={`Click to view ${alt} in fullscreen`}
+        type="button"
+      >
+        <img
+          src={src}
+          alt={alt}
+          className="w-full h-full object-contain"
+        />
+      </button>
       {isFullScreen && (
         <FullScreenImage
           src={src}

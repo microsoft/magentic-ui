@@ -9,7 +9,7 @@ export interface GeneralConfig {
   max_turns: number;
   plan?: {
     task: string;
-    steps: any[];
+    steps: Record<string, unknown>[];
     plan_summary: string;
   };
   approval_policy: "always" | "never" | "auto-conservative" | "auto-permissive";

@@ -16,14 +16,12 @@ import {
   Tooltip,
   Select,
   Tabs,
-  Input as AntInput,
   Upload,
   message,
 } from "antd";
 import { InfoCircleOutlined, UploadOutlined } from "@ant-design/icons";
 import { Plus } from "lucide-react";
 
-const { TextArea } = AntInput;
 
 interface SettingsMenuProps {
   isOpen: boolean;

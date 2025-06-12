@@ -3,10 +3,9 @@ import React, {
   Dispatch,
   SetStateAction,
   useEffect,
-  useContext,
   useCallback,
 } from "react";
-import { ChevronDownIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { PlusIcon } from "@heroicons/react/24/outline";
 import { ClipboardList } from "lucide-react";
 import {
   DragDropContext,
@@ -15,12 +14,12 @@ import {
   DropResult,
 } from "@hello-pangea/dnd";
 import { Trash2 } from "lucide-react";
-import { appContext } from "../../../hooks/provider";
+// import { appContext } from "../../../hooks/provider"; // Commented out as unused
 import { IPlanStep } from "../../types/plan";
 import AutoResizeTextarea from "../../common/AutoResizeTextarea";
 
 // Debounce hook
-const useDebounce = (callback: Function, delay: number) => {
+const useDebounce = (callback: (...args: any[]) => void, delay: number) => {
   const timeoutRef = React.useRef<NodeJS.Timeout>();
 
   useEffect(() => {
@@ -72,9 +71,9 @@ const PlanView: React.FC<PlanProps> = ({
   const [isCollapsed, setIsCollapsed] = useState(
     viewOnly && (initialIsCollapsed || forceCollapsed)
   );
-  const { user } = useContext(appContext);
+  // const { user } = useContext(appContext); // Commented out as unused
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  // const [focusedIndex, setFocusedIndex] = useState<number | null>(null); // Commented out as unused
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">(
     "saved"
   );
@@ -83,7 +82,7 @@ const PlanView: React.FC<PlanProps> = ({
     if (forceCollapsed && !isCollapsed) {
       setIsCollapsed(true);
     }
-  }, [forceCollapsed]);
+  }, [forceCollapsed, isCollapsed]);
 
   // Debounced save function
   const debouncedSave = useDebounce((newPlan: IPlanStep[]) => {
@@ -172,7 +171,7 @@ const PlanView: React.FC<PlanProps> = ({
           <>
             {onRegeneratePlan && !viewOnly ? (
               <div className="flex justify-between items-center mb-2">
-                <h2 className="font-semibold"></h2>
+                <h2 className="font-semibold">Plan Configuration</h2>
               </div>
             ) : (
               <div className="flex justify-between items-center">
@@ -230,8 +229,10 @@ const PlanView: React.FC<PlanProps> = ({
                                     onChange={(
                                       e: React.ChangeEvent<HTMLTextAreaElement>
                                     ) => updateDetails(index, e.target.value)}
-                                    onBlur={() => setFocusedIndex(null)}
-                                    autoFocus
+                                    onBlur={() => {
+                                      // Focus handling removed as focusedIndex is unused
+                                    }}
+                                    // autoFocus // Removed due to accessibility concerns
                                     className={`flex-1 p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded ${
                                       !item.details.trim()
                                         ? "border border-orange-300"
@@ -256,7 +257,15 @@ const PlanView: React.FC<PlanProps> = ({
                                     <Trash2
                                       role="button"
                                       onClick={() => deleteLocalPlan(index)}
-                                      className="h-5 w-5 text-[var(--color-text-secondary)] ml-2 hover:text-red-500"
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault();
+                                          deleteLocalPlan(index);
+                                        }
+                                      }}
+                                      tabIndex={0}
+                                      aria-label={`Delete step ${index + 1}`}
+                                      className="h-5 w-5 text-[var(--color-text-secondary)] ml-2 hover:text-red-500 cursor-pointer"
                                     />
                                   </div>
                                 )}
@@ -281,6 +290,15 @@ const PlanView: React.FC<PlanProps> = ({
                   </span>
                   <div
                     onClick={addLocalPlan}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        addLocalPlan();
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Add new step to plan"
                     className="mt-2 flex items-center text-[var(--color-text-secondary)] px-4 rounded hover:text-[var(--color-text-primary)] cursor-pointer"
                   >
                     <PlusIcon className="h-5 w-5 mr-2" />
@@ -295,5 +313,7 @@ const PlanView: React.FC<PlanProps> = ({
     </>
   );
 };
+
+PlanView.displayName = 'PlanView';
 
 export default PlanView;

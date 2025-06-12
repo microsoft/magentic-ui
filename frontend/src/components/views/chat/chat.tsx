@@ -1,6 +1,6 @@
 import * as React from "react";
 import { message } from "antd";
-import { convertFilesToBase64, getServerUrl } from "../../utils";
+import { convertFilesToBase64 } from "../../utils";
 import { IStatus } from "../../types/app";
 import {
   Run,
@@ -76,7 +76,6 @@ export default function ChatView({
   visible = true,
   onRunStatusChange,
 }: ChatViewProps) {
-  const serverUrl = getServerUrl();
   const [error, setError] = React.useState<IStatus | null>({
     status: true,
     message: "All good",
@@ -103,7 +102,7 @@ export default function ChatView({
   const [activeSocket, setActiveSocket] = React.useState<WebSocket | null>(
     null
   );
-  const [teamConfig, setTeamConfig] = React.useState<TeamConfig | null>(
+  const [teamConfig] = React.useState<TeamConfig | null>(
     defaultTeamConfig
   );
 
@@ -318,8 +317,9 @@ export default function ChatView({
             activeSocketRef.current = null;
           }
           console.log("Error: ", message.error);
+          break;
 
-        case "message":
+        case "message": {
           if (!message.data) return current;
 
           // Create new Message object from websocket data
@@ -333,24 +333,26 @@ export default function ChatView({
             ...current,
             messages: [...current.messages, newMessage],
           };
+        }
 
-        case "input_request":
+        case "input_request": {
           //console.log("InputRequest: " + JSON.stringify(message))
 
-          var input_request: InputRequest;
+          let input_request: InputRequest;
           switch (message.input_type) {
             case "text_input":
             case null:
             default:
               input_request = { input_type: "text_input" };
               break;
-            case "approval":
-              var input_request_message = message as InputRequestMessage;
+            case "approval": {
+              const input_request_message = message as InputRequestMessage;
               input_request = {
                 input_type: "approval",
                 prompt: input_request_message.prompt,
               } as InputRequest;
               break;
+            }
           }
 
           // reset Updated Plan
@@ -368,23 +370,26 @@ export default function ChatView({
             status: "awaiting_input",
             input_request: input_request,
           };
-        case "system":
+        }
+
+        case "system": {
           // update run status
           return {
             ...current,
             status: message.status as BaseRunStatus,
           };
+        }
 
         case "result":
-        case "completion":
+        case "completion": {
           const status: BaseRunStatus =
             message.status === "complete"
               ? "complete"
               : message.status === "error"
-              ? "error"
-              : "stopped";
+                ? "error"
+                : "stopped";
 
-          const isTeamResult = (data: any): data is TeamResult => {
+          const isTeamResult = (data: Record<string, unknown>): data is TeamResult => {
             return (
               data &&
               "task_result" in data &&
@@ -406,6 +411,7 @@ export default function ChatView({
             team_result:
               message.data && isTeamResult(message.data) ? message.data : null,
           };
+        }
 
         default:
           return current;
@@ -961,9 +967,9 @@ export default function ChatView({
             style={{
               opacity:
                 currentRun?.status === "active" ||
-                currentRun?.status === "awaiting_input" ||
-                currentRun?.status === "paused" ||
-                currentRun?.status === "pausing"
+                  currentRun?.status === "awaiting_input" ||
+                  currentRun?.status === "paused" ||
+                  currentRun?.status === "pausing"
                   ? 1
                   : 0,
             }}
@@ -978,20 +984,17 @@ export default function ChatView({
 
         <div
           ref={chatContainerRef}
-          className={`flex-1 overflow-y-auto scroll mt-1 min-h-0 relative w-full h-full ${
-            noMessagesYet && currentRun
+          className={`flex-1 overflow-y-auto scroll mt-1 min-h-0 relative w-full h-full ${noMessagesYet && currentRun
               ? "flex items-center justify-center"
               : ""
-          }`}
+            }`}
         >
           <div
-            className={`${
-              showDetailViewer && !isDetailViewerMinimized
+            className={`${showDetailViewer && !isDetailViewerMinimized
                 ? "w-full"
                 : "max-w-full md:max-w-5xl lg:max-w-6xl xl:max-w-7xl"
-            } mx-auto px-4 sm:px-6 md:px-8 h-full ${
-              noMessagesYet && currentRun ? "hidden" : ""
-            }`}
+              } mx-auto px-4 sm:px-6 md:px-8 h-full ${noMessagesYet && currentRun ? "hidden" : ""
+              }`}
           >
             {
               <>
@@ -1026,11 +1029,10 @@ export default function ChatView({
           {/* No existing messages in run - centered content */}
           {currentRun && noMessagesYet && teamConfig && (
             <div
-              className={`text-center ${
-                showDetailViewer && !isDetailViewerMinimized
+              className={`text-center ${showDetailViewer && !isDetailViewerMinimized
                   ? "w-full"
                   : "w-full max-w-full md:max-w-4xl lg:max-w-5xl xl:max-w-6xl"
-              } mx-auto px-4 sm:px-6 md:px-8`}
+                } mx-auto px-4 sm:px-6 md:px-8`}
             >
               <div className="text-secondary text-lg mb-6">
                 Enter a message to get started

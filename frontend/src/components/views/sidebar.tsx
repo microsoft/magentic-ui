@@ -6,7 +6,6 @@ import {
   Trash2,
   InfoIcon,
   RefreshCcw,
-  Loader2,
   FileText,
   Archive,
   MoreVertical,
@@ -37,7 +36,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   sessions,
   currentSession,
-  onToggle,
   onSelectSession,
   onEditSession,
   onDeleteSession,
@@ -123,6 +121,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : ""
               }`}
               onClick={() => !isLoading && onSelectSession(s)}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && !isLoading) {
+                  e.preventDefault();
+                  onSelectSession(s);
+                }
+              }}
+              role="button"
+              tabIndex={isLoading ? -1 : 0}
+              aria-label={`Select session ${s.name}`}
             >
               <div className="flex items-center gap-2 flex-1">
                 <span className="truncate text-sm">

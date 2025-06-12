@@ -79,11 +79,11 @@ export function convertToIPlanSteps(jsonString: string): IPlanStep[] {
     const parsedArray = JSON.parse(jsonString);
     const stepsArray = Array.isArray(parsedArray) ? parsedArray : [parsedArray];
 
-    const planSteps: IPlanStep[] = stepsArray.map((item: any) => ({
-      title: item.title || "Untitled Step",
-      details: item.details || "",
-      enabled: item.enabled !== undefined ? item.enabled : true,
-      agent_name: item.agent_name || "",
+    const planSteps: IPlanStep[] = stepsArray.map((item: Record<string, unknown>) => ({
+      title: (item.title as string) || "Untitled Step",
+      details: (item.details as string) || "",
+      enabled: item.enabled !== undefined ? Boolean(item.enabled) : true,
+      agent_name: (item.agent_name as string) || "",
     }));
 
     return planSteps;

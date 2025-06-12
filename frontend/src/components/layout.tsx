@@ -15,24 +15,18 @@ type Props = {
   children?: React.ReactNode;
   showHeader?: boolean;
   restricted?: boolean;
-  meta?: any;
+  meta?: Record<string, unknown>;
   activeTab?: string;
   onTabChange?: (tab: string) => void;
 };
 
 const MagenticUILayout = ({
-  meta,
-  title,
   link,
-  showHeader = true,
   restricted = false,
-  activeTab,
-  onTabChange,
 }: Props) => {
   const { darkMode, user, setUser } = React.useContext(appContext);
   const { sidebar } = useConfigStore();
   const { isExpanded } = sidebar;
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
   // Mimic sign-in: if no user or user.email, set default user and localStorage
   React.useEffect(() => {
@@ -94,7 +88,7 @@ const MagenticUILayout = ({
   if (restricted) {
     return (
       <appContext.Consumer>
-        {(context: any) => {
+        {(context: { user?: unknown }) => {
           if (context.user) {
             return layoutContent;
           }

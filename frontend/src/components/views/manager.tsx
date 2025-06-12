@@ -179,7 +179,7 @@ export const SessionManager: React.FC = () => {
         });
       }
 
-      const response = await sessionAPI.deleteSession(sessionId, user.email);
+      await sessionAPI.deleteSession(sessionId, user.email);
       setSessions(sessions.filter((s) => s.id !== sessionId));
       if (session?.id === sessionId || sessions.length === 0) {
         setSession(sessions[0] || null);

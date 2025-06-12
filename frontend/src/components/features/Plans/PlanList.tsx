@@ -22,7 +22,7 @@ interface PlanListProps {
 }
 
 const normalizePlanData = (
-  planData: any,
+  planData: Record<string, unknown>,
   userId: string,
   defaultTask: string = "Untitled",
   preserveId: boolean = false // Add this parameter
@@ -33,7 +33,7 @@ const normalizePlanData = (
 
     task: planData.task || defaultTask,
     steps: Array.isArray(planData.steps)
-      ? planData.steps.map((step: any) => ({
+      ? (planData.steps as Record<string, unknown>[]).map((step) => ({
           title: step.title || "Untitled Step",
           details: step.details || "",
           enabled: step.enabled !== false,
@@ -48,7 +48,6 @@ const normalizePlanData = (
 
 const PlanList: React.FC<PlanListProps> = ({
   onTabChange,
-  onSelectSession,
   onCreateSessionFromPlan,
 }) => {
   const [plans, setPlans] = useState<IPlan[]>([]);
@@ -57,7 +56,6 @@ const PlanList: React.FC<PlanListProps> = ({
   const { user } = useContext(appContext);
   const planAPI = new PlanAPI();
   const sessionAPI = new SessionAPI();
-  const [isCreatingPlan, setIsCreatingPlan] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -365,7 +363,7 @@ const PlanList: React.FC<PlanListProps> = ({
             <SearchOutlined
               style={{ fontSize: "48px", marginBottom: "16px" }}
             />
-            <p>No plans found matching "{searchTerm}"</p>
+            <p>No plans found matching &quot;{searchTerm}&quot;</p>
             <Button
               type="link"
               onClick={() => setSearchTerm("")}

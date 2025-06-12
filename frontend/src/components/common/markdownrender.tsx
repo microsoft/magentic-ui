@@ -4,7 +4,7 @@ import remarkGfm from "remark-gfm";
 import { Prism, SyntaxHighlighterProps } from "react-syntax-highlighter";
 import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
 
-const SyntaxHighlighter = Prism as any as React.FC<SyntaxHighlighterProps>;
+const SyntaxHighlighter = Prism as React.FC<SyntaxHighlighterProps>;
 
 interface MarkdownRendererProps {
   content: string;
@@ -222,7 +222,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               {children}
             </a>
           ),
-          code: ({ node, className, children, ...props }) => {
+          code: ({ className, children, ...props }) => {
             const match = /language-(\w+)/.exec(className || "");
             const language = match ? match[1] : "";
             const inline = !language;

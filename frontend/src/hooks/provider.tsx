@@ -7,16 +7,16 @@ export interface IUser {
   email?: string;
   username?: string;
   avatar_url?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 export interface AppContextType {
   user: IUser | null;
-  setUser: any;
-  logout: any;
+  setUser: (user: IUser | null) => void;
+  logout: () => void;
   cookie_name: string;
   darkMode: string;
-  setDarkMode: any;
+  setDarkMode: (mode: string) => void;
 }
 
 const cookie_name = "coral_app_cookie_";
@@ -24,7 +24,7 @@ const cookie_name = "coral_app_cookie_";
 export const appContext = React.createContext<AppContextType>(
   {} as AppContextType
 );
-const Provider = ({ children }: any) => {
+const Provider = ({ children }: { children: React.ReactNode }) => {
   const storedValue = getLocalStorage("darkmode", false);
   const [darkMode, setDarkMode] = useState(
     storedValue === null ? "dark" : storedValue === "dark" ? "dark" : "light"
@@ -85,4 +85,7 @@ const Provider = ({ children }: any) => {
   );
 };
 
-export default ({ element }: any) => <Provider>{element}</Provider>;
+const RootProvider = ({ element }: { element: React.ReactNode }) => <Provider>{element}</Provider>;
+RootProvider.displayName = 'RootProvider';
+
+export default RootProvider;
