@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any, Dict
 
 from autogen_core import Component
 import docker
@@ -87,21 +88,21 @@ class HeadlessDockerPlaywrightBrowser(
         )
 
         client = docker.from_env()
-        return await asyncio.to_thread(
-            client.containers.create,
-            name=f"magentic-ui-headless-browser_{self._playwright_port}",
-            image="mcr.microsoft.com/playwright:v1.51.1-noble",
-            detach=True,
-            auto_remove=True,
-            ports={
+        container_config: Dict[str, Any] = {
+            "name": f"magentic-ui-headless-browser_{self._playwright_port}",
+            "image": "mcr.microsoft.com/playwright:v1.51.1-noble",
+            "detach": True,
+            "auto_remove": True,
+            "ports": {
                 f"{self._playwright_port}/tcp": self._playwright_port,
             },
-            command=[
+            "command": [
                 "/bin/sh",
                 "-c",
                 f"npx -y playwright@1.51 run-server --port {self._playwright_port} --host 0.0.0.0",
             ],
-        )
+        }
+        return await asyncio.to_thread(client.containers.create, **container_config)
 
     def _to_config(self) -> HeadlessBrowserConfig:
         return HeadlessBrowserConfig(

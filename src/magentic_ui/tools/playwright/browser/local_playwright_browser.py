@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Optional, Any, Dict
 from pathlib import Path
+import os
 
 from autogen_core import Component
-from playwright.async_api import BrowserContext, Browser
+from playwright.async_api import BrowserContext, Browser, Route
 from pydantic import BaseModel
 
 from playwright.async_api import async_playwright, Playwright
@@ -99,15 +100,19 @@ class LocalPlaywrightBrowser(
             # Ensure the browser data directory exists
             Path(self._browser_data_dir).mkdir(parents=True, exist_ok=True)
 
-            # Launch persistent context
+            # Launch persistent context with automatic downloads
             self._context = await self._playwright.chromium.launch_persistent_context(
                 self._browser_data_dir,
-                accept_downloads=self._enable_downloads,
+                accept_downloads=True,  # Always accept downloads
                 **launch_options,
                 args=["--disable-extensions", "--disable-file-system"],
                 env={},
                 chromium_sandbox=True,
             )
+
+            # Set up download behavior for persistent context
+            if self._enable_downloads:
+                await self._context.route("**/*", self._handle_download)
         else:
             # Launch regular browser and create new context
             self._browser = await self._playwright.chromium.launch(
@@ -117,10 +122,46 @@ class LocalPlaywrightBrowser(
                 env={} if self._headless else {"DISPLAY": ":0"},
             )
 
+            # Create context with automatic downloads
             self._context = await self._browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
-                accept_downloads=self._enable_downloads,
+                accept_downloads=True,  # Always accept downloads
             )
+
+            # Set up download behavior for regular context
+            if self._enable_downloads:
+                await self._context.route("**/*", self._handle_download)
+
+    async def _handle_download(self, route: Route) -> None:
+        """
+        Handle download requests by intercepting them and saving to the .webby directory.
+        """
+        response = await route.fetch()
+        headers = response.headers
+
+        # Check if this is a download (Content-Disposition header)
+        if "content-disposition" in headers:
+            # Extract filename from Content-Disposition header
+            content_disposition = headers["content-disposition"]
+            filename = None
+            if "filename=" in content_disposition:
+                filename = content_disposition.split("filename=")[1].strip('"')
+
+            if filename and self._browser_data_dir:
+                # Save to .webby directory
+                webby_dir = os.path.join(self._browser_data_dir, ".webby")
+                os.makedirs(webby_dir, exist_ok=True)
+
+                filepath = os.path.join(webby_dir, filename)
+                with open(filepath, "wb") as f:
+                    f.write(await response.body())
+
+                # Continue with the download in browser
+                await route.continue_()
+            else:
+                await route.continue_()
+        else:
+            await route.continue_()
 
     async def _close(self) -> None:
         """
