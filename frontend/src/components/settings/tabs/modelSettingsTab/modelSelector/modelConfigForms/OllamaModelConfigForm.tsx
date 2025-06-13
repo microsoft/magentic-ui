@@ -1,8 +1,8 @@
 import React, { useEffect } from "react";
-import { Input, Form, Button, Switch, Row, Col } from "antd";
-import { ModelConfigFormProps } from "./ModelConfigForms";
+import { Input, Form, Button, Switch, Flex, Collapse } from "antd";
+import { ModelConfigFormProps, OllamaModelConfig } from "./types";
 
-export const DEFAULT_OLLAMA = {
+export const DEFAULT_OLLAMA: OllamaModelConfig = {
   provider: "autogen_ext.models.ollama.OllamaChatCompletionClient",
   config: {
     model: "qwen2.5vl:32b",
@@ -41,51 +41,41 @@ export const OllamaModelConfigForm: React.FC<ModelConfigFormProps> = ({ onChange
       onValuesChange={handleValuesChange}
       layout="vertical"
     >
-      <Row gutter={16}>
-        <Col xs={24} sm={12}>
+      <Flex vertical gap="small">
+        <Flex gap="small" wrap justify="space-between">
           <Form.Item label="Model" name={["config", "model"]}>
             <Input />
           </Form.Item>
-        </Col>
-        <Col xs={24} sm={12}>
           <Form.Item label="Host" name={["config", "host"]}>
             <Input />
           </Form.Item>
-        </Col>
-        <Col xs={24} sm={12}>
           <Form.Item label="Family" name={["config", "model_info", "family"]}>
             <Input />
           </Form.Item>
-        </Col>
-        <Col xs={24} sm={12}>
           <Form.Item label="Max Retries" name={["config", "model_info", "max_retries"]}>
             <Input type="number" />
           </Form.Item>
-        </Col>
-      </Row>
-      <Row gutter={16}>
-        <Col xs={24} sm={12}>
-          <Form.Item label="Vision" name={["config", "model_info", "vision"]} valuePropName="checked">
-            <Switch />
-          </Form.Item>
-        </Col>
-        <Col xs={24} sm={12}>
-          <Form.Item label="Function Calling" name={["config", "model_info", "function_calling"]} valuePropName="checked">
-            <Switch />
-          </Form.Item>
-        </Col>
-        <Col xs={24} sm={12}>
-          <Form.Item label="JSON Output" name={["config", "model_info", "json_output"]} valuePropName="checked">
-            <Switch />
-          </Form.Item>
-        </Col>
-        <Col xs={24} sm={12}>
-          <Form.Item label="Structured Output" name={["config", "model_info", "structured_output"]} valuePropName="checked">
-            <Switch />
-          </Form.Item>
-        </Col>
-      </Row>
-      {onSubmit && <Button onClick={handleSubmit}>Save</Button>}
+          </Flex>
+          <Collapse>
+            <Collapse.Panel key="1" header="Optional Properties">
+              <Flex gap="small" wrap justify="space-between">
+                <Form.Item label="Vision" name={["config", "model_info", "vision"]} valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+                <Form.Item label="Function Calling" name={["config", "model_info", "function_calling"]} valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+                <Form.Item label="JSON Output" name={["config", "model_info", "json_output"]} valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+                <Form.Item label="Structured Output" name={["config", "model_info", "structured_output"]} valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+              </Flex>
+            </Collapse.Panel>
+          </Collapse>
+        {onSubmit && <Button onClick={handleSubmit}>Save</Button>}
+      </Flex>
     </Form>
   );
 };

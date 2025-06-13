@@ -1,7 +1,6 @@
 import React from "react";
-import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
-import { Divider, Tooltip, Select } from "antd";
-import { InfoCircleOutlined } from "@ant-design/icons";
+import { Divider, Tooltip, Select, Flex, Switch } from "antd";
+import { InfoCircleOutlined, MoonFilled, SunFilled } from "@ant-design/icons";
 import AllowedWebsitesList from "./AllowedWebsitesList";
 
 interface GeneralSettingsProps {
@@ -18,46 +17,44 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({
   handleUpdateConfig,
 }) => {
   return (
-    <div className="space-y-6 px-4">
+    <Flex vertical gap="small">
       {/* Dark Mode Toggle */}
-      <div className="flex items-center justify-between">
-        <span className="text-primary">
+      <Flex align="center" justify="space-between">
+        <span>
           {darkMode === "dark" ? "Dark Mode" : "Light Mode"}
         </span>
         <button
           onClick={() => setDarkMode(darkMode === "dark" ? "light" : "dark")}
-          className="text-secondary hover:text-primary"
         >
           {darkMode === "dark" ? (
-            <MoonIcon className="h-6 w-6" />
+            <MoonFilled className="w-6 h-6" />
           ) : (
-            <SunIcon className="h-6 w-6" />
+            <SunFilled className="w-6 h-6" />
           )}
         </button>
-      </div>
+      </Flex>
 
       <Divider />
 
       {/* Basic Settings */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-2">
+      <Flex vertical gap="small">
+        <Flex align="center" justify="space-between" wrap>
+          <Flex align="center" justify="start" gap="small">
             Action Approval Policy
             <Tooltip title="Controls when approval is required before taking actions">
               <InfoCircleOutlined className="text-secondary hover:text-primary cursor-help" />
             </Tooltip>
-          </span>
+          </Flex>
           <Select
             value={config.approval_policy}
             onChange={(value) => handleUpdateConfig({ approval_policy: value })}
-            style={{ width: 200 }}
             options={[
               { value: "never", label: "Never require approval" },
               { value: "auto-conservative", label: "AI based judgement" },
               { value: "always", label: "Always require approval" },
             ]}
           />
-        </div>
+        </Flex>
 
         <Divider />
 
@@ -65,8 +62,43 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({
           config={config}
           handleUpdateConfig={handleUpdateConfig}
         />
-      </div>
-    </div>
+
+        <Divider />
+        <Flex vertical gap="large">
+          <Flex align="center" justify="space-between" wrap gap="large">
+            <Flex align="center" justify="start" gap="small" wrap>
+              Allow Replans
+              <Tooltip title="When enabled, Magentic-UI will automatically replan if the current plan is not working or you change the original request">
+                <InfoCircleOutlined className="text-secondary hover:text-primary cursor-help" />
+              </Tooltip>
+            </Flex>
+            <Switch
+              checked={config.allow_for_replans}
+              checkedChildren="ON"
+              unCheckedChildren="OFF"
+              onChange={(checked) => handleUpdateConfig({ allow_for_replans: checked })}
+            />
+          </Flex>
+          <Flex align="center" justify="space-between" wrap gap="small">
+            <Flex align="center" gap="small">
+              Retrieve Relevant Plans
+              <Tooltip title="Controls how Magentic-UI retrieves and uses relevant plans from previous sessions">
+                <InfoCircleOutlined className="text-secondary hover:text-primary cursor-help" />
+              </Tooltip>
+            </Flex>
+            <Select
+              value={config.retrieve_relevant_plans}
+              onChange={(value) => handleUpdateConfig({ retrieve_relevant_plans: value })}
+              options={[
+                { value: "never", label: "No plan retrieval" },
+                { value: "hint", label: "Retrieve plans as hints" },
+                { value: "reuse", label: "Retrieve plans to use directly" },
+              ]}
+            />
+          </Flex>
+        </Flex>
+      </Flex>
+    </Flex>
   );
 };
 

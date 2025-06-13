@@ -1,19 +1,21 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback } from "react";
 import { appContext } from "../../hooks/provider";
 import SignInModal from "../signin";
 import { useSettingsStore } from "../store";
 import { settingsAPI } from "../views/api";
-import GeneralSettings from "./tabs/GeneralSettings/GeneralSettings";
-import AdvancedSettings from "./tabs/AdvancedSettings/AdvancedSettings";
-import ModelConfigSettings from "./tabs/ModelConfigSettings/ModelConfigSettings";
-import MCPAgentsSettings from "./tabs/MCPAgentsSettings/MCPAgentsSettings";
-import AdvancedConfigEditor from "./tabs/AdvancedConfigEditor/AdvancedConfigEditor";
+import GeneralSettings from "./tabs/generalSettings/GeneralSettings";
+import ModelSettingsTab from "./tabs/modelSettingsTab/ModelSettingsTab";
+import MCPAgentsTab from "./tabs/mcpAgentsSettings/MCPAgentsTab";
+import AdvancedConfigEditor from "./tabs/advancedSetings/AdvancedSettings";
 import {
   Button,
+  Divider,
+  Flex,
   message,
   Modal,
   Select,
   Tabs,
+  Typography,
 } from "antd";
 import { validateAll } from "./validation";
 
@@ -24,7 +26,7 @@ interface SettingsMenuProps {
   onClose: () => void;
 }
 
-const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
+const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
   const { darkMode, setDarkMode, user } = React.useContext(appContext);
   const [isEmailModalOpen, setIsEmailModalOpen] = React.useState(false);
   const [hasChanges, setHasChanges] = React.useState(false);
@@ -96,49 +98,56 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
     "general": {
       label: "General",
       children: (
+        <>
+        <Typography.Text strong>General Settings</Typography.Text>
+        <Divider />
         <GeneralSettings
           darkMode={darkMode}
           setDarkMode={setDarkMode}
           config={config}
           handleUpdateConfig={handleUpdateConfig}
-        />
-      ),
-    },
-    "advanced": {
-      label: "Advanced",
-      children: (
-        <AdvancedSettings
-          config={config}
-          handleUpdateConfig={handleUpdateConfig}
-        />
+          />
+        </>
       ),
     },
     "model": {
-      label: "Model Configuration",
+      label: "Model Settings",
       children: (
-        <ModelConfigSettings
+        <>
+        <Typography.Text strong>Model Settings</Typography.Text>
+        <Divider />
+        <ModelSettingsTab
           config={config}
           handleUpdateConfig={handleUpdateConfig}
-        />
+          />
+        </>
       ),
     },
     "mcp_agents": {
-      label: "MCP Agents",
+      label: "MCP Settings",
       children: (
-        <MCPAgentsSettings
-          value={config.mcp_agent_configs ?? []}
-          onChange={(changes) => handleUpdateConfig({ mcp_agent_configs: changes })}
-        />
+        <>
+        <Typography.Text strong>MCP Settings</Typography.Text>
+        <Divider />
+        <MCPAgentsTab
+          config={config}
+          handleUpdateConfig={handleUpdateConfig}
+          />
+        </>
       ),
     },
     "advanced_config": {
-      label: "Advanced Config",
+      label: "Advanced Settings",
       children: (
+        <>
+        <Typography.Text strong>Advanced Settings</Typography.Text>
+        <Divider />
         <AdvancedConfigEditor
           config={config}
           darkMode={darkMode}
           handleUpdateConfig={handleUpdateConfig}
-        />
+          />
+        </>
       ),
     },
   }
@@ -149,29 +158,24 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
         open={isOpen}
         onCancel={handleClose}
         closable={true}
+        style={{ minWidth: 700, maxWidth: 1500, width: "80%" }} // adjust as needed
         footer={[
-          <div key="footer" className="mt-12 space-y-2">
+          <Flex gap="large" justify="start" align="center">
+            <Button key="reset" onClick={handleResetDefaults}>
+              Reset to Defaults
+            </Button>
             {hasChanges && (
-              <div className="text-secondary text-sm italic">
-                Warning: Settings changes will only apply when you create a new session
-              </div>
+                <Typography.Text italic type="warning">
+                  Warning: Settings changes will only apply when you create a new session
+                </Typography.Text>
             )}
-            <div className="flex gap-2 justify-end">
-              <Button key="reset" onClick={handleResetDefaults}>
-                Reset to Defaults
-              </Button>
-            </div>
-          </div>,
+          </Flex>
         ]}
-        width="80%"
-        style={{ maxWidth: "900px" }}
       >
-        <div className="mt-12 space-y-4">
-          <Tabs
-            tabPosition="left"
-            items={Object.entries(tabItems).map(([key, {label, children}]) => ({key, label, children}))}
-          />
-        </div>
+        <Tabs
+          tabPosition="left"
+          items={Object.entries(tabItems).map(([key, {label, children}]) => ({key, label, children}))}
+        />
       </Modal>
       <SignInModal
         isVisible={isEmailModalOpen}
@@ -181,4 +185,4 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
   );
 };
 
-export default SettingsMenu;
+export default SettingsModal;

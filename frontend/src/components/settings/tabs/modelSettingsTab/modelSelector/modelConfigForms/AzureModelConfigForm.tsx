@@ -1,13 +1,13 @@
 import React, { useEffect } from "react";
-import { Input, Form, Button, Row, Col } from "antd";
-import { ModelConfigFormProps } from "./ModelConfigForms";
+import { Input, Form, Button, Flex, Collapse } from "antd";
+import { ModelConfigFormProps, AzureModelConfig } from "./types";
 
-export const DEFAULT_AZURE = {
+export const DEFAULT_AZURE: AzureModelConfig = {
   provider: "AzureOpenAIChatCompletionClient",
   config: {
     model: "gpt-4o",
-    azure_endpoint: "<YOUR ENDPOINT>",
-    azure_deployment: "<YOUR DEPLOYMENT>",
+    azure_endpoint: "",
+    azure_deployment: "",
     api_version: "2024-10-21",
     max_retries: 10,
   }
@@ -36,34 +36,32 @@ export const AzureModelConfigForm: React.FC<ModelConfigFormProps> = ({ onChange,
       onValuesChange={handleValuesChange}
       layout="vertical"
     >
-      <Row gutter={16}>
-        <Col xs={24} sm={12}>
+      <Flex vertical gap="small">
+        <Flex gap="small" wrap justify="space-between">
           <Form.Item label="Model" name={["config", "model"]}>
             <Input />
           </Form.Item>
-        </Col>
-        <Col xs={24} sm={12}>
           <Form.Item label="Azure Endpoint" name={["config", "azure_endpoint"]}>
             <Input />
           </Form.Item>
-        </Col>
-        <Col xs={24} sm={12}>
           <Form.Item label="Azure Deployment" name={["config", "azure_deployment"]}>
             <Input />
           </Form.Item>
-        </Col>
-        <Col xs={24} sm={12}>
           <Form.Item label="API Version" name={["config", "api_version"]}>
             <Input />
           </Form.Item>
-        </Col>
-        <Col xs={24} sm={12}>
-          <Form.Item label="Max Retries" name={["config", "max_retries"]}>
-            <Input type="number" />
-          </Form.Item>
-        </Col>
-      </Row>
-      {onSubmit && <Button onClick={handleSubmit}>Save</Button>}
+        </Flex>
+        <Collapse>
+          <Collapse.Panel key="1" header="Optional Properties">
+            <Flex gap="small" wrap justify="space-between">
+              <Form.Item label="Max Retries" name={["config", "max_retries"]}>
+                <Input type="number" />
+              </Form.Item>
+            </Flex>
+          </Collapse.Panel>
+        </Collapse>
+        {onSubmit && <Button onClick={handleSubmit}>Save</Button>}
+      </Flex>
     </Form>
   );
 };

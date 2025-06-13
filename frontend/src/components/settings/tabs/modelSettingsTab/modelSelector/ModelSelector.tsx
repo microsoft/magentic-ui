@@ -1,17 +1,16 @@
-import React, { useState } from "react";
-import { Select, Collapse, Space, Row, Col } from "antd";
+import React from "react";
+import { Select, Collapse, Flex } from "antd";
 import {
   OpenAIModelConfigForm,
   AzureModelConfigForm,
   OllamaModelConfigForm,
-} from "./ModelConfigForms";
-import { ModelConfig, ModelConfigFormProps } from "./ModelConfigForms/ModelConfigForms";
+} from "./modelConfigForms";
+import { ModelConfig, ModelConfigFormProps } from "./modelConfigForms/types";
 
 // Import the default configs from each form
-import { DEFAULT_OPENAI } from "./ModelConfigForms/OpenAIModelConfigForm";
-import { DEFAULT_AZURE } from "./ModelConfigForms/AzureModelConfigForm";
-import { DEFAULT_OLLAMA } from "./ModelConfigForms/OllamaModelConfigForm";
-import { Key } from "lucide-react";
+import { DEFAULT_OPENAI } from "./modelConfigForms/OpenAIModelConfigForm";
+import { DEFAULT_AZURE } from "./modelConfigForms/AzureModelConfigForm";
+import { DEFAULT_OLLAMA } from "./modelConfigForms/OllamaModelConfigForm";
 
 interface ModelSelectorProps {
   onChange: (m: ModelConfig) => void;
@@ -138,13 +137,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onChange, value }) => {
   };
 
   return (
-    <Collapse style={{minWidth: "300px"}}>
+    <Collapse>
       <Collapse.Panel
-        style={{alignItems: "center"}}
         key="1"
         header={
-          <Row align="middle" gutter={16} style={{margin: 0, padding: 0}}>
-            <Col>
+          <Flex gap="small" align="top" justify="start">
             <Select
               options={Object.entries(PROVIDER_FORM_MAP).map(([key, { label }]) => ({ value: key, label }))}
               placeholder="Select a Model provider."
@@ -152,10 +149,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onChange, value }) => {
               onChange={handleProviderChange}
               onClick={(e) => e.stopPropagation()}
               popupMatchSelectWidth={false}
-              style={{ minWidth: 180 }}
             />
-            </Col>
-            <Col>
             {
               providerFormEntry &&
               <Select
@@ -165,12 +159,9 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onChange, value }) => {
                 onChange={handlePresetChange}
                 onClick={(e) => e.stopPropagation()}
                 popupMatchSelectWidth={false}
-                style={{ minWidth: 180 }}
               />
             }
-            </Col>
-            
-          </Row>
+          </Flex>
         }
       >
         {FormComponent && (

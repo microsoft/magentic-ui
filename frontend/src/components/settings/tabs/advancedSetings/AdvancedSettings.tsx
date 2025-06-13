@@ -1,14 +1,10 @@
 import React, { useEffect } from "react";
 import MonacoEditor from "@monaco-editor/react";
 import yaml from "js-yaml";
-import { Space, Typography, Button, Tooltip } from "antd";
-import { GeneralConfig } from "../../../../components/store";
+import { Button, Tooltip, Flex } from "antd";
 import { message } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import { validateAll } from "../../validation";
-import { error } from "console";
-
-const { Text } = Typography;
 
 interface AdvancedConfigEditorProps {
   config: any;
@@ -65,12 +61,30 @@ const AdvancedConfigEditor: React.FC<AdvancedConfigEditorProps> = ({
   }, [config])
 
   return (
-    <Space direction="vertical" style={{
-      width: "100%",
-      height: "100%",
-    }}>
-      <Text type="secondary" style={{ fontSize: 13, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-        Full Settings YAML
+    <Flex vertical gap="large">
+      <Flex gap="large" justify="start" align="center">
+        <Button
+          icon={<UploadOutlined />}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          Upload
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,.yaml,.yml"
+            style={{ display: 'none' }}
+            onChange={handleFileUpload}
+          />
+        </Button>
+        <Button
+          danger
+          onClick={() => {
+            setEditorValue(config ? yaml.dump(config) : "");
+            setErrors(validateAll(config));
+          }}
+        >
+          Discard Changes
+        </Button>
         {errors.length > 0 && (
           <Tooltip
             title={
@@ -95,39 +109,14 @@ const AdvancedConfigEditor: React.FC<AdvancedConfigEditorProps> = ({
             </span>
           </Tooltip>
         )}
-      </Text>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-        <Button
-          icon={<UploadOutlined />}
-          onClick={() => fileInputRef.current?.click()}
-          style={{ marginRight: 8 }}
-        >
-          Upload
-        </Button>
-        <Button
-          onClick={() => {
-            setEditorValue(config ? yaml.dump(config) : "");
-            setErrors(validateAll(config));
-          }}
-          style={{ marginRight: 8 }}
-        >
-          Discard Changes
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json,.yaml,.yml"
-          style={{ display: 'none' }}
-          onChange={handleFileUpload}
-        />
-      </div>
+      </Flex>
       <div style={{
         padding: 2,
         border: errors.length > 0 ? "2px solid red" : "none",
         borderRadius: errors.length > 0 ? 6 : undefined,
       }}>
         <MonacoEditor
-          theme={darkMode === "dark" ? "dark" : "light" }
+          theme={darkMode === "dark" ? "vs-dark" : "light" }
           value={editorValue}
           onChange={value => {
             setEditorValue(value || "")
@@ -152,7 +141,7 @@ const AdvancedConfigEditor: React.FC<AdvancedConfigEditorProps> = ({
           height="500px"
         />
       </div>
-    </Space>
+    </Flex>
   );
 };
 
