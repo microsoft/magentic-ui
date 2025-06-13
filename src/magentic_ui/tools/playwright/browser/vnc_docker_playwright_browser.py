@@ -97,7 +97,7 @@ class VncDockerPlaywrightBrowser(
         self._hostname = (
             f"magentic-ui-vnc-browser_{self._playwright_websocket_path}_{self._novnc_port}"
             if inside_docker
-            else "localhost"
+            else "127.0.0.1"
         )
         self._docker_name = f"magentic-ui-vnc-browser_{self._playwright_websocket_path}_{self._novnc_port}"
 
@@ -117,7 +117,7 @@ class VncDockerPlaywrightBrowser(
         self._hostname = (
             f"magentic-ui-vnc-browser_{self._playwright_websocket_path}_{self._novnc_port}"
             if self._inside_docker
-            else "localhost"
+            else "127.0.0.1"
         )
         self._docker_name = f"magentic-ui-vnc-browser_{self._playwright_websocket_path}_{self._novnc_port}"
         playwright_sock.close()

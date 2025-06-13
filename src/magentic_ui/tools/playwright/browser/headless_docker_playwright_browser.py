@@ -35,7 +35,7 @@ class HeadlessDockerPlaywrightBrowser(
 
     Properties:
         browser_address (str): Returns the WebSocket address for connecting to the browser.
-            Format: "ws://localhost:{playwright_port}"
+            Format: "ws://127.0.0.1:{playwright_port}" (or container name if inside_docker=True)
 
     Example:
         ```python
@@ -61,7 +61,7 @@ class HeadlessDockerPlaywrightBrowser(
         self._hostname = (
             f"magentic-ui-headless-browser_{self._playwright_port}"
             if inside_docker
-            else "localhost"
+            else "127.0.0.1"
         )
 
     @property
