@@ -657,6 +657,8 @@ export const RenderMessage: React.FC<MessageProps> = memo(
         ? parseUserContent(message)
         : { text: message.content, metadata: message.metadata };
 
+      console.log(message.metadata)
+
     // Use new plan message check
     const isPlanMsg = messageUtils.isPlanMessage(message.metadata);
 

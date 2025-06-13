@@ -5,7 +5,7 @@ import { appContext } from "../hooks/provider";
 import { useConfigStore } from "../hooks/store";
 import { Settings } from "lucide-react";
 import SignInModal from "./signin";
-import SettingsMenu from "./settings";
+import SettingsModal from "./settings/SettingsModal";
 import logo from "../assets/logo.svg";
 import { Button } from "./common/Button";
 
@@ -113,7 +113,7 @@ const ContentHeader = ({
         isVisible={isEmailModalOpen}
         onClose={() => setIsEmailModalOpen(false)}
       />
-      <SettingsMenu
+      <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
       />

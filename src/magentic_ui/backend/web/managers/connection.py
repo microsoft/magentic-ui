@@ -8,6 +8,7 @@ import json
 from autogen_agentchat.base._task import TaskResult
 from autogen_agentchat.messages import (
     AgentEvent,
+    BaseTextChatMessage,
     ChatMessage,
     HandoffMessage,
     ModelClientStreamingChunkEvent,
@@ -596,7 +597,11 @@ class WebSocketManager:
 
             elif isinstance(
                 message,
-                (TextMessage,),
+                (
+                    BaseTextChatMessage,
+                    ToolCallRequestEvent,
+                    ToolCallExecutionEvent,
+                ),
             ):
                 return {"type": "message", "data": message.model_dump()}
             elif isinstance(message, str):
@@ -604,6 +609,10 @@ class WebSocketManager:
                     "type": "message",
                     "data": {"source": "user", "content": message},
                 }
+            else:
+                logger.warning(
+                    f"Cannot format unrecognized message type: {type(message)}"
+                )
 
             return None
 

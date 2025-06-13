@@ -1,6 +1,15 @@
-from typing import Any, List
+from typing import Any, AsyncGenerator, List, Sequence
 
 from autogen_agentchat.agents import AssistantAgent
+from autogen_agentchat.base import Response
+from autogen_agentchat.messages import (
+    BaseAgentEvent,
+    BaseChatMessage,
+    BaseTextChatMessage,
+    ToolCallRequestEvent,
+    ToolCallExecutionEvent,
+)
+from autogen_core import CancellationToken
 from autogen_core.model_context import TokenLimitedChatCompletionContext
 from autogen_core.models import ChatCompletionClient
 
@@ -44,7 +53,32 @@ class McpAgent(AssistantAgent):
 
         super().__init__(name, model_client, **kwargs)  # type: ignore
 
-    # TODO: Override on_message_stream to loop through tools until task completed.
+    async def on_messages_stream(
+        self, messages: Sequence[BaseChatMessage], cancellation_token: CancellationToken
+    ) -> AsyncGenerator[BaseAgentEvent | BaseChatMessage | Response, None]:
+        # TODO: Loop through tools until task completed.
+        async for event in super().on_messages_stream(messages, cancellation_token):
+            # Display some messages to the UI by setting event.metadata = {"internal": False}
+            if isinstance(
+                event,
+                (
+                    BaseTextChatMessage,
+                    ToolCallRequestEvent,
+                    ToolCallExecutionEvent,
+                    # ToolCallSummaryMessage,
+                ),
+            ):
+                metadata = getattr(event, "metadata", {})
+                metadata = {
+                    **metadata,
+                    # Display in UI
+                    "internal": "no",
+                    # Part of a plan step
+                    "type": "progress_message",
+                }
+                setattr(event, "metadata", metadata)
+
+            yield event
 
     @classmethod
     def _from_config(cls, config: Any):
