@@ -45,7 +45,7 @@ const Provider = ({ children }: { children: React.ReactNode }) => {
   // Modify logic here to add your own authentication
   const initUser = {
     name: "Guest User",
-    email: getLocalStorage("user_email") || "guestuser@gmail.com",
+    email: (getLocalStorage("user_email") as string) || "guestuser@gmail.com",
     username: "guestuser",
   };
 
@@ -63,8 +63,8 @@ const Provider = ({ children }: { children: React.ReactNode }) => {
     if (storedEmail) {
       setUserState((prevUser) => ({
         ...prevUser,
-        email: storedEmail,
-        name: storedEmail,
+        email: storedEmail as string,
+        name: storedEmail as string,
       }));
     }
   }, []);

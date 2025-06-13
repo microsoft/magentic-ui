@@ -302,8 +302,7 @@ export default function ChatView({
 
   const handleWebSocketMessage = (message: WebSocketMessage) => {
     setCurrentRun((current: Run | null) => {
-      if (!current || !session?.id) return null;
-
+      if (!current || !session?.id) return current;
 
       switch (message.type) {
         case "error":
@@ -389,13 +388,16 @@ export default function ChatView({
                 ? "error"
                 : "stopped";
 
-          const isTeamResult = (data: Record<string, unknown>): data is TeamResult => {
-            return (
+          const isTeamResult = (data: unknown): data is TeamResult => {
+            const result = (
               data &&
-              "task_result" in data &&
-              "usage" in data &&
-              "duration" in data
+              typeof data === "object" &&
+              data !== null &&
+              "task_result" in (data as Record<string, unknown>) &&
+              "usage" in (data as Record<string, unknown>) &&
+              "duration" in (data as Record<string, unknown>)
             );
+            return Boolean(result);
           };
 
           // close socket on completion
@@ -416,6 +418,8 @@ export default function ChatView({
         default:
           return current;
       }
+      
+      return current;
     });
   };
 
@@ -1015,10 +1019,10 @@ export default function ChatView({
                     // Add these to connect the functions from chat.tsx to RunView
                     onInputResponse={handleInputResponse}
                     onRunTask={runTask}
-                    onCancel={handleCancel}
+                    _onCancel={handleCancel}
                     error={error}
                     chatInputRef={chatInputRef}
-                    onExecutePlan={handleExecutePlan}
+                    _onExecutePlan={handleExecutePlan}
                     enable_upload={false} // Or true if needed
                   />
                 )}
@@ -1057,13 +1061,11 @@ export default function ChatView({
                     }
                   }}
                   error={error}
-                  onCancel={handleCancel}
                   runStatus={currentRun?.status}
                   inputRequest={currentRun?.input_request}
                   isPlanMessage={isPlanMessage}
                   onPause={handlePause}
                   enable_upload={true}
-                  onExecutePlan={handleExecutePlan}
                 />
               </div>
               <SampleTasks

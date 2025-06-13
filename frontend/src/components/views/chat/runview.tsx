@@ -32,10 +32,10 @@ interface RunViewProps {
     plan?: IPlan,
     fresh_socket?: boolean
   ) => void;
-  onCancel?: () => void;
+  _onCancel?: () => void;
   error?: IStatus | null;
   chatInputRef?: React.RefObject<any>;
-  onExecutePlan?: (plan: IPlan) => void;
+  _onExecutePlan?: (plan: IPlan) => void;
   enable_upload?: boolean;
 }
 
@@ -54,10 +54,10 @@ const RunView: React.FC<RunViewProps> = ({
   // Add new props here
   onInputResponse,
   onRunTask,
-  onCancel,
+  _onCancel,
   error,
   chatInputRef,
-  onExecutePlan,
+  _onExecutePlan,
   enable_upload = false,
 }) => {
   const threadContainerRef = useRef<HTMLDivElement | null>(null);
@@ -669,13 +669,11 @@ const RunView: React.FC<RunViewProps> = ({
               }
             }}
             error={error ?? null}
-            onCancel={onCancel}
             runStatus={run.status}
             isPlanMessage={isPlanMsg}
             onPause={onPause}
             enable_upload={enable_upload}
             inputRequest={run.input_request}
-            onExecutePlan={onExecutePlan}
           />
         </div>
       </div>

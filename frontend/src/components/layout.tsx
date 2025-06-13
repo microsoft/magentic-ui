@@ -41,7 +41,7 @@ const MagenticUILayout = ({
 
   // Close mobile menu on route change
   React.useEffect(() => {
-    setIsMobileMenuOpen(false);
+    // Mobile menu functionality removed - not implemented
   }, [link]);
 
   React.useEffect(() => {

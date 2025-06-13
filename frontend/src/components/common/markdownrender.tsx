@@ -1,10 +1,6 @@
 import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Prism, SyntaxHighlighterProps } from "react-syntax-highlighter";
-import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
-
-const SyntaxHighlighter = Prism as React.FC<SyntaxHighlighterProps>;
 
 interface MarkdownRendererProps {
   content: string;
@@ -101,20 +97,19 @@ const CodeBlock: React.FC<{ language: string; value: string }> = ({
         </button>
       </div>
       <div style={{ backgroundColor: "#000" }}>
-        <SyntaxHighlighter
-          style={tomorrow}
-          language={language || "text"}
-          PreTag="div"
-          customStyle={{
+        <pre
+          style={{
             backgroundColor: "#000",
+            color: "#fff",
             margin: 0,
             borderBottomLeftRadius: "0.375rem",
             borderBottomRightRadius: "0.375rem",
             padding: "1rem",
+            overflow: "auto",
           }}
         >
           {displayedValue}
-        </SyntaxHighlighter>
+        </pre>
         {isLong && (
           <div style={{ textAlign: "center", marginTop: "0.5rem" }}>
             <button

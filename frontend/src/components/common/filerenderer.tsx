@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo } from "react";
+import React, { useState, useEffect, memo, useRef } from "react";
 import {
   File,
   FileTextIcon,
@@ -98,7 +98,7 @@ const FileModal: React.FC<FileModalProps> = ({
   file,
   content,
 }) => {
-  const modalRef = React.useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [processedContent, setProcessedContent] = useState<string | null>(null);
@@ -172,7 +172,8 @@ const FileModal: React.FC<FileModalProps> = ({
 
 
   // Handle click outside the modal content
-  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleBackdropClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Only close if clicking the backdrop itself, not its children
     if (e.target === e.currentTarget) {
       onClose();
     }
@@ -303,9 +304,7 @@ const FileModal: React.FC<FileModalProps> = ({
 
         {/* Content */}
         <div
-          className={`p-4 overflow-auto text-black ${
-            isFullScreen ? "h-[calc(90vh-64px)]" : "max-h-[70vh]"
-          }`}
+          className="p-4 overflow-auto text-black max-h-[70vh]"
         >
           {renderContent()}
         </div>

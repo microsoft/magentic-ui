@@ -36,15 +36,11 @@ export const SessionEditor: React.FC<SessionEditorProps> = ({
     const fetchTeams = async () => {
       if (isOpen) {
         try {
-          setLoading(true);
           const userId = user?.email || "";
-          const teamsData = await teamAPI.listTeams(userId);
-          setTeams(teamsData);
+          await teamAPI.listTeams(userId);
         } catch (error) {
           messageApi.error("Error loading teams");
           console.error("Error loading teams:", error);
-        } finally {
-          setLoading(false);
         }
       }
     };

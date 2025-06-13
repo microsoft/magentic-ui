@@ -33,7 +33,7 @@ export function setLocalStorage(
   if (stringify) {
     localStorage.setItem(name, JSON.stringify(value));
   } else {
-    localStorage.setItem(name, value);
+    localStorage.setItem(name, value as string);
   }
 }
 
