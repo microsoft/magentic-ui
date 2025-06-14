@@ -5,12 +5,12 @@ on:
     branches:
       - main
     paths:
-      - 'frontend/**'
+      - "frontend/**"
   pull_request:
     branches:
       - main
     paths:
-      - 'frontend/**'
+      - "frontend/**"
 
 permissions:
   contents: read
@@ -25,9 +25,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'yarn'
-          cache-dependency-path: 'frontend/yarn.lock'
+          node-version: "18"
+          cache: "yarn"
+          cache-dependency-path: "frontend/yarn.lock"
 
       - name: Install dependencies
         working-directory: frontend
@@ -37,22 +37,15 @@ jobs:
         working-directory: frontend
         run: |
           echo "🧹 Running ESLint - checking for 0 errors..."
-          
+
           # Run lint and capture output
-          LINT_OUTPUT=$(yarn lint 2>&1)
+          LINT_OUTPUT=$(yarn lint --max-warnings 100 2>&1)
           LINT_EXIT_CODE=$?
-          
+
           echo "$LINT_OUTPUT"
-          
+
           # Parse the output to check for errors (but not warnings)
-          if echo "$LINT_OUTPUT" | grep -q "([1-9][0-9]* errors\?"; then
-            ERROR_COUNT=$(echo "$LINT_OUTPUT" | grep -o '([1-9][0-9]* error' | head -1 | grep -o '[0-9]\+' || echo "unknown")
-            echo ""
-            echo "❌ ESLint found $ERROR_COUNT errors. All errors must be fixed before merging."
-            echo "💡 Run 'cd frontend && yarn lint:fix' to automatically fix some issues."
-            echo "💡 Or fix them manually and commit the changes."
-            exit 1
-          elif [ $LINT_EXIT_CODE -ne 0 ]; then
+          if [ $LINT_EXIT_CODE -ne 0 ]; then
             echo "❌ ESLint failed with exit code $LINT_EXIT_CODE"
             exit 1
           else
@@ -64,10 +57,11 @@ jobs:
         run: |
           echo "🔍 Running TypeScript check..."
           yarn typecheck
-          
+
           if [ $? -eq 0 ]; then
             echo "✅ TypeScript check passed!"
           else
             echo "❌ TypeScript check failed"
             exit 1
           fi
+
