@@ -69,10 +69,10 @@ interface RenderStepExecutionProps {
 
 interface ParsedContent {
   text:
-    | string
-    | FunctionCall[]
-    | (string | ImageContent)[]
-    | FunctionExecutionResult[];
+  | string
+  | FunctionCall[]
+  | (string | ImageContent)[]
+  | FunctionExecutionResult[];
   metadata?: Record<string, string>;
   plan?: IPlanStep[];
 }
@@ -165,6 +165,7 @@ const parseContent = (content: any): string => {
     const parsedContent = JSON.parse(content);
     return parsedContent.content?.content || parsedContent.content || content;
   } catch {
+    // Ignore JSON parsing errors and return original content
     return content;
   }
 };
@@ -188,7 +189,9 @@ const parseorchestratorContent = (
     if (messageUtils.isStepExecution(metadata)) {
       return { type: "step-execution" as const, content: parsedContent };
     }
-  } catch {}
+  } catch {
+    // Ignore JSON parsing errors for orchestrator content
+  }
 
   return { type: "default" as const, content };
 };
@@ -228,6 +231,15 @@ const RenderMultiModalBrowserStep: React.FC<{
             <div
               className="flex-1 cursor-pointer mt-2"
               onClick={() => onImageClick?.(index)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onImageClick?.(index);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label={`View browser screenshot ${index + 1}`}
             >
               <MarkdownRenderer content={item} indented={true} />
             </div>
@@ -237,6 +249,7 @@ const RenderMultiModalBrowserStep: React.FC<{
     })}
   </div>
 ));
+RenderMultiModalBrowserStep.displayName = 'RenderMultiModalBrowserStep';
 
 const RenderMultiModal: React.FC<{
   content: (string | ImageContent)[];
@@ -257,6 +270,7 @@ const RenderMultiModal: React.FC<{
     ))}
   </div>
 ));
+RenderMultiModal.displayName = 'RenderMultiModal';
 
 const RenderToolCall: React.FC<{ content: FunctionCall[] }> = memo(
   ({ content }) => (
@@ -273,6 +287,7 @@ const RenderToolCall: React.FC<{ content: FunctionCall[] }> = memo(
     </div>
   )
 );
+RenderToolCall.displayName = 'RenderToolCall';
 
 const RenderToolResult: React.FC<{ content: FunctionExecutionResult[] }> = memo(
   ({ content }) => (
@@ -286,6 +301,7 @@ const RenderToolResult: React.FC<{ content: FunctionExecutionResult[] }> = memo(
     </div>
   )
 );
+RenderToolResult.displayName = 'RenderToolResult';
 
 const RenderPlan: React.FC<RenderPlanProps> = memo(
   ({ content, isEditable, onSavePlan, onRegeneratePlan, forceCollapsed }) => {
@@ -319,6 +335,7 @@ const RenderPlan: React.FC<RenderPlanProps> = memo(
     );
   }
 );
+RenderPlan.displayName = 'RenderPlan';
 
 const RenderStepExecution: React.FC<RenderStepExecutionProps> = memo(
   ({
@@ -385,6 +402,15 @@ const RenderStepExecution: React.FC<RenderStepExecutionProps> = memo(
         <div
           className={`relative border-2 border-transparent hover:border-gray-300 rounded-lg p-2 cursor-pointer overflow-hidden bg-secondary`}
           onClick={handleToggle}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleToggle();
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label={`Toggle step ${content.index + 1} details`}
         >
           <div className="flex items-center w-full">
             <button
@@ -431,6 +457,7 @@ const RenderStepExecution: React.FC<RenderStepExecutionProps> = memo(
     );
   }
 );
+RenderStepExecution.displayName = 'RenderStepExecution';
 
 interface RenderFinalAnswerProps {
   content: string;
@@ -516,11 +543,10 @@ export const messageUtils = {
     if (typeof content !== "string") return [];
     try {
       const parsedContent = JSON.parse(content);
-      let plan = [];
       if (parsedContent.plan && typeof parsedContent.plan === "string") {
-        plan = JSON.parse(parsedContent.plan);
+        return JSON.parse(parsedContent.plan);
       }
-      return plan;
+      return [];
     } catch {
       return [];
     }
@@ -552,7 +578,7 @@ export const messageUtils = {
 const RenderUserMessage: React.FC<{
   parsedContent: ParsedContent;
   isUserProxy: boolean;
-}> = memo(({ parsedContent, isUserProxy }) => {
+}> = memo(({ parsedContent }) => {
   // Parse attached files from metadata if present
   const attachedFiles: AttachedFile[] = React.useMemo(() => {
     if (parsedContent.metadata?.attached_files) {
@@ -615,9 +641,13 @@ const RenderUserMessage: React.FC<{
           <PlanView
             task={""}
             plan={parsedContent.plan}
-            setPlan={() => {}} // No-op since it's read-only
+            setPlan={() => {
+              // No-op since it's read-only
+            }}
             viewOnly={true}
-            onSavePlan={() => {}} // No-op since it's read-only
+            onSavePlan={() => {
+              // No-op since it's read-only
+            }}
           />
         )}
     </div>
@@ -633,7 +663,6 @@ export const RenderMessage: React.FC<MessageProps> = memo(
     sessionId,
     messageIdx,
     runStatus,
-    isLast = false,
     className = "",
     isEditable = false,
     hidden = false,
@@ -675,29 +704,25 @@ export const RenderMessage: React.FC<MessageProps> = memo(
 
     return (
       <div
-        className={`relative group mb-3 ${className} w-full break-words ${
-          hidden &&
-          (!orchestratorContent ||
-            orchestratorContent.type !== "step-execution")
+        className={`relative group mb-3 ${className} w-full break-words ${hidden &&
+            (!orchestratorContent ||
+              orchestratorContent.type !== "step-execution")
             ? "hidden"
             : ""
-        }`}
+          }`}
       >
         <div
-          className={`flex ${
-            isUser || isUserProxy ? "justify-end" : "justify-start"
-          } items-start w-full transition-all duration-200`}
+          className={`flex ${isUser || isUserProxy ? "justify-end" : "justify-start"
+            } items-start w-full transition-all duration-200`}
         >
           <div
-            className={`${
-              isUser || isUserProxy
-                ? `text-primary rounded-2xl bg-tertiary rounded-tr-sm px-4 py-2 ${
-                    parsedContent.plan && parsedContent.plan.length > 0
-                      ? "w-[80%]"
-                      : "max-w-[80%]"
-                  }`
+            className={`${isUser || isUserProxy
+                ? `text-primary rounded-2xl bg-tertiary rounded-tr-sm px-4 py-2 ${parsedContent.plan && parsedContent.plan.length > 0
+                  ? "w-[80%]"
+                  : "max-w-[80%]"
+                }`
                 : "w-full text-primary"
-            } break-words overflow-hidden`}
+              } break-words overflow-hidden`}
           >
             {/* Show user message content first */}
             {(isUser || isUserProxy) && (

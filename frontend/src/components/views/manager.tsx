@@ -179,7 +179,7 @@ export const SessionManager: React.FC = () => {
         });
       }
 
-      const response = await sessionAPI.deleteSession(sessionId, user.email);
+      await sessionAPI.deleteSession(sessionId, user.email);
       setSessions(sessions.filter((s) => s.id !== sessionId));
       if (session?.id === sessionId || sessions.length === 0) {
         setSession(sessions[0] || null);
@@ -364,13 +364,18 @@ export const SessionManager: React.FC = () => {
 
   const chatViews = useMemo(() => {
     return sessions.map((s: Session) => {
+<<<<<<< feat/linting
+      const status = s.id ? sessionRunStatuses[s.id] as RunStatus : undefined;
+      const isSessionPotentiallyActive = status ? [
+=======
       const status = (s.id ? sessionRunStatuses[s.id] : undefined) as RunStatus;
       const isSessionPotentiallyActive = [
+>>>>>>> main
         "active",
         "awaiting_input",
         "pausing",
         "paused",
-      ].includes(status);
+      ].includes(status) : false;
 
       if (!isSessionPotentiallyActive && session?.id !== s.id) return null;
 

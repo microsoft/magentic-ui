@@ -48,13 +48,11 @@ interface ChatInputProps {
   ) => void;
   error: IStatus | null;
   disabled?: boolean;
-  onCancel?: () => void;
   runStatus?: string;
   inputRequest?: InputRequest;
   isPlanMessage?: boolean;
   onPause?: () => void;
   enable_upload?: boolean;
-  onExecutePlan?: (plan: IPlan) => void;
 }
 
 const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
@@ -63,13 +61,11 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       onSubmit,
       error,
       disabled = false,
-      onCancel,
       runStatus,
       inputRequest,
       isPlanMessage = false,
       onPause,
       enable_upload = false,
-      onExecutePlan,
     },
     ref
   ) => {
@@ -88,7 +84,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
     const [relevantPlans, setRelevantPlans] = React.useState<any[]>([]);
     const [allPlans, setAllPlans] = React.useState<any[]>([]);
     const [attachedPlan, setAttachedPlan] = React.useState<IPlan | null>(null);
-    const [isLoading, setIsLoading] = React.useState(false);
+    // const [isLoading, setIsLoading] = React.useState(false); // Commented out as unused
     const userId = user?.email || "default_user";
     const [isRelevantPlansVisible, setIsRelevantPlansVisible] =
       React.useState(false);
@@ -129,7 +125,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
     React.useEffect(() => {
       const fetchAllPlans = async () => {
         try {
-          setIsLoading(true);
+          // setIsLoading(true); // Commented out as isLoading is unused
 
           const response = await planAPI.listPlans(userId);
 
@@ -145,7 +141,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
         } catch (error) {
           console.error("Error fetching plans:", error);
         } finally {
-          setIsLoading(false);
+          // setIsLoading(false); // Commented out as isLoading is unused
         }
       };
 
@@ -252,16 +248,8 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
 
                 // Notify user about the conversion
                 notificationApi.info({
-                  message: (
-                    <span className="text-sm">
-                      Large Text Converted to File
-                    </span>
-                  ),
-                  description: (
-                    <span className="text-sm text-secondary">
-                      Your pasted text has been attached as a file.
-                    </span>
-                  ),
+                  message: 'Large Text Converted to File',
+                  description: 'Your pasted text has been attached as a file.',
                   duration: 3,
                 });
               }
@@ -443,13 +431,8 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       // Check file type
       if (!ALLOWED_FILE_TYPES.includes(file.type)) {
         notificationApi.warning({
-          message: <span className="text-sm">Unsupported File Type</span>,
-          description: (
-            <span className="text-sm text-secondary">
-              Please upload only text (.txt) or images (.jpg, .png, .gif, .svg)
-              files.
-            </span>
-          ),
+          message: 'Unsupported File Type',
+          description: 'Please upload only text (.txt) or images (.jpg, .png, .gif, .svg) files.',
           duration: 8.5,
         });
         return false;
@@ -611,6 +594,15 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                     : "bg-white text-black"
                 } rounded px-2 py-1 text-xs cursor-pointer hover:opacity-80 transition-opacity`}
                 onClick={handlePlanClick}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handlePlanClick();
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`View plan: ${attachedPlan.task}`}
               >
                 <span className="truncate max-w-[150px]">
                   📋 {attachedPlan.task}
@@ -670,7 +662,9 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
               task={attachedPlan.task || ""}
               plan={attachedPlan.steps || []}
               viewOnly={true}
-              setPlan={() => {}}
+              setPlan={() => {
+                // No-op: view-only mode doesn't need plan updates
+              }}
             />
           )}
         </Modal>
@@ -767,9 +761,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                       trigger={["click"]}
                     >
                       <Tooltip
-                        title={
-                          <span className="text-sm">Attach File or Plan</span>
-                        }
+                        title="Attach File or Plan"
                         placement="top"
                       >
                         <button
@@ -822,5 +814,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
     );
   }
 );
+
+ChatInput.displayName = 'ChatInput';
 
 export default ChatInput;

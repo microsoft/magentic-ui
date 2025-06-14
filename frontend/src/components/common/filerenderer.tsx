@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo } from "react";
+import React, { useState, useEffect, memo, useRef } from "react";
 import {
   File,
   FileTextIcon,
@@ -98,8 +98,7 @@ const FileModal: React.FC<FileModalProps> = ({
   file,
   content,
 }) => {
-  const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
-  const modalRef = React.useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [processedContent, setProcessedContent] = useState<string | null>(null);
@@ -171,12 +170,10 @@ const FileModal: React.FC<FileModalProps> = ({
 
   if (!isOpen || !file) return null;
 
-  const toggleFullScreen = (): void => {
-    setIsFullScreen(!isFullScreen);
-  };
 
   // Handle click outside the modal content
-  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleBackdropClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Only close if clicking the backdrop itself, not its children
     if (e.target === e.currentTarget) {
       onClose();
     }
@@ -253,13 +250,24 @@ const FileModal: React.FC<FileModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-      onClick={handleBackdropClick}
+      role="dialog"
+      aria-modal="true"
     >
+      <button
+        className="absolute inset-0 bg-transparent border-0 cursor-default"
+        onClick={handleBackdropClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            onClose();
+          }
+        }}
+        tabIndex={-1}
+        aria-label="Close dialog"
+        type="button"
+      />
       <div
         ref={modalRef}
-        className={`bg-white rounded-lg shadow-lg overflow-hidden ${
-          isFullScreen ? "fixed inset-0" : "max-w-4xl w-full max-h-[85vh]"
-        }`}
+        className="bg-white rounded-lg shadow-lg overflow-hidden max-w-4xl w-full max-h-[85vh]"
       >
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b">
@@ -296,9 +304,7 @@ const FileModal: React.FC<FileModalProps> = ({
 
         {/* Content */}
         <div
-          className={`p-4 overflow-auto text-black ${
-            isFullScreen ? "h-[calc(90vh-64px)]" : "max-h-[70vh]"
-          }`}
+          className="p-4 overflow-auto text-black max-h-[70vh]"
         >
           {renderContent()}
         </div>
@@ -406,6 +412,15 @@ const FileCard = memo<FileCardProps>(({ file, onFileClick }) => {
       <div
         className="group relative flex flex-col overflow-hidden rounded-lg border border-gray-200 hover:border-blue-500 shadow-sm hover:shadow-md cursor-pointer transition-all"
         onClick={() => onFileClick(file)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onFileClick(file);
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label={`Open ${file.name}`}
       >
         <ImageThumbnail file={file} />
         <div className="p-2 bg-white border-t w-full">
@@ -422,6 +437,15 @@ const FileCard = memo<FileCardProps>(({ file, onFileClick }) => {
     <div
       className="group relative flex flex-col items-center p-3 rounded-lg border border-gray-200 hover:border-blue-500 cursor-pointer transition-colors shadow-sm hover:shadow-md"
       onClick={() => onFileClick(file)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onFileClick(file);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${file.name}`}
     >
       <IconComponent className="w-8 h-8 mb-2 text-blue-500" />
       <span className="text-xs text-center truncate w-full" title={file.name}>

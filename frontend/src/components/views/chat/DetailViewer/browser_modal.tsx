@@ -28,7 +28,7 @@ const BrowserModal: React.FC<BrowserModalProps> = (props) => {
     onTakeControl,
   } = props;
   const [modalRoot, setModalRoot] = useState<HTMLElement | null>(null);
-  const modalIframeId = "modal-browser-iframe";
+  const modalIframeId = "browser-modal-iframe";
 
   useEffect(() => {
     // Look for existing modal root

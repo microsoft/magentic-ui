@@ -51,7 +51,7 @@ const NotFoundPage: React.FC<PageProps> = () => {
       <h1 style={headingStyle}>404</h1>
       <h2 style={subheadingStyle}>Page Not Found</h2>
       <p style={textStyle}>
-        Sorry, we couldn't find the page you're looking for. The page might have been moved, deleted, or never existed.
+        Sorry, we couldn&apos;t find the page you&apos;re looking for. The page might have been moved, deleted, or never existed.
       </p>
       <Link to="/" style={linkStyle} onMouseOver={(e) => {
         e.currentTarget.style.backgroundColor = "#0069d9";

@@ -22,33 +22,32 @@ interface PlanListProps {
 }
 
 const normalizePlanData = (
-  planData: any,
+  planData: Record<string, unknown>,
   userId: string,
   defaultTask: string = "Untitled",
   preserveId: boolean = false // Add this parameter
 ): Partial<IPlan> => {
   return {
     // Only include ID if preserveId is true
-    ...(preserveId && planData.id ? { id: planData.id } : {}),
+    ...(preserveId && planData.id ? { id: planData.id as number } : {}),
 
-    task: planData.task || defaultTask,
+    task: (planData.task as string) || defaultTask,
     steps: Array.isArray(planData.steps)
-      ? planData.steps.map((step: any) => ({
-          title: step.title || "Untitled Step",
-          details: step.details || "",
+      ? (planData.steps as Record<string, unknown>[]).map((step) => ({
+          title: (step.title as string) || "Untitled Step",
+          details: (step.details as string) || "",
           enabled: step.enabled !== false,
-          open: step.open || false,
-          agent_name: step.agent_name || "",
+          open: (step.open as boolean) || false,
+          agent_name: (step.agent_name as string) || "",
         }))
       : [],
-    user_id: planData.user_id || userId,
-    session_id: planData.session_id || null,
+    user_id: (planData.user_id as string) || userId,
+    session_id: (planData.session_id as number) || null,
   };
 };
 
 const PlanList: React.FC<PlanListProps> = ({
   onTabChange,
-  onSelectSession,
   onCreateSessionFromPlan,
 }) => {
   const [plans, setPlans] = useState<IPlan[]>([]);
@@ -57,7 +56,6 @@ const PlanList: React.FC<PlanListProps> = ({
   const { user } = useContext(appContext);
   const planAPI = new PlanAPI();
   const sessionAPI = new SessionAPI();
-  const [isCreatingPlan, setIsCreatingPlan] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -140,8 +138,6 @@ const PlanList: React.FC<PlanListProps> = ({
 
   const handleCreatePlan = async () => {
     try {
-      setIsCreatingPlan(true);
-
       const newPlan = normalizePlanData(
         { task: "New Plan", steps: [] },
         userId
@@ -161,8 +157,6 @@ const PlanList: React.FC<PlanListProps> = ({
           err instanceof Error ? err.message : String(err)
         }`
       );
-    } finally {
-      setIsCreatingPlan(false);
     }
   };
 
@@ -365,7 +359,7 @@ const PlanList: React.FC<PlanListProps> = ({
             <SearchOutlined
               style={{ fontSize: "48px", marginBottom: "16px" }}
             />
-            <p>No plans found matching "{searchTerm}"</p>
+            <p>No plans found matching &quot;{searchTerm}&quot;</p>
             <Button
               type="link"
               onClick={() => setSearchTerm("")}
