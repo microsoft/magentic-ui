@@ -83,6 +83,7 @@ class MagenticUISimUserSystem(BaseSystem):
         endpoint_config_file_surfer (Optional[Dict]): FileSurfer agent model client config.
         endpoint_config_user_proxy (Optional[Dict]): User proxy agent model client config.
         dataset_name (str): Name of the evaluation dataset (e.g., "Gaia").
+        include_metadata_in_task_message (bool): Whether to include rewritten metadata in the task message.
     """
 
     default_client_config = {
@@ -115,6 +116,7 @@ class MagenticUISimUserSystem(BaseSystem):
         endpoint_config_file_surfer: Optional[Dict[str, Any]] = default_client_config,
         endpoint_config_user_proxy: Optional[Dict[str, Any]] = default_client_config,
         dataset_name: str = "Gaia",
+        include_metadata_in_task_message: bool = False,
     ):
         super().__init__(name)
         self.candidate_class = WebVoyagerCandidate
@@ -127,6 +129,7 @@ class MagenticUISimUserSystem(BaseSystem):
         self.web_surfer_only = web_surfer_only
         self.dataset_name = dataset_name
         self.how_helpful_user_proxy = how_helpful_user_proxy
+        self.include_metadata_in_task_message = include_metadata_in_task_message
 
     def get_answer(
         self, task_id: str, task: BaseTask, output_dir: str
@@ -337,21 +340,44 @@ class MagenticUISimUserSystem(BaseSystem):
             # Step 3: Prepare the task message
             answer: str = ""
             messages_so_far: List[LogEventSystem] = []
+            # Optionally append rewritten metadata for both multimodal and non-multimodal
+            rewritten_metadata = None
+            if self.include_metadata_in_task_message and task_metadata:
+                from autogen_core import CancellationToken
+                from autogen_core.models import UserMessage
+
+                prompt = f"""Rewrite the following helpful hints to help solve the task, but remove any information that directly reveals the answer. \nKeep the hints as close to the original as possible but remove any information that directly reveals the answer.\nHelpful hints: {task_metadata}\n\nAnswer: {getattr(task, 'ground_truth', '')}\n\nDo not include anything else in your response except the rewritten hints.\nRewritten helpful hints:"""
+                result = await model_client_orch.create(
+                    messages=[UserMessage(content=prompt, source="user")],
+                    cancellation_token=CancellationToken(),
+                )
+                assert isinstance(result.content, str)
+                rewritten_metadata = (
+                    "\n\nWe have access to helpful hints that helps in solving the task: "
+                    + result.content.strip()
+                )
             # check if file name is an image if it exists
             if (
                 hasattr(task, "file_name")
                 and task.file_name
                 and task.file_name.endswith((".png", ".jpg", ".jpeg"))
             ):
+                content_list: list[Union[str, AGImage]] = [task_question]
+                if rewritten_metadata:
+                    if isinstance(content_list[0], str):
+                        content_list[0] = content_list[0] + rewritten_metadata
+                content_list.append(AGImage.from_pil(Image.open(task.file_name)))
                 task_message = MultiModalMessage(
-                    content=[
-                        task_question,
-                        AGImage.from_pil(Image.open(task.file_name)),
-                    ],
+                    content=content_list,
                     source="user",
                 )
             else:
-                task_message = TextMessage(content=task_question, source="user")
+                if rewritten_metadata:
+                    task_message = TextMessage(
+                        content=task_question + rewritten_metadata, source="user"
+                    )
+                else:
+                    task_message = TextMessage(content=task_question, source="user")
             # Step 4: Run the team on the task
             async for message in team.run_stream(task=task_message):
                 # Store log events
