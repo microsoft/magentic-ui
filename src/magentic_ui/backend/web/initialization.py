@@ -1,6 +1,7 @@
 # api/initialization.py
 import os
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
 from loguru import logger
@@ -42,7 +43,11 @@ class AppInitializer:
         """Determine application root directory"""
         if app_dir := os.getenv("_APPDIR"):
             return Path(app_dir)
-        return Path.home() / ".magentic_ui"
+        # Use workspace directory when running inside Docker to avoid file sharing issues
+        if os.environ.get("INSIDE_DOCKER") == "1":
+            return Path("/Users/dank/Desktop/magentic/magentic-ui/.magentic_ui")
+        else:
+            return Path.home() / ".magentic_ui"
 
     def _get_database_uri(self, app_root: Path) -> str:
         """Generate database URI based on settings or environment"""
@@ -65,9 +70,12 @@ class AppInitializer:
     def _create_directories(self) -> None:
         """Create all required directories"""
         self.app_root.mkdir(parents=True, exist_ok=True)
+        self.app_root.chmod(0o755)
         dirs = [self.static_root, self.user_files, self.ui_root, self.config_dir]
         for path in dirs:
             path.mkdir(parents=True, exist_ok=True)
+            # Set proper permissions for Docker Desktop file sharing
+            path.chmod(0o755)
 
     def _load_environment(self) -> None:
         """Load environment variables from .env file if it exists"""

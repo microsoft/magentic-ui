@@ -2,6 +2,8 @@ FROM node:lts-slim
 
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
+# Set TMPDIR to avoid cross-device link errors
+ENV TMPDIR=/tmp
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
@@ -28,9 +30,10 @@ RUN git clone --depth 1 --branch v1.6.0 https://github.com/novnc/noVNC.git /usr/
 # Set up working directory
 WORKDIR /app
 
-# Install Playwright
+# Install Playwright with cache optimizations
 COPY package.json package-lock.json* ./
-RUN npm install .
+RUN npm cache clean --force || true
+RUN npm install . --no-cache
 
 # Install browsers with dependencies
 RUN npx playwright@1.51 install --with-deps chromium
@@ -58,7 +61,8 @@ ENV PLAYWRIGHT_WS_PATH="default"
 # Set the display environment variable
 ENV DISPLAY=:99
 
-RUN mkdir -p /workspace
+# Create workspace directory with proper permissions for Docker Desktop file sharing
+RUN mkdir -p /workspace && chmod 755 /workspace
 WORKDIR /workspace
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

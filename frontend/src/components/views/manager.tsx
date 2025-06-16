@@ -56,26 +56,32 @@ export const SessionManager: React.FC = () => {
   }, [isSidebarOpen]);
 
   const fetchSessions = useCallback(async () => {
-    if (!user?.email) return;
+    if (!user?.email) {
+      console.log('[API] No user email available for fetching sessions');
+      return;
+    }
 
     try {
+      console.log(`[API] Fetching sessions for user: ${user.email}`);
       setIsLoading(true);
       const data = await sessionAPI.listSessions(user.email);
+      console.log(`[API] Successfully fetched ${data.length} sessions:`, data.map(s => ({ id: s.id, name: s.name })));
       setSessions(data);
 
       // Only set first session if there's no sessionId in URL
       const params = new URLSearchParams(window.location.search);
       const sessionId = params.get("sessionId");
       if (!session && data.length > 0 && !sessionId) {
+        console.log(`[API] Setting first session as active: ${data[0].id}`);
         setSession(data[0]);
       } else {
         if (data.length === 0) {
-          console.log("No sessions found, creating default session...");
+          console.log("[API] No sessions found, creating default session...");
           createDefaultSession();
         }
       }
     } catch (error) {
-      console.error("Error fetching sessions:", error);
+      console.error("[API] Error fetching sessions:", error);
       messageApi.error("Error loading sessions");
     } finally {
       setIsLoading(false);
@@ -272,8 +278,11 @@ export const SessionManager: React.FC = () => {
   };
 
   const setupWebSocket = (sessionId: number, runId: string): WebSocket => {
+    console.log(`[WebSocket] Setting up socket for session ${sessionId}, run ${runId}`);
+    
     // Close existing socket for this session if it exists
     if (sessionSockets[sessionId]) {
+      console.log(`[WebSocket] Closing existing socket for session ${sessionId}`);
       sessionSockets[sessionId].socket.close();
     }
 
@@ -281,8 +290,27 @@ export const SessionManager: React.FC = () => {
     const baseUrl = getBaseUrl(serverUrl);
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${wsProtocol}//${baseUrl}/api/ws/runs/${runId}`;
+    
+    console.log(`[WebSocket] Connecting to: ${wsUrl}`);
 
     const socket = new WebSocket(wsUrl);
+    
+    // Add connection event listeners for debugging
+    socket.onopen = () => {
+      console.log(`[WebSocket] Connected successfully to run ${runId}`);
+    };
+    
+    socket.onclose = (event) => {
+      console.log(`[WebSocket] Connection closed for run ${runId}:`, {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean
+      });
+    };
+    
+    socket.onerror = (error) => {
+      console.error(`[WebSocket] Connection error for run ${runId}:`, error);
+    };
 
     // Store the new socket
     setSessionSockets((prev) => ({
@@ -299,20 +327,40 @@ export const SessionManager: React.FC = () => {
     fresh_socket: boolean = false,
     only_retrieve_existing_socket: boolean = false
   ): WebSocket | null => {
+    console.log(`[WebSocket] Getting socket for session ${sessionId}, run ${runId}`, {
+      fresh_socket,
+      only_retrieve_existing_socket
+    });
+    
     if (fresh_socket) {
+      console.log(`[WebSocket] Creating fresh socket for session ${sessionId}`);
       return setupWebSocket(sessionId, runId);
     } else {
       const existingSocket = sessionSockets[sessionId];
+      
+      if (existingSocket) {
+        console.log(`[WebSocket] Found existing socket for session ${sessionId}:`, {
+          readyState: existingSocket.socket.readyState,
+          runId: existingSocket.runId,
+          expectedRunId: runId,
+          isOpen: existingSocket.socket.readyState === WebSocket.OPEN
+        });
+      } else {
+        console.log(`[WebSocket] No existing socket found for session ${sessionId}`);
+      }
 
       if (
         existingSocket?.socket.readyState === WebSocket.OPEN &&
         existingSocket.runId === runId
       ) {
+        console.log(`[WebSocket] Reusing existing socket for session ${sessionId}`);
         return existingSocket.socket;
       }
       if (only_retrieve_existing_socket) {
+        console.log(`[WebSocket] Only retrieving existing socket - returning null for session ${sessionId}`);
         return null;
       }
+      console.log(`[WebSocket] Creating new socket for session ${sessionId}`);
       return setupWebSocket(sessionId, runId);
     }
   };
@@ -465,9 +513,8 @@ export const SessionManager: React.FC = () => {
 
       <div className="flex flex-1 relative">
         <div
-          className={`absolute left-0 top-0 h-full transition-all duration-200 ease-in-out ${
-            isSidebarOpen ? "w-77" : "w-0"
-          }`}
+          className={`absolute left-0 top-0 h-full transition-all duration-200 ease-in-out ${isSidebarOpen ? "w-77" : "w-0"
+            }`}
         >
           <Sidebar
             isOpen={isSidebarOpen}
@@ -504,9 +551,8 @@ export const SessionManager: React.FC = () => {
         </div>
 
         <div
-          className={`flex-1 transition-all -mr-4 duration-200 w-[200px] ${
-            isSidebarOpen ? "ml-64" : "ml-0"
-          }`}
+          className={`flex-1 transition-all -mr-4 duration-200 w-[200px] ${isSidebarOpen ? "ml-64" : "ml-0"
+            }`}
         >
           {activeSubMenuItem === "current_session" ? (
             session && sessions.length > 0 ? (

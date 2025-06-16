@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  magentic-ui-python:
+    build:
+      context: src/magentic_ui/docker/magentic-ui-python-env
+      dockerfile: Dockerfile
+    image: magentic-ui-python-env
+    container_name: magentic-ui-python
+    networks:
+      - my-network
+    ports:
+      - "8081:8081" #front end
+      - "8000:8000"
+    volumes:
+      - .:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - INSIDE_DOCKER=1
+    command: tail -f /dev/null
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  magentic-ui-browser:
+    build:
+      context: src/magentic_ui/docker/magentic-ui-browser-docker
+      dockerfile: Dockerfile
+    image: magentic-ui-vnc-browser
+    container_name: magentic-ui-browser
+    networks:
+      - my-network
+    ports:
+      - "37367:37367"  # Playwright WebSocket server
+      - "6080:6080"    # noVNC web interface
+    environment:
+      - PLAYWRIGHT_PORT=37367
+      - NO_VNC_PORT=6080
+      - PLAYWRIGHT_WS_PATH=default
+    restart: unless-stopped
+    depends_on:
+      magentic-ui-python:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "sh", "-c", "netstat -ln | grep :37367 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  my-network:
+    driver: bridge
+    name: my-network

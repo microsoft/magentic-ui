@@ -1,0 +1,146 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "magentic_ui"
+license = "MIT"
+dynamic = ["version"]
+description = ''
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = []
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "autogen-agentchat==0.5.7",
+    "autogen-core==0.5.7",
+    "autogen-ext[openai,docker,file-surfer,web-surfer,magentic-one,task-centric-memory]==0.5.7",
+    "aioconsole",
+    "nest_asyncio",
+    "docker",
+    "aiohttp",
+    "playwright==1.51",
+    "tldextract",
+    "loguru",
+    "pydantic",
+    "pydantic-settings",
+    "fastapi[standard]",
+    "typer",
+    "aiofiles",
+    "python-dotenv",
+    "websockets",
+    "sqlmodel",
+    "psycopg",
+    "alembic",
+    "pyyaml",
+    "html2text",
+    "psutil",
+]
+
+[project.optional-dependencies]
+eval = [
+    "huggingface_hub",
+    "pandas",
+    "scipy",
+]
+
+azure = [
+    "autogen-ext[azure]==0.5.7"
+]
+
+ollama = [
+    "autogen-ext[ollama]==0.5.7"
+]
+
+[project.scripts]
+magentic = "magentic_ui.backend.cli:run"
+
+[tool.uv]
+dev-dependencies = [
+    "poethepoet",
+    "pyright==1.1.389",
+    "mypy==1.13.0",
+    "ruff==0.4.8",
+    "pytest_asyncio",
+    "pytest-cov",
+    "pytest",
+    "sphinx",
+    "sphinx-autodoc-typehints",
+    "sphinx_rtd_theme",
+    "types-aiofiles",
+    "types-docker",
+    "types-PyYaml"
+]
+
+[tool.ruff]
+exclude = ["src/benchmarks/assistantbench"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.poe.tasks]
+fmt = "ruff format src"
+format.ref = "fmt src"
+lint = "ruff check src"
+mypy = "mypy src"
+pyright = "pyright src"
+test.env = { PYTHONPATH = "src" }
+test.sequence = [
+    "playwright install",
+    "pytest tests --cov=src --cov-report=xml --cov-report=term-missing",
+]
+test.default_item_type = "cmd"
+check = ["fmt", "lint", "pyright", "test"]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+ignore_missing_imports = true
+
+# from https://blog.wolt.com/engineering/2021/09/30/professional-grade-mypy-configuration/
+disallow_untyped_defs = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_return_any = true
+show_error_codes = true
+warn_unused_ignores = false
+
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+disallow_any_unimported = true
+exclude = ["src/magentic_ui/eval"]
+
+[tool.pyright]
+include = ["src", "tests", "samples"]
+exclude = ["src/magentic_ui/eval/benchmarks/assistantbench/evaluate_utils", "src/magentic_ui/agents/web_surfer/_cua_web_surfer.py", "src/magentic_ui/backend/web/routes"]
+typeCheckingMode = "strict"
+reportUnnecessaryIsInstance = false
+reportMissingTypeStubs = false
+
+
+[tool.hatch.build.targets.wheel]
+include-package-data = true
+packages = ["src/magentic_ui"]
+
+[tool.hatch.version]
+path = "src/magentic_ui/version.py"
+
+[tool.hatch.build]
+include = [
+  "src/magentic_ui/**/*.py",
+  "src/magentic_ui/**/*.yaml",
+  "src/magentic_ui/**/*.json",
+  "src/magentic_ui/**/*.js",
+  "src/magentic_ui/backend/web/ui/**/*", 
+  "src/magentic_ui/docker/**/*",
+]
+exclude = [
+  "src/magentic_ui/tests/**",
+  "**/__pycache__",
+  "**/.*.swp",
+]
+ignore-vcs = true 

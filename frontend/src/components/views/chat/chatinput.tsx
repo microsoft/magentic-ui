@@ -739,31 +739,33 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                     }`}
                   >
                     <Dropdown
-                      overlay={
-                        <Menu>
-                          <Menu.Item key="attach-file">
-                            <Upload {...uploadProps} showUploadList={false}>
-                              <span>Attach File</span>
-                            </Upload>
-                          </Menu.Item>
-                          <Menu.SubMenu key="attach-plan" title="Attach Plan">
-                            {allPlans.length === 0 ? (
-                              <Menu.Item disabled key="no-plans">
-                                No plans available
-                              </Menu.Item>
-                            ) : (
-                              allPlans.map((plan: any) => (
-                                <Menu.Item
-                                  key={plan.id || plan.task}
-                                  onClick={() => handleUsePlan(plan)}
-                                >
-                                  {plan.task}
-                                </Menu.Item>
-                              ))
-                            )}
-                          </Menu.SubMenu>
-                        </Menu>
-                      }
+                      menu={{
+                        items: [
+                          {
+                            key: "attach-file",
+                            label: (
+                              <Upload {...uploadProps} showUploadList={false}>
+                                <span>Attach File</span>
+                              </Upload>
+                            ),
+                          },
+                          {
+                            key: "attach-plan",
+                            label: "Attach Plan",
+                            children: allPlans.length === 0 ? [
+                              {
+                                key: "no-plans",
+                                label: "No plans available",
+                                disabled: true,
+                              }
+                            ] : allPlans.map((plan: any) => ({
+                              key: plan.id || plan.task,
+                              label: plan.task,
+                              onClick: () => handleUsePlan(plan),
+                            })),
+                          },
+                        ],
+                      }}
                       trigger={["click"]}
                     >
                       <Tooltip
