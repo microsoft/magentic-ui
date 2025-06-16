@@ -123,7 +123,7 @@ All intermediate progress steps are clearly displayed to the user. Furthermore, 
 ### Autonomous Evaluation
 
 To evaluate its autonomous capabilities, Magentic-UI has been tested against several benchmarks when running with o4-mini: [GAIA](https://huggingface.co/datasets/gaia-benchmark/GAIA) test set (42.52%), which assesses general AI assistants across reasoning, tool use, and web interaction tasks ; [AssistantBench](https://huggingface.co/AssistantBench) test set (27.60%), focusing on realistic, time-consuming web tasks; [WebVoyager](https://github.com/MinorJerry/WebVoyager) (82.2%), measuring end-to-end web navigation in real-world scenarios; and [WebGames](https://webgames.convergence.ai/) (45.5%), evaluating general-purpose web-browsing agents through interactive challenges.
-To reproduce these experimental results, please see the following [instructions](experiments/README.md).
+To reproduce these experimental results, please see the following [instructions](experiments/eval/README.md).
 
 
 
