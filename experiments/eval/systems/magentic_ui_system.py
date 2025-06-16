@@ -7,8 +7,7 @@ import datetime
 from pathlib import Path
 from PIL import Image
 from pydantic import BaseModel
-from typing import List, Optional, Union, Dict, Any, Literal, Tuple
-from autogen_core import ComponentModel
+from typing import List, Dict, Any, Tuple
 from autogen_core.models import ChatCompletionClient
 from autogen_core import Image as AGImage
 from autogen_agentchat.base import TaskResult, ChatAgent
@@ -23,14 +22,9 @@ from magentic_ui.eval.models import BaseTask, BaseCandidate, WebVoyagerCandidate
 from magentic_ui.types import CheckpointEvent
 from magentic_ui.agents import WebSurfer, CoderAgent, FileSurfer
 from magentic_ui.teams import GroupChat
-from magentic_ui.agents.users import MetadataUserProxy
 from magentic_ui.tools.playwright.browser import VncDockerPlaywrightBrowser
 from magentic_ui.tools.playwright.browser.utils import get_available_port
-from magentic_ui.approval_guard import (
-    ApprovalGuard,
-    ApprovalGuardContext,
-    ApprovalConfig,
-)
+
 
 logger = logging.getLogger(__name__)
 logging.getLogger("autogen").setLevel(logging.WARNING)
@@ -55,66 +49,29 @@ class LogEventSystem(BaseModel):
     metadata: Dict[str, str] = {}
 
 
-USER_PROXY_DESCRIPTION = """
-The human user who gave the original task.
-The human user cannot browse the web or write code or access files. So do not ask them to perform any actions on the web.
-In case where the task requires further clarifying information, the user can be asked to clarify the task.
-In case where you are stuck and unable to make progress on completing the task, you can ask the user for help.
-Make sure to do your best to complete the task with other agents before asking the user for help.
-The human can help if you're stuck by providing hints on how to solve the task.
-The human can also help verify your answer and provide you guidance.
-"""
-
-
-class MagenticUISystem(BaseSystem):
+class MagenticUIAutonomousSystem(BaseSystem):
     """
-    MagenticUISystem orchestrates a simulated user and a team of agents to solve tasks using Magentic-UI.
-
-    This class manages the instantiation of agents (WebSurfer, CoderAgent, FileSurfer, and optionally a user proxy), configures the orchestration logic, launches a browser for web tasks, and coordinates the team to solve a given task. It logs all agent messages, saves answers and resource usage, and supports different evaluation datasets and user simulation types.
+    MagenticUIAutonomousSystem
 
     Args:
         name (str): Name of the system instance.
-        simulated_user_type (Literal): Type of simulated user ("co-planning", "co-execution", etc.).
-        how_helpful_user_proxy (Literal): Determines how helpful the user proxy is ("strict", "soft", "no_hints").
         web_surfer_only (bool): If True, only the web surfer agent is used.
         endpoint_config_orch (Optional[Dict]): Orchestrator model client config.
         endpoint_config_websurfer (Optional[Dict]): WebSurfer agent model client config.
         endpoint_config_coder (Optional[Dict]): Coder agent model client config.
         endpoint_config_file_surfer (Optional[Dict]): FileSurfer agent model client config.
-        endpoint_config_user_proxy (Optional[Dict]): User proxy agent model client config.
         dataset_name (str): Name of the evaluation dataset (e.g., "Gaia").
     """
 
-    default_client_config = {
-        "provider": "OpenAIChatCompletionClient",
-        "config": {
-            "model": "gpt-4o-2024-08-06",
-        },
-        "max_retries": 10,
-    }
-
-    o4_client_config = {
-        "provider": "OpenAIChatCompletionClient",
-        "config": {
-            "model": "o4-mini",
-        },
-        "max_retries": 10,
-    }
-
     def __init__(
         self,
-        name: str = "MagenticUI",
-        simulated_user_type: Literal[
-            "co-planning", "co-execution", "co-planning-and-execution", "none"
-        ] = "none",
-        how_helpful_user_proxy: Literal["strict", "soft", "no_hints"] = "soft",
-        web_surfer_only: bool = False,
-        endpoint_config_orch: Optional[Dict[str, Any]] = default_client_config,
-        endpoint_config_websurfer: Optional[Dict[str, Any]] = default_client_config,
-        endpoint_config_coder: Optional[Dict[str, Any]] = default_client_config,
-        endpoint_config_file_surfer: Optional[Dict[str, Any]] = default_client_config,
-        endpoint_config_user_proxy: Optional[Dict[str, Any]] = default_client_config,
+        endpoint_config_orch: Dict[str, Any],
+        endpoint_config_websurfer: Dict[str, Any],
+        endpoint_config_coder: Dict[str, Any],
+        endpoint_config_file_surfer: Dict[str, Any],
+        name: str = "MagenticUIAutonomousSystem",
         dataset_name: str = "Gaia",
+        web_surfer_only: bool = False,
     ):
         super().__init__(name)
         self.candidate_class = WebVoyagerCandidate
@@ -122,11 +79,8 @@ class MagenticUISystem(BaseSystem):
         self.endpoint_config_websurfer = endpoint_config_websurfer
         self.endpoint_config_coder = endpoint_config_coder
         self.endpoint_config_file_surfer = endpoint_config_file_surfer
-        self.simulated_user_type = simulated_user_type
-        self.endpoint_config_user_proxy = endpoint_config_user_proxy
         self.web_surfer_only = web_surfer_only
         self.dataset_name = dataset_name
-        self.how_helpful_user_proxy = how_helpful_user_proxy
 
     def get_answer(
         self, task_id: str, task: BaseTask, output_dir: str
@@ -150,58 +104,25 @@ class MagenticUISystem(BaseSystem):
             Returns:
                 Tuple[str, List[str]]: The final answer string and a list of screenshot file paths.
             """
+            messages_so_far: List[LogEventSystem] = []
+
             task_question: str = task.question
-            # STEP 1: FINAL ANSWER PROMPT
-            if self.dataset_name == "WebVoyager":
-                # For WebVoyager, there is no restrictions on the final answer like Gaia or AssistantBench for evaluation
-                FINAL_ANSWER_PROMPT = f"""
-                output a FINAL ANSWER to the task
+            # Adapted from MagenticOne. Minor change is to allow an explanation of the final answer before the final answer.
+            FINAL_ANSWER_PROMPT = f"""
+            output a FINAL ANSWER to the task.
 
-                The real task is: {task_question}
-
-                Try your best to answer the question and provide a final answer that completely answers 
-                To output the final answer, use the following template FINAL ANSWER: [YOUR FINAL ANSWER]
-                Don't put your answer in brackets or quotes. 
-                """
-            else:
-                if (
-                    self.simulated_user_type != "none"
-                    or self.dataset_name == "AssistantBench"
-                ):
-                    # This allows model to say "Unable to determine" or "None" if it is unable to answer the question.
-                    FINAL_ANSWER_PROMPT = f"""
-                    output a FINAL ANSWER to the task.
-
-                    The real task is: {task_question}
+            The real task is: {task_question}
 
 
-                    To output the final answer, use the following template: [any explanation for final answer] FINAL ANSWER: [YOUR FINAL ANSWER]
-                    Don't put your answer in brackets or quotes. 
-                    Your FINAL ANSWER should be a number OR as few words as possible OR a comma separated list of numbers and/or strings.
-                    ADDITIONALLY, your FINAL ANSWER MUST adhere to any formatting instructions specified in the original question (e.g., alphabetization, sequencing, units, rounding, decimal places, etc.)
-                    If you are asked for a number, express it numerically (i.e., with digits rather than words), don't use commas, and don't include units such as $ or percent signs unless specified otherwise.
-                    If you are asked for a string, don't use articles or abbreviations (e.g. for cities), unless specified otherwise. Don't output any final sentence punctuation such as '.', '!', or '?'.
-                    If you are asked for a comma separated list, apply the above rules depending on whether the elements are numbers or strings.
-                    If you are unable to determine the final answer, output '[any explanation for final answer] FINAL ANSWER: Unable to determine'
-                    Try your best to answer the question and provide a smart guess if you are unsure.
-                    """
-                else:
-                    # Adapted from MagenticOne. Minor change is to allow an explanation of the final answer before the final answer.
-                    FINAL_ANSWER_PROMPT = f"""
-                    output a FINAL ANSWER to the task.
-
-                    The real task is: {task_question}
-
-
-                    To output the final answer, use the following template: [any explanation for final answer] FINAL ANSWER: [YOUR FINAL ANSWER]
-                    Don't put your answer in brackets or quotes. 
-                    Your FINAL ANSWER should be a number OR as few words as possible OR a comma separated list of numbers and/or strings.
-                    ADDITIONALLY, your FINAL ANSWER MUST adhere to any formatting instructions specified in the original question (e.g., alphabetization, sequencing, units, rounding, decimal places, etc.)
-                    If you are asked for a number, express it numerically (i.e., with digits rather than words), don't use commas, and don't include units such as $ or percent signs unless specified otherwise.
-                    If you are asked for a string, don't use articles or abbreviations (e.g. for cities), unless specified otherwise. Don't output any final sentence punctuation such as '.', '!', or '?'.
-                    If you are asked for a comma separated list, apply the above rules depending on whether the elements are numbers or strings.
-                    You must answer the question and provide a smart guess if you are unsure. Provide a guess even if you have no idea about the answer.
-                    """
+            To output the final answer, use the following template: [any explanation for final answer] FINAL ANSWER: [YOUR FINAL ANSWER]
+            Don't put your answer in brackets or quotes. 
+            Your FINAL ANSWER should be a number OR as few words as possible OR a comma separated list of numbers and/or strings.
+            ADDITIONALLY, your FINAL ANSWER MUST adhere to any formatting instructions specified in the original question (e.g., alphabetization, sequencing, units, rounding, decimal places, etc.)
+            If you are asked for a number, express it numerically (i.e., with digits rather than words), don't use commas, and don't include units such as $ or percent signs unless specified otherwise.
+            If you are asked for a string, don't use articles or abbreviations (e.g. for cities), unless specified otherwise. Don't output any final sentence punctuation such as '.', '!', or '?'.
+            If you are asked for a comma separated list, apply the above rules depending on whether the elements are numbers or strings.
+            You must answer the question and provide a smart guess if you are unsure. Provide a guess even if you have no idea about the answer.
+            """
             # Step 2: Create the Magentic-UI team
             # TERMINATION CONDITION
             termination_condition = TimeoutTermination(
@@ -210,45 +131,26 @@ class MagenticUISystem(BaseSystem):
             model_context_token_limit = 110000
             # ORCHESTRATOR CONFIGURATION
             orchestrator_config = OrchestratorConfig(
-                cooperative_planning=False
-                if self.simulated_user_type in ["co-execution", "none"]
-                else True,
-                autonomous_execution=True
-                if self.simulated_user_type in ["co-planning", "none"]
-                else False,
+                cooperative_planning=False,
+                autonomous_execution=True,
                 allow_follow_up_input=False,
                 final_answer_prompt=FINAL_ANSWER_PROMPT,
                 model_context_token_limit=model_context_token_limit,
                 no_overwrite_of_task=True,
             )
 
-            # GET MODEL CLIENTS
-            def get_model_client(
-                endpoint_config: Optional[Union[ComponentModel, Dict[str, Any]]],
-            ) -> ChatCompletionClient:
-                """
-                Loads a ChatCompletionClient from a given endpoint configuration.
-
-                Args:
-                    endpoint_config (Optional[Union[ComponentModel, Dict[str, Any]]]):
-                        The configuration for the model client.
-
-                Returns:
-                    ChatCompletionClient: The loaded model client.
-                """
-                if endpoint_config is None:
-                    return ChatCompletionClient.load_component(
-                        self.default_client_config
-                    )
-                return ChatCompletionClient.load_component(endpoint_config)
-
-            model_client_orch = get_model_client(self.endpoint_config_orch)
-            model_client_coder = get_model_client(self.endpoint_config_coder)
-            model_client_websurfer = get_model_client(self.endpoint_config_websurfer)
-            model_client_file_surfer = get_model_client(
+            model_client_orch = ChatCompletionClient.load_component(
+                self.endpoint_config_orch
+            )
+            model_client_coder = ChatCompletionClient.load_component(
+                self.endpoint_config_coder
+            )
+            model_client_websurfer = ChatCompletionClient.load_component(
+                self.endpoint_config_websurfer
+            )
+            model_client_file_surfer = ChatCompletionClient.load_component(
                 self.endpoint_config_file_surfer
             )
-            model_client_user_proxy = get_model_client(self.endpoint_config_user_proxy)
 
             # launch the browser
             playwright_port, socket = get_available_port()
@@ -261,16 +163,12 @@ class MagenticUISystem(BaseSystem):
                 novnc_port=novnc_port,
                 inside_docker=False,
             )
-
-            # Create action guard with default policy "never"
-            action_guard = ApprovalGuard(
-                input_func=None,
-                default_approval=False,
-                model_client=model_client_orch,
-                config=ApprovalConfig(
-                    approval_policy="never",
-                ),
+            browser_location_log = LogEventSystem(
+                source="browser",
+                content=f"Browser at novnc port {novnc_port} and playwright port {playwright_port} launched",
+                timestamp=datetime.datetime.now().isoformat(),
             )
+            messages_so_far.append(browser_location_log)
 
             # CREATE AGENTS
             coder_agent = CoderAgent(
@@ -288,44 +186,22 @@ class MagenticUISystem(BaseSystem):
                 model_context_token_limit=model_context_token_limit,
             )
             # Create web surfer
-            with ApprovalGuardContext.populate_context(action_guard):
-                web_surfer = WebSurfer(
-                    name="web_surfer",
-                    model_client=model_client_websurfer,
-                    browser=browser,
-                    animate_actions=False,
-                    max_actions_per_step=10,
-                    start_page="about:blank" if task.url_path == "" else task.url_path,
-                    downloads_folder=os.path.abspath(output_dir),
-                    debug_dir=os.path.abspath(output_dir),
-                    model_context_token_limit=model_context_token_limit,
-                    to_save_screenshots=True,
-                )
-
-            # USER PROXY IF NEEDED for simulated user
-            task_metadata = getattr(task, "metadata", "")
-            if task_metadata and "Steps" in task_metadata:
-                task_metadata = task_metadata["Steps"]  # type: ignore
-
-            if self.simulated_user_type == "none":
-                user_proxy = None
-            else:
-                user_proxy = MetadataUserProxy(
-                    name="user_proxy",
-                    description=USER_PROXY_DESCRIPTION,
-                    task=task.question,
-                    helpful_task_hints=task_metadata,
-                    task_answer=getattr(task, "ground_truth", ""),
-                    model_client=model_client_user_proxy,
-                    simulated_user_type=self.simulated_user_type,  # type: ignore
-                    how_helpful=self.how_helpful_user_proxy,  # type: ignore
-                )
+            web_surfer = WebSurfer(
+                name="web_surfer",
+                model_client=model_client_websurfer,
+                browser=browser,
+                animate_actions=False,
+                max_actions_per_step=10,
+                start_page="about:blank" if task.url_path == "" else task.url_path,
+                downloads_folder=os.path.abspath(output_dir),
+                debug_dir=os.path.abspath(output_dir),
+                model_context_token_limit=model_context_token_limit,
+                to_save_screenshots=True,
+            )
 
             agent_list: List[ChatAgent] = [web_surfer, coder_agent, file_surfer]
             if self.web_surfer_only:
                 agent_list = [web_surfer]
-            if user_proxy:
-                agent_list.append(user_proxy)
 
             team = GroupChat(
                 participants=agent_list,
@@ -336,7 +212,6 @@ class MagenticUISystem(BaseSystem):
             await team.lazy_init()
             # Step 3: Prepare the task message
             answer: str = ""
-            messages_so_far: List[LogEventSystem] = []
             # check if file name is an image if it exists
             if (
                 hasattr(task, "file_name")
@@ -407,7 +282,6 @@ class MagenticUISystem(BaseSystem):
                 "websurfer": get_usage(model_client_websurfer),
                 "coder": get_usage(model_client_coder),
                 "file_surfer": get_usage(model_client_file_surfer),
-                "user_proxy": get_usage(model_client_user_proxy),
             }
             usage_json["total_without_user_proxy"] = {
                 "prompt_tokens": sum(
@@ -430,8 +304,6 @@ class MagenticUISystem(BaseSystem):
             # check the directory for screenshots which start with screenshot_raw_
             for file in os.listdir(output_dir):
                 if file.startswith("screenshot_raw_"):
-                    # screenshot_raw_1746259609.png
-                    # get the timestamp from the file name
                     timestamp = file.split("_")[1]
                     screenshots_paths.append(
                         [timestamp, os.path.join(output_dir, file)]
