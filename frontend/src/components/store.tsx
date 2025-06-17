@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { DEFAULT_OPENAI } from "./settings/tabs/modelSettingsTab/modelSelector/modelConfigForms/OpenAIModelConfigForm";
-import { PROVIDER_FORM_MAP } from "./settings/tabs/modelSettingsTab/modelSelector/ModelSelector";
+import { DEFAULT_OPENAI } from "./settings/tabs/agentSettings/modelSelector/modelConfigForms/OpenAIModelConfigForm";
+import { PROVIDER_FORM_MAP } from "./settings/tabs/agentSettings/modelSelector/ModelSelector";
 
 export interface GeneralConfig {
   cooperative_planning: boolean;

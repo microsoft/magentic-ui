@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ModelConfigSchema } from "../modelSettingsTab/modelSelector/modelConfigForms/types";
+import { ModelConfigSchema } from "../modelSelector/modelConfigForms/types";
 import { NamedMCPServerConfigSchema } from "./mcpServerForms/types";
 
 export const MCPAgentConfigSchema = z.object({

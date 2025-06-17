@@ -1,19 +1,23 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Input, Form, Divider, Space, Tooltip, Collapse, Typography, List, Row, Flex, Button } from "antd";
 import MCPServerForm, { DEFAULT_STDIO_PARAMS } from "./mcpServerForms/MCPServerForm";
-import ModelSelector from "../modelSettingsTab/modelSelector/ModelSelector";
-import { validateModelConfig } from '../../validation';
-import { Button as MagenticButton } from '../../../common/Button'
+import ModelSelector from "../modelSelector/ModelSelector";
+import { validateModelConfig } from '../../../validation';
+import { Button as MagenticButton } from '../../../../common/Button'
 import { MCPAgentConfig } from "./types";
+import { ModelConfig } from "../modelSelector/modelConfigForms/types";
+import { DEFAULT_OPENAI } from "../modelSelector/modelConfigForms/OpenAIModelConfigForm";
 
 interface MCPAgentFormProps {
   agent: MCPAgentConfig;
+  defaultModel?: ModelConfig;
+  advanced: boolean;
   idx: number;
   handleAgentChange: (idx: number, updated: MCPAgentConfig) => void;
   removeAgent: (idx: number) => void;
 }
 
-const MCPAgentForm: React.FC<MCPAgentFormProps> = ({ agent, idx, handleAgentChange, removeAgent, }) => {
+const MCPAgentForm: React.FC<MCPAgentFormProps> = ({ agent, defaultModel, advanced, idx, handleAgentChange, removeAgent, }) => {
   const nameError = !agent.name || agent.name.trim() === '';
   const descError = !agent.description || agent.description.trim() === '';
   const hasServer = Array.isArray(agent.mcp_servers) && agent.mcp_servers.length > 0;
@@ -42,6 +46,13 @@ const MCPAgentForm: React.FC<MCPAgentFormProps> = ({ agent, idx, handleAgentChan
     handleAgentChange(idx, { ...agent, mcp_servers: updatedServers });
   };
 
+  useEffect(() => {
+    if (advanced) {
+      handleAgentChange(idx, {...agent, model_client: defaultModel ?? DEFAULT_OPENAI})
+    }
+
+  }, [defaultModel, advanced])
+
   // Name input for the collapse header
   return (
     <Collapse defaultActiveKey={["1"]} style={{ flex: 1, flexGrow: 1 }}>
@@ -69,19 +80,23 @@ const MCPAgentForm: React.FC<MCPAgentFormProps> = ({ agent, idx, handleAgentChan
         }
       >
         <Form layout="vertical">
-          <Tooltip title={modelClientError ? 'Errors in Model' : ''} open={modelClientError ? undefined : false}>
-            <Form.Item
-              label="Model"
-              required
-              validateStatus={modelClientError ? 'error' : ''}
-              style={modelClientError ? { border: '1px solid #ff4d4f', borderRadius: 4, padding: 4 } : {}}
-            >
-              <ModelSelector
-                value={agent.model_client}
-                onChange={modelClient => handleAgentChange(idx, { ...agent, model_client: modelClient })}
-              />
-            </Form.Item>
-          </Tooltip>
+          {advanced &&
+            <>
+              <Tooltip title={modelClientError ? 'Errors in Model' : ''} open={modelClientError ? undefined : false}>
+                <Form.Item
+                  label="Model"
+                  required
+                  validateStatus={modelClientError ? 'error' : ''}
+                  style={modelClientError ? { border: '1px solid #ff4d4f', borderRadius: 4, padding: 4 } : {}}
+                >
+                  <ModelSelector
+                    value={agent.model_client}
+                    onChange={modelClient => handleAgentChange(idx, { ...agent, model_client: modelClient })}
+                  />
+                </Form.Item>
+              </Tooltip>
+            </>
+          }
           <Tooltip title={descError ? 'Description is required' : ''} open={descError ? undefined : false}>
             <Form.Item label="Description" required>
               <Input.TextArea

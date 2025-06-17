@@ -1,11 +1,12 @@
 import React, { } from "react";
 import MCPAgentForm from "./MCPAgentForm";
 import { List, Divider, Flex } from "antd";
-import { Button as MagenticButton } from "../../../common/Button";
+import { Button as MagenticButton } from "../../../../common/Button";
 import { MCPAgentConfig } from "./types";
-import { DEFAULT_OPENAI } from "../modelSettingsTab/modelSelector/modelConfigForms/OpenAIModelConfigForm";
+import { DEFAULT_OPENAI } from "../modelSelector/modelConfigForms/OpenAIModelConfigForm";
 import { Typography } from "antd";
-import { SettingsTabProps } from "../../types";
+import { SettingsTabProps } from "../../../types";
+import { ModelConfig } from "../modelSelector/modelConfigForms/types";
 
 const DEFAULT_AGENT: MCPAgentConfig = {
   name: "",
@@ -17,7 +18,12 @@ const DEFAULT_AGENT: MCPAgentConfig = {
   model_client: DEFAULT_OPENAI,
 };
 
-const MCPAgentsTab: React.FC<SettingsTabProps> = ({ config, handleUpdateConfig }) => {
+export interface MCPAgentsSettingsProps extends SettingsTabProps {
+  defaultModel: ModelConfig | undefined;
+  advanced: boolean;
+}
+
+const MCPAgentsSettings: React.FC<MCPAgentsSettingsProps> = ({ config, handleUpdateConfig, defaultModel, advanced }) => {
   const value = config?.mcp_agent_configs || [];
 
   const handleAgentChange = (idx: number, updated: MCPAgentConfig) => {
@@ -26,7 +32,6 @@ const MCPAgentsTab: React.FC<SettingsTabProps> = ({ config, handleUpdateConfig }
   };
 
   const addAgent = () => {
-    console.log("Add Agent")
     handleUpdateConfig({ mcp_agent_configs: [...value, { ...DEFAULT_AGENT }] });
   };
 
@@ -34,8 +39,6 @@ const MCPAgentsTab: React.FC<SettingsTabProps> = ({ config, handleUpdateConfig }
     const updatedAgents = value.filter((_, i) => i !== idx);
     handleUpdateConfig({ mcp_agent_configs: [...updatedAgents] });
   };
-
-  console.log("mcp agents", value)
 
   return (
     <Flex vertical gap="large">
@@ -56,6 +59,8 @@ const MCPAgentsTab: React.FC<SettingsTabProps> = ({ config, handleUpdateConfig }
             <List.Item key={idx}>
               <MCPAgentForm
                 agent={agent}
+                advanced={advanced}
+                defaultModel={defaultModel}
                 idx={idx}
                 handleAgentChange={handleAgentChange}
                 removeAgent={removeAgent}
@@ -74,4 +79,4 @@ const MCPAgentsTab: React.FC<SettingsTabProps> = ({ config, handleUpdateConfig }
   );
 };
 
-export default MCPAgentsTab;
+export default MCPAgentsSettings;

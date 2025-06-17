@@ -1,5 +1,5 @@
-import { ModelConfigSchema } from "./tabs/modelSettingsTab/modelSelector/modelConfigForms/types";
-import { MCPAgentConfigSchema } from "./tabs/mcpAgentsSettings/types";
+import { ModelConfigSchema } from "./tabs/agentSettings/modelSelector/modelConfigForms/types";
+import { MCPAgentConfigSchema } from "./tabs/agentSettings/mcpAgentsSettings/types";
 import { GeneralSettingsSchema } from "./types";
 
 function extractZodErrors(error: any): string[] {
@@ -80,7 +80,6 @@ export function validateModelConfigSettings(modelClientConfigs: Record<string, a
 
 export function validateAll(config: any): string[] {
   let errors: string[] = [];
-  console.log("validateAll", config)
   errors = errors.concat(validateGeneralSettings(config));
   return errors;
 }

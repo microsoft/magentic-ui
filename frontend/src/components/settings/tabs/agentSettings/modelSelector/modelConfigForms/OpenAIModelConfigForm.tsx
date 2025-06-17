@@ -8,13 +8,6 @@ export const DEFAULT_OPENAI: OpenAIModelConfig = {
     model: "gpt-4.1-2025-04-14",
     api_key: null,
     base_url: null,
-    model_info: {
-      vision: true,
-      function_calling: true, // required true for file_surfer, but will still work if file_surfer is not needed
-      json_output: false,
-      family: "unknown",
-      structured_output: false,
-    },
     max_retries: 5,
   }
 };
@@ -55,26 +48,9 @@ export const OpenAIModelConfigForm: React.FC<ModelConfigFormProps> = ({ onChange
             <Form.Item label="Base URL" name={["config", "base_url"]} rules={[{ required: false, message: "Please enter your OpenAI API key" }]}>
               <Input />
             </Form.Item>
-            <Form.Item label="Family" name={["config", "model_info", "family"]}>
-              <Input />
-            </Form.Item>
             <Form.Item label="Max Retries" name={["config", "max_retries"]} rules={[{ type: "number", min: 1, max: 20, message: "Enter a value between 1 and 20" }]}>
               <Input type="number" />
             </Form.Item>
-            <Flex gap="small" wrap justify="space-between">
-              <Form.Item label="Vision" name={["config", "model_info", "vision"]} valuePropName="checked">
-                <Switch />
-              </Form.Item>
-              <Form.Item label="Function Calling" name={["config", "model_info", "function_calling"]} valuePropName="checked">
-                <Switch />
-              </Form.Item>
-              <Form.Item label="JSON Output" name={["config", "model_info", "json_output"]} valuePropName="checked">
-                <Switch />
-              </Form.Item>
-              <Form.Item label="Structured Output" name={["config", "model_info", "structured_output"]} valuePropName="checked">
-                <Switch />
-              </Form.Item>
-            </Flex>
           </Collapse.Panel>
         </Collapse>
         {onSubmit && <Button onClick={handleSubmit}>Save</Button>}

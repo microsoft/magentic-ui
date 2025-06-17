@@ -3,9 +3,8 @@ import { appContext } from "../../hooks/provider";
 import SignInModal from "../signin";
 import { useSettingsStore } from "../store";
 import { settingsAPI } from "../views/api";
-import GeneralSettings from "./tabs/GeneralSettings/GeneralSettings";
-import ModelSettingsTab from "./tabs/modelSettingsTab/ModelSettingsTab";
-import MCPAgentsTab from "./tabs/mcpAgentsSettings/MCPAgentsTab";
+import GeneralSettings from "./tabs/generalSettings/GeneralSettings";
+import AgentSettingsTab from "./tabs/agentSettings/AgentSettingsTab";
 import AdvancedConfigEditor from "./tabs/advancedSetings/AdvancedSettings";
 import {
   Button,
@@ -110,26 +109,13 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
         </>
       ),
     },
-    "model": {
-      label: "Model Settings",
+    "agents": {
+      label: "Agent Settings",
       children: (
         <>
-        <Typography.Text strong>Model Settings</Typography.Text>
+        <Typography.Text strong>Agent Settings</Typography.Text>
         <Divider />
-        <ModelSettingsTab
-          config={config}
-          handleUpdateConfig={handleUpdateConfig}
-          />
-        </>
-      ),
-    },
-    "mcp_agents": {
-      label: "MCP Settings",
-      children: (
-        <>
-        <Typography.Text strong>MCP Settings</Typography.Text>
-        <Divider />
-        <MCPAgentsTab
+        <AgentSettingsTab
           config={config}
           handleUpdateConfig={handleUpdateConfig}
           />
