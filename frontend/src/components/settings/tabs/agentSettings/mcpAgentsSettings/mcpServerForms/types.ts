@@ -5,6 +5,10 @@ export const StdioServerParamsSchema = z.object({
     command: z.string(),
     args: z.array(z.string()).optional(),
     read_timeout_seconds: z.number().gt(0).optional(),
+    env: z.record(z.string()).optional(),
+    cwd: z.string().optional(),
+    encoding: z.string().default("utf-8").optional(),
+    encoding_error_handler: z.enum(["strict", "ignore", "replace"]).default("strict").optional(),
 })
 
 export type StdioServerParams = z.infer<typeof StdioServerParamsSchema>

@@ -6,8 +6,8 @@ import { MCPServerConfig, NamedMCPServerConfig } from "./types";
 
 export const DEFAULT_STDIO_PARAMS: MCPServerConfig = {
     type: "StdioServerParams",
-    command: "uvx",
-    args: ["mcp-server-time"],
+    command: "docker",
+    args: ["run", "-i", "--rm", "mcp/memory"],
     read_timeout_seconds: 5,
 };
 export const DEFAULT_SSE_PARAMS: MCPServerConfig = {
@@ -65,7 +65,7 @@ const MCPServerForm: React.FC<MCPServerFormProps> = ({ server, idx, handleServer
 
 
     return (
-        <Collapse key={idx} defaultActiveKey={["1"]}>
+        <Collapse key={idx} defaultActiveKey={["1"]} style={{width: "100%"}}>
             <Collapse.Panel
                 key="1"
                 header={

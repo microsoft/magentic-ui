@@ -1,5 +1,5 @@
 import React from "react";
-import { Input, Form, Tooltip, Collapse } from "antd";
+import { Input, Form, Tooltip, Collapse, Flex } from "antd";
 import { StdioServerParams } from "./types";
 
 const StdioServerForm: React.FC<{
@@ -8,36 +8,34 @@ const StdioServerForm: React.FC<{
     onValueChanged: (idx: number, updated: StdioServerParams) => void;
 }> = ({ value, idx, onValueChanged }) => {
     const stdioCommandError = !value.command || value.command.trim() === '';
-    const stdioArgsError = !value.args || value.args.length === 0;
+
+    let command = value.command ?? "";
+    if (value.args) {
+        command = command.concat(" ").concat(value.args.join(" "));
+    }
+
+    const handleCommandValueChanged: React.ChangeEventHandler<HTMLInputElement> = (event) => {
+        const parts = event.target.value?.split(" ").map(part => part.trim()).filter(part => part.length > 0);
+
+        const command = parts.length > 0 ? parts[0] : "";
+        const args = parts.length > 1 ? parts.slice(1) : [];
+
+        onValueChanged(idx, {
+            ...value,
+            command: command,
+            args: args
+        },
+        )
+    }
 
     return (
-        <>
-            <Tooltip title={stdioCommandError ? 'Command is required' : ''} open={stdioCommandError ? undefined : false}>
-                <Form.Item label="Command" required>
+        <Flex vertical gap="small" style={{width: "100%"}}>
+            <Tooltip title={stdioCommandError ? 'Command is required' : 'Provide the command and arguments, e.g. "npx -y mcp-server-fetch"'}>
+                <Form.Item label="Command (including args)" required>
                     <Input
-                        value={value.command}
+                        value={command}
                         status={stdioCommandError ? 'error' : ''}
-                        onChange={e =>
-                            onValueChanged(idx, {
-                                ...value,
-                                command: e.target.value,
-                            },
-                            )
-                        }
-                    />
-                </Form.Item>
-            </Tooltip>
-            <Tooltip title={stdioArgsError ? 'Args are required' : ''} open={stdioArgsError ? undefined : false}>
-                <Form.Item label="Args (space separated)" required>
-                    <Input
-                        value={value.args?.join(" ")}
-                        status={stdioArgsError ? 'error' : ''}
-                        onChange={e =>
-                            onValueChanged(idx, {
-                                ...value,
-                                args: e.target.value.split(" ").map(s => s.trim()).filter(Boolean),
-                            })
-                        }
+                        onChange={handleCommandValueChanged}
                     />
                 </Form.Item>
             </Tooltip>
@@ -55,9 +53,60 @@ const StdioServerForm: React.FC<{
                             }
                         />
                     </Form.Item>
+                    <Form.Item label="Working Directory (cwd)">
+                        <Input
+                            value={value.cwd || ''}
+                            onChange={e =>
+                                onValueChanged(idx, {
+                                    ...value,
+                                    cwd: e.target.value,
+                                })
+                            }
+                        />
+                    </Form.Item>
+                    <Form.Item label="Encoding">
+                        <Input
+                            value={value.encoding || 'utf-8'}
+                            onChange={e =>
+                                onValueChanged(idx, {
+                                    ...value,
+                                    encoding: e.target.value,
+                                })
+                            }
+                        />
+                    </Form.Item>
+                    <Form.Item label="Encoding Error Handler">
+                        <Input
+                            value={value.encoding_error_handler || 'strict'}
+                            onChange={e =>
+                                onValueChanged(idx, {
+                                    ...value,
+                                    encoding_error_handler: e.target.value as 'strict' | 'ignore' | 'replace',
+                                })
+                            }
+                        />
+                    </Form.Item>
+                    <Form.Item label="Environment Variables (env)">
+                        <Input.TextArea
+                            placeholder="KEY1=VALUE1"
+                            value={value.env ? Object.entries(value.env).map(([k, v]) => `${k}=${v}`).join('\n') : ''}
+                            onChange={e => {
+                                const envLines = e.target.value.split('\n').map(line => line.trim()).filter(Boolean);
+                                const envObj = envLines.reduce((acc, line) => {
+                                    const [k, ...v] = line.split('=');
+                                    if (k && v.length > 0) acc[k] = v.join('=');
+                                    return acc;
+                                }, {} as Record<string, string>);
+                                onValueChanged(idx, {
+                                    ...value,
+                                    env: Object.keys(envObj).length > 0 ? envObj : undefined,
+                                });
+                            }}
+                        />
+                    </Form.Item>
                 </Collapse.Panel>
             </Collapse>
-        </>
+        </Flex>
     );
 };
 

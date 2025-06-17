@@ -144,7 +144,7 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
         open={isOpen}
         onCancel={handleClose}
         closable={true}
-        style={{ minWidth: 700, maxWidth: 1500, width: "80%" }} // adjust as needed
+        style={{ minWidth: 1000, maxWidth: "min(100%, 1500px)" }} // adjust as needed
         footer={[
           <Flex gap="large" justify="start" align="center">
             <Button key="reset" onClick={handleResetDefaults}>
