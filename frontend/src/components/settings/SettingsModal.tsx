@@ -3,7 +3,7 @@ import { appContext } from "../../hooks/provider";
 import SignInModal from "../signin";
 import { useSettingsStore } from "../store";
 import { settingsAPI } from "../views/api";
-import GeneralSettings from "./tabs/generalSettings/GeneralSettings";
+import GeneralSettings from "./tabs/GeneralSettings/GeneralSettings";
 import ModelSettingsTab from "./tabs/modelSettingsTab/ModelSettingsTab";
 import MCPAgentsTab from "./tabs/mcpAgentsSettings/MCPAgentsTab";
 import AdvancedConfigEditor from "./tabs/advancedSetings/AdvancedSettings";
