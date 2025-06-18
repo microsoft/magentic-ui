@@ -3,7 +3,7 @@ import { appContext } from "../../hooks/provider";
 import SignInModal from "../signin";
 import { useSettingsStore } from "../store";
 import { settingsAPI } from "../views/api";
-import GeneralSettings from "./tabs/generalSettings/GeneralSettings";
+import GeneralSettings from "./tabs/GeneralSettings/GeneralSettings";
 import AgentSettingsTab from "./tabs/agentSettings/AgentSettingsTab";
 import AdvancedConfigEditor from "./tabs/advancedSetings/AdvancedSettings";
 import {
