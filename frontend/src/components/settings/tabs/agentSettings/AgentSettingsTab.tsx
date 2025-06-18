@@ -57,8 +57,8 @@ const AgentSettingsTab: React.FC<SettingsTabProps> = ({
   );
 
   return (
-    <Flex vertical gap="large" justify="start">
-      <Flex gap="large" justify="space-between">
+    <Flex vertical gap="small" justify="start">
+      <Flex gap="small" justify="space-between">
         <Flex gap="small" justify="start" align="center">
           <Typography.Text>{header}</Typography.Text>
         </Flex>

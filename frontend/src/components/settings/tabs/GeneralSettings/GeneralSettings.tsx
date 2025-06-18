@@ -34,7 +34,7 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({
         </button>
       </Flex>
 
-      <Divider />
+      <Divider style={{ margin: "0px" }} />
 
       {/* Basic Settings */}
       <Flex vertical gap="small">
@@ -56,15 +56,15 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({
           />
         </Flex>
 
-        <Divider />
+        <Divider style={{ margin: "0px" }} />
 
         <AllowedWebsitesList
           config={config}
           handleUpdateConfig={handleUpdateConfig}
         />
 
-        <Divider />
-        <Flex vertical gap="large">
+        <Divider style={{ margin: "0px" }} />
+        <Flex vertical gap="small">
           <Flex align="center" justify="space-between" wrap gap="large">
             <Flex align="center" justify="start" gap="small" wrap>
               Allow Replans
@@ -79,6 +79,8 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({
               onChange={(checked) => handleUpdateConfig({ allow_for_replans: checked })}
             />
           </Flex>
+          <Divider style={{ margin: "0px" }} />
+
           <Flex align="center" justify="space-between" wrap gap="small">
             <Flex align="center" gap="small">
               Retrieve Relevant Plans

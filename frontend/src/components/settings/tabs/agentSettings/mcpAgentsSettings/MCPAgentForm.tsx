@@ -59,7 +59,7 @@ const MCPAgentForm: React.FC<MCPAgentFormProps> = ({ agent, defaultModel, advanc
       <Collapse.Panel
         key="1"
         header={
-          <Flex align="center" justify="space-between" gap="large">
+          <Flex align="center" justify="space-between" gap="small">
             <Tooltip title={nameError ? 'Name is required' : ''} open={nameError ? undefined : false}>
               <Input
                 placeholder="Enter the agent's name."
@@ -108,7 +108,7 @@ const MCPAgentForm: React.FC<MCPAgentFormProps> = ({ agent, defaultModel, advanc
               />
             </Form.Item>
           </Tooltip>
-          <Collapse>
+{/*           <Collapse>
             <Collapse.Panel key="1" header={<Typography>Optional Properties</Typography>}>
               <Form.Item label="System Message">
                 <Input.TextArea
@@ -133,10 +133,10 @@ const MCPAgentForm: React.FC<MCPAgentFormProps> = ({ agent, defaultModel, advanc
                 />
               </Form.Item>
             </Collapse.Panel>
-          </Collapse>
+          </Collapse> */}
 
-          <Divider orientation="left">MCP Servers</Divider>
-          <Flex vertical gap="large">
+          <Divider orientation="left" style={{ margin: "0px" }}>MCP Servers</Divider>
+          <Flex vertical gap="small">
             <Tooltip title={mcpServerError ? 'At least one MCP Server is required' : ''} open={mcpServerError ? undefined : false}>
               <List
                 style={{
@@ -156,7 +156,7 @@ const MCPAgentForm: React.FC<MCPAgentFormProps> = ({ agent, defaultModel, advanc
                 locale={{ emptyText: 'No MCP Servers. Click "Add MCP Server" to create one.' }}
               />
             </Tooltip>
-            <Divider orientation="left">
+            <Divider orientation="left" style={{ margin: "0px" }}>
               <MagenticButton onClick={addServer} variant="primary">
                 + Add MCP Server
               </MagenticButton>

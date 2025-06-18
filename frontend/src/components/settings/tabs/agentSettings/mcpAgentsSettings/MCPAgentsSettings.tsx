@@ -41,17 +41,14 @@ const MCPAgentsSettings: React.FC<MCPAgentsSettingsProps> = ({ config, handleUpd
   };
 
   return (
-    <Flex vertical gap="large">
+    <Flex vertical gap="small">
       <Typography.Text>
         Extend Magentic-UI's capabilities by adding custom agents that connect to local or remote Model Context Protocol (MCP) Servers!
       </Typography.Text>
       <Typography.Text>
         Any number of agents are supported, and each agent requires at least one MCP Server.
       </Typography.Text>
-      <Typography.Text italic type="warning">
-        These settings will be applied to all new sessions until you remove agents from this list.
-      </Typography.Text>
-      <Divider size="small" />
+      <Divider style={{ margin: "0px" }} />
       <List
         dataSource={value}
         renderItem={(agent, idx) => {
@@ -70,7 +67,7 @@ const MCPAgentsSettings: React.FC<MCPAgentsSettingsProps> = ({ config, handleUpd
         }}
         locale={{ emptyText: 'No MCP Agents. Click "Add MCP Agent" to create one.' }}
       />
-      <Divider orientation="left">
+      <Divider orientation="left" style={{ margin: "0px" }}>
         <MagenticButton onClick={addAgent} variant="primary">
           + Add MCP Agent
         </MagenticButton>
