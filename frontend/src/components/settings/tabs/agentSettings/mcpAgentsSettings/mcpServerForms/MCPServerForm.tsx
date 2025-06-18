@@ -6,13 +6,13 @@ import { MCPServerConfig, NamedMCPServerConfig } from "./types";
 
 export const DEFAULT_STDIO_PARAMS: MCPServerConfig = {
     type: "StdioServerParams",
-    command: "docker",
-    args: ["run", "-i", "--rm", "mcp/memory"],
+    command: "",
+    args: [],
     read_timeout_seconds: 5,
 };
 export const DEFAULT_SSE_PARAMS: MCPServerConfig = {
     type: "SseServerParams",
-    url: "http://localhost:3001/sse",
+    url: "",
     headers: {},
     timeout: 5,
     sse_read_timeout: 300,

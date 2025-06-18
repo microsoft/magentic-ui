@@ -14,6 +14,7 @@ const SseServerForm: React.FC<{
             <Tooltip title={sseUrlError ? 'URL is required' : ''} open={sseUrlError ? undefined : false}>
                 <Form.Item label="URL" required>
                     <Input
+                        placeholder="http://localhost:8000/sse"
                         value={value.url}
                         status={sseUrlError ? 'error' : ''}
                         onChange={e =>

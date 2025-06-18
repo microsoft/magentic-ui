@@ -39,6 +39,7 @@ const StdioServerForm: React.FC<{
             <Tooltip title={stdioCommandError ? 'Command is required' : 'Provide the command and arguments, e.g. "npx -y mcp-server-fetch"'}>
                 <Form.Item label="Command (including args)" required>
                     <Input
+                        placeholder="npx -y mcp-server-fetch"
                         value={command}
                         status={stdioCommandError ? 'error' : ''}
                         onChange={handleCommandValueChanged}
