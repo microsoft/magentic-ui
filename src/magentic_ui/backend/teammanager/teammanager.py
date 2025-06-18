@@ -205,8 +205,6 @@ class TeamManager:
                     }
                 )
 
-
-
                 self.team = cast(
                     Team,
                     await get_task_team(
