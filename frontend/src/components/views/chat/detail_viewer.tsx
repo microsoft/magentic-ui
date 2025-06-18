@@ -11,6 +11,7 @@ import BrowserIframe from "./DetailViewer/browser_iframe";
 import BrowserModal from "./DetailViewer/browser_modal";
 import FullscreenOverlay from "./DetailViewer/fullscreen_overlay"; // Import our new component
 import { IPlan } from "../../types/plan";
+import { useSettingsStore } from "../../store";
 // Define VNC component props type
 interface VncScreenProps {
   url: string;
@@ -75,6 +76,8 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
 
   // State for tracking if control was handed back from modal
   const [showControlHandoverForm, setShowControlHandoverForm] = useState(false);
+
+  const config = useSettingsStore((state) => state.config);
 
   // Handle take control action
   const handleTakeControl = () => {
@@ -184,6 +187,9 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
       );
     }
 
+    // Use server_url from config if set, otherwise default to localhost
+    const serverHost = config.server_url || "localhost";
+
     return (
       <div className="flex-1 w-full h-full flex flex-col">
         {viewMode === "iframe" ? (
@@ -212,7 +218,7 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
           >
             <Suspense fallback={<div>Loading VNC viewer...</div>}>
               <VncScreen
-                url={`ws://localhost:${novncPort}`}
+                url={`ws://${serverHost}:${novncPort}`}
                 scaleViewport
                 background="#000000"
                 style={{
@@ -230,7 +236,7 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
         )}
       </div>
     );
-  }, [novncPort, viewMode, runStatus, onPause, isControlMode]);
+  }, [novncPort, viewMode, runStatus, onPause, isControlMode, config.server_url]);
 
   return (
     <>
