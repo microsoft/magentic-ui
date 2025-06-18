@@ -194,7 +194,9 @@ You can also run a command line interface (CLI) for Magentic-UI with the command
 magentic-cli --work-dir PATH_TO_STORE_LOGS
 ```
 
-### Custom Client Configuration
+### Configuration
+
+#### Model Client Configuration
 
 If you want to use a different OpenAI key, or if you want to configure use with Azure OpenAI or Ollama, you can do so inside the UI by navigating to settings (top right icon) and changing model configuration with the format of the `config.yaml` file below. You can also create a `config.yaml` and import it inside the UI or point Magentic-UI to its path at startup time: 
 ```bash
@@ -258,6 +260,41 @@ web_surfer_client: *client
 file_surfer_client: *client
 action_guard_client: *client
 ```
+
+#### MCP Server Configuration
+
+You can also extend Magentic-UI's capabilities by adding custom "McpAgents" to the multi-agent team. Each McpAgent can have access to one or more MCP Servers. You can specify these agents via the `mcp_agent_configs` parameter in your `config.yaml`.
+
+For example, here's an agent called "airbnb_surfer" that has access to the OpenBnb MCP Server running locally via Stdio.
+
+```yaml
+mcp_agent_configs:
+  - name: airbnb_surfer
+    description: "The airbnb_surfer has direct access to AirBnB."
+    model_client: 
+      provider: OpenAIChatCompletionClient
+      config:
+        model: gpt-4.1-2025-04-14
+      max_retries: 10
+    system_message: |-
+      You are AirBnb Surfer, a helpful digital assistant that can help users acces AirBnB.
+
+      You have access to a suite of tools provided by the AirBnB API. Use those tools to satisfy the users requests.
+    reflect_on_tool_use: false
+    mcp_servers:
+      - server_name: AirBnB
+        server_params:
+          type: StdioServerParams
+          command: npx
+          args:
+            - -y
+            - "@openbnb/mcp-server-airbnb"
+            - --ignore-robots-txt
+```
+
+Under the hood, each `McpAgent` is just a `autogen_agentchat.agents.AssistantAgent` with the set of MCP Servers exposed as an `AggregateMcpWorkbench` which is simply a named collection of `autogen_ext.tools.mcp.McpWorkbench` objects (one per MCP Server).
+
+Currently the supported MCP Server types are `autogen_ext.tools.mcp.StdioServerParams` and `autogen_ext.tools.mcp.SseServerParams`.
 
 ### Building Magentic-UI from source
 

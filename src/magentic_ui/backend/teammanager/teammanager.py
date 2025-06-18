@@ -27,7 +27,7 @@ from autogen_core.logging import LLMCallEvent
 from ...task_team import get_task_team
 from ...teams import GroupChat
 from ...types import RunPaths
-from ...magentic_ui_config import MagenticUIConfig, ModelClientConfigs
+from ...magentic_ui_config import MagenticUIConfig
 from ...input_func import InputFuncType
 from ...agents import WebSurfer
 
@@ -155,39 +155,39 @@ class TeamManager:
             if not self.load_from_config:
                 # The settings_config dictionary provides the Model configs in a key `model_configs`
                 # But MagenticUIConfig expects `model_client_configs` so we need to update that here
-                settings_model_configs: Dict[str, Any] = {}
-                if "model_configs" in settings_config:
-                    try:
-                        settings_model_configs = yaml.safe_load(
-                            settings_config["model_configs"]
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            f"Error loading model configs from UI. Using defaults. Inner exception: {e}"
-                        )
+                # settings_model_configs: Dict[str, Any] = {}
+                # if "model_configs" in settings_config:
+                #     try:
+                #         settings_model_configs = yaml.safe_load(
+                #             settings_config["model_configs"]
+                #         )
+                #     except Exception as e:
+                #         logger.warning(
+                #             f"Error loading model configs from UI. Using defaults. Inner exception: {e}"
+                #         )
 
-                # Use settings_config values if available, otherwise fall back to instance defaults (self.config)
-                model_client_configs = ModelClientConfigs(
-                    orchestrator=settings_model_configs.get(
-                        "orchestrator_client",
-                        self.config.get("orchestrator_client", None),
-                    ),
-                    web_surfer=settings_model_configs.get(
-                        "web_surfer_client",
-                        self.config.get("web_surfer_client", None),
-                    ),
-                    coder=settings_model_configs.get(
-                        "coder_client", self.config.get("coder_client", None)
-                    ),
-                    file_surfer=settings_model_configs.get(
-                        "file_surfer_client",
-                        self.config.get("file_surfer_client", None),
-                    ),
-                    action_guard=settings_model_configs.get(
-                        "action_guard_client",
-                        self.config.get("action_guard_client", None),
-                    ),
-                )
+                # # Use settings_config values if available, otherwise fall back to instance defaults (self.config)
+                # model_client_configs = ModelClientConfigs(
+                #     orchestrator=settings_model_configs.get(
+                #         "orchestrator_client",
+                #         self.config.get("orchestrator_client", None),
+                #     ),
+                #     web_surfer=settings_model_configs.get(
+                #         "web_surfer_client",
+                #         self.config.get("web_surfer_client", None),
+                #     ),
+                #     coder=settings_model_configs.get(
+                #         "coder_client", self.config.get("coder_client", None)
+                #     ),
+                #     file_surfer=settings_model_configs.get(
+                #         "file_surfer_client",
+                #         self.config.get("file_surfer_client", None),
+                #     ),
+                #     action_guard=settings_model_configs.get(
+                #         "action_guard_client",
+                #         self.config.get("action_guard_client", None),
+                #     ),
+                # )
 
                 magentic_ui_config = MagenticUIConfig(
                     **{
@@ -196,7 +196,7 @@ class TeamManager:
                         # Provided settings override defaults
                         **settings_config,  # type: ignore,
                         # Set to manually merged dictionary
-                        "model_client_configs": model_client_configs,
+                        # "model_client_configs": model_client_configs,
                         # These must always be set to the values computed above
                         "playwright_port": playwright_port,
                         "novnc_port": novnc_port,

@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { DEFAULT_OPENAI } from "./settings/tabs/agentSettings/modelSelector/modelConfigForms/OpenAIModelConfigForm";
+import { PROVIDER_FORM_MAP } from "./settings/tabs/agentSettings/modelSelector/ModelSelector";
 
 export interface GeneralConfig {
   cooperative_planning: boolean;
@@ -16,14 +18,14 @@ export interface GeneralConfig {
   allow_for_replans: boolean;
   do_bing_search: boolean;
   websurfer_loop: boolean;
-  model_configs?: string;
+  model_client_configs: {orchestrator: any, web_surfer: any, coder: any, file_surfer: any, action_guard: any};
+  mcp_agent_configs: any[];
   retrieve_relevant_plans: "never" | "hint" | "reuse"; // this is for using task centric memory to retrieve relevant plans
 }
 
 const defaultConfig: GeneralConfig = {
   cooperative_planning: true,
   autonomous_execution: false,
-  allowed_websites: [],
   max_actions_per_step: 5,
   multiple_tools_per_call: false,
   max_turns: 20,
@@ -31,23 +33,15 @@ const defaultConfig: GeneralConfig = {
   allow_for_replans: true,
   do_bing_search: false,
   websurfer_loop: false,
-  model_configs: `model_config: &client
-  provider: OpenAIChatCompletionClient
-  config:
-    model: gpt-4.1-2025-04-14
-  max_retries: 5
-model_config_action_guard: &client_action_guard
-  provider: OpenAIChatCompletionClient
-  config:
-    model: gpt-4.1-nano-2025-04-14
-  max_retries: 5
-
-orchestrator_client: *client
-coder_client: *client
-web_surfer_client: *client
-file_surfer_client: *client
-action_guard_client: *client_action_guard`,
   retrieve_relevant_plans: "never",
+  mcp_agent_configs: [],
+  model_client_configs: {
+    "orchestrator": DEFAULT_OPENAI,
+    "web_surfer": DEFAULT_OPENAI,
+    "coder": DEFAULT_OPENAI,
+    "file_surfer": DEFAULT_OPENAI,
+    "action_guard": PROVIDER_FORM_MAP[DEFAULT_OPENAI.provider].presets["gpt-4.1-nano-2025-04-14"],
+  }
 };
 
 interface SettingsState {
@@ -66,16 +60,31 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
 }));
 
 export function generateOpenAIModelConfig(model: string) {
-  return `model_config: &client
-  provider: OpenAIChatCompletionClient
-  config:
-    model: ${model}
-  max_retries: 5
-
-orchestrator_client: *client
-coder_client: *client
-web_surfer_client: *client
-file_surfer_client: *client
-action_guard_client: *client
+  return `model_client_configs:
+  orchestrator:
+    provider: OpenAIChatCompletionClient
+    config:
+      model: ${model}
+    max_retries: 5
+  coder:
+    provider: OpenAIChatCompletionClient
+    config:
+      model: ${model}
+    max_retries: 5
+  web_surfer:
+    provider: OpenAIChatCompletionClient
+    config:
+      model: ${model}
+    max_retries: 5
+  file_surfer:
+    provider: OpenAIChatCompletionClient
+    config:
+      model: ${model}
+    max_retries: 5
+  action_guard:
+    provider: OpenAIChatCompletionClient
+    config:
+      model: ${model}
+    max_retries: 5
 `;
 }
