@@ -302,25 +302,59 @@ export default function ChatView({
   }, [session?.id, visible, activeSocket, onRunStatusChange]);
 
   const handleWebSocketMessage = (message: WebSocketMessage) => {
-    setCurrentRun((current: Run | null) => {
-      if (!current || !session?.id) return null;
-
+    console.log('[WebSocket] Raw message received:', {
+      type: message.type,
+      sessionId: session?.id,
+      runId: currentRun?.id,
+      timestamp: new Date().toISOString(),
+      socketState: activeSocketRef.current?.readyState,
+      messageData: message
+    });
+    
+    setCurrentRun((current: Run | null): Run | null => {
+      if (!current || !session?.id) {
+        console.log('[WebSocket] No current run or session, ignoring message');
+        return null;
+      }
 
       switch (message.type) {
         case "error":
+          console.error('[WebSocket] Error message received:', {
+            error: message.error,
+            fullMessage: message,
+            currentRunId: current?.id,
+            sessionId: session?.id
+          });
           if (inputTimeoutRef.current) {
             clearTimeout(inputTimeoutRef.current);
             inputTimeoutRef.current = null;
           }
           if (activeSocket) {
+            console.log('[WebSocket] Closing socket due to error');
             activeSocket.close();
             setActiveSocket(null);
             activeSocketRef.current = null;
           }
-          console.log("Error: ", message.error);
+          return current;
 
         case "message":
-          if (!message.data) return current;
+          if (!message.data) {
+            console.warn('[WebSocket] Received message with no data:', {
+              fullMessage: message,
+              currentRunId: current?.id,
+              sessionId: session?.id
+            });
+            return current;
+          }
+
+          console.log('[WebSocket] Processing new message:', {
+             messageType: 'messages' in message.data ? 'TaskResult' : (message.data as any).source || 'unknown',
+             hasContent: 'messages' in message.data ? !!message.data.messages : !!(message.data as any).content,
+             contentLength: 'messages' in message.data ? message.data.messages?.length || 0 : (typeof (message.data as any).content === 'string' ? (message.data as any).content.length : 0),
+             content: 'messages' in message.data ? `TaskResult with ${message.data.messages?.length || 0} messages` : (typeof (message.data as any).content === 'string' ? (message.data as any).content.substring(0, 100) + '...' : 'non-string content'),
+             currentRunId: current?.id,
+             sessionId: session?.id
+           });
 
           // Create new Message object from websocket data
           const newMessage = createMessage(
@@ -335,7 +369,13 @@ export default function ChatView({
           };
 
         case "input_request":
-          //console.log("InputRequest: " + JSON.stringify(message))
+          console.log('[WebSocket] Received input request:', {
+            input_type: message.input_type,
+            prompt: (message as InputRequestMessage).prompt,
+            currentRunId: current?.id,
+            sessionId: session?.id,
+            fullMessage: message
+          });
 
           var input_request: InputRequest;
           switch (message.input_type) {
@@ -353,6 +393,7 @@ export default function ChatView({
               break;
           }
 
+          console.log('[WebSocket] Setting run status to awaiting_input with request:', input_request);
           // reset Updated Plan
           setUpdatedPlan([]);
           // Create new Message object from websocket data only if its for URL approval
@@ -369,10 +410,18 @@ export default function ChatView({
             input_request: input_request,
           };
         case "system":
-          // update run status
+          console.log('[WebSocket] Received system message:', {
+            status: message.status,
+            error: message.error,
+            currentRunId: current?.id,
+            sessionId: session?.id,
+            fullMessage: message
+          });
+          // update run status and capture error message if present
           return {
             ...current,
             status: message.status as BaseRunStatus,
+            error_message: message.error || current.error_message,
           };
 
         case "result":
@@ -381,8 +430,19 @@ export default function ChatView({
             message.status === "complete"
               ? "complete"
               : message.status === "error"
-              ? "error"
-              : "stopped";
+                ? "error"
+                : "stopped";
+
+          console.log('[WebSocket] Received completion message:', {
+            messageType: message.type,
+            status: message.status,
+            finalStatus: status,
+            hasData: !!message.data,
+            currentRunId: current?.id,
+            sessionId: session?.id,
+            socketState: activeSocketRef.current?.readyState,
+            fullMessage: message
+          });
 
           const isTeamResult = (data: any): data is TeamResult => {
             return (
@@ -395,6 +455,7 @@ export default function ChatView({
 
           // close socket on completion
           if (activeSocket) {
+            console.log('[WebSocket] Closing socket on completion');
             activeSocket.close();
             setActiveSocket(null);
             activeSocketRef.current = null;
@@ -408,6 +469,12 @@ export default function ChatView({
           };
 
         default:
+          console.warn('[WebSocket] Received unknown message type:', {
+            type: message.type,
+            currentRunId: current?.id,
+            sessionId: session?.id,
+            fullMessage: message
+          });
           return current;
       }
     });
@@ -429,12 +496,22 @@ export default function ChatView({
     accepted = false,
     plan?: IPlan
   ) => {
+    console.log('[Input] Handling input response:', {
+      response: response.substring(0, 100),
+      accepted,
+      hasPlan: !!plan,
+      currentRunId: currentRun?.id,
+      socketState: activeSocketRef.current?.readyState
+    });
+    
     if (!currentRun || !activeSocketRef.current) {
+      console.error('[Input] Missing current run or socket connection');
       handleError(new Error("WebSocket connection not available"));
       return;
     }
 
     if (activeSocketRef.current.readyState !== WebSocket.OPEN) {
+      console.error('[Input] WebSocket not in OPEN state:', activeSocketRef.current.readyState);
       handleError(new Error("WebSocket connection not available"));
       return;
     }
@@ -459,12 +536,20 @@ export default function ChatView({
       };
       const responseString = JSON.stringify(responseJson);
 
-      activeSocketRef.current.send(
-        JSON.stringify({
-          type: "input_response",
-          response: responseString,
-        })
-      );
+      const inputMessage = {
+        type: "input_response",
+        response: responseString,
+      };
+      
+      console.log('[Input] Sending input response:', {
+        type: inputMessage.type,
+        response: response.substring(0, 100),
+        accepted,
+        hasPlan: planString !== "",
+        runId: currentRun.id
+      });
+      
+      activeSocketRef.current.send(JSON.stringify(inputMessage));
 
       setCurrentRun((current: Run | null) => {
         if (!current) return null;
@@ -624,14 +709,27 @@ export default function ChatView({
       }
 
       // Wait for socket to be ready
+      console.log('[Task] Waiting for socket to be ready...');
       await new Promise<void>((resolve, reject) => {
         const checkState = () => {
+          console.log('[Task] Socket state check:', {
+            readyState: socket.readyState,
+            states: {
+              CONNECTING: WebSocket.CONNECTING,
+              OPEN: WebSocket.OPEN,
+              CLOSING: WebSocket.CLOSING,
+              CLOSED: WebSocket.CLOSED
+            }
+          });
+          
           if (socket.readyState === WebSocket.OPEN) {
+            console.log('[Task] Socket is ready!');
             resolve();
           } else if (
             socket.readyState === WebSocket.CLOSED ||
             socket.readyState === WebSocket.CLOSING
           ) {
+            console.error('[Task] Socket failed to connect');
             reject(new Error("Socket failed to connect"));
           } else {
             setTimeout(checkState, 100);
@@ -639,7 +737,7 @@ export default function ChatView({
         };
         checkState();
       });
-      console.log("Socket connected");
+      console.log("[Task] Socket connected successfully");
       const processedFiles = await convertFilesToBase64(files);
       // Send start message
 
@@ -650,15 +748,24 @@ export default function ChatView({
         ...(planString !== "" && { plan: planString }),
       };
 
-      socket.send(
-        JSON.stringify({
-          type: "start",
-          task: JSON.stringify(taskJson),
-          files: processedFiles,
-          team_config: teamConfig,
-          settings_config: currentSettings,
-        })
-      );
+      const startMessage = {
+        type: "start",
+        task: JSON.stringify(taskJson),
+        files: processedFiles,
+        team_config: teamConfig,
+        settings_config: currentSettings,
+      };
+      
+      console.log('[Task] Sending start message:', {
+        type: startMessage.type,
+        task: taskJson.content.substring(0, 100),
+        fileCount: processedFiles.length,
+        hasPlan: !!taskJson.plan,
+        runId: run.id,
+        sessionId: session?.id
+      });
+      
+      socket.send(JSON.stringify(startMessage));
       const sessionData = {
         id: session?.id,
         name: query.slice(0, 50),
@@ -961,9 +1068,9 @@ export default function ChatView({
             style={{
               opacity:
                 currentRun?.status === "active" ||
-                currentRun?.status === "awaiting_input" ||
-                currentRun?.status === "paused" ||
-                currentRun?.status === "pausing"
+                  currentRun?.status === "awaiting_input" ||
+                  currentRun?.status === "paused" ||
+                  currentRun?.status === "pausing"
                   ? 1
                   : 0,
             }}
@@ -978,20 +1085,17 @@ export default function ChatView({
 
         <div
           ref={chatContainerRef}
-          className={`flex-1 overflow-y-auto scroll mt-1 min-h-0 relative w-full h-full ${
-            noMessagesYet && currentRun
-              ? "flex items-center justify-center"
-              : ""
-          }`}
+          className={`flex-1 overflow-y-auto scroll mt-1 min-h-0 relative w-full h-full ${noMessagesYet && currentRun
+            ? "flex items-center justify-center"
+            : ""
+            }`}
         >
           <div
-            className={`${
-              showDetailViewer && !isDetailViewerMinimized
-                ? "w-full"
-                : "max-w-full md:max-w-5xl lg:max-w-6xl xl:max-w-7xl"
-            } mx-auto px-4 sm:px-6 md:px-8 h-full ${
-              noMessagesYet && currentRun ? "hidden" : ""
-            }`}
+            className={`${showDetailViewer && !isDetailViewerMinimized
+              ? "w-full"
+              : "max-w-full md:max-w-5xl lg:max-w-6xl xl:max-w-7xl"
+              } mx-auto px-4 sm:px-6 md:px-8 h-full ${noMessagesYet && currentRun ? "hidden" : ""
+              }`}
           >
             {
               <>
@@ -1026,11 +1130,10 @@ export default function ChatView({
           {/* No existing messages in run - centered content */}
           {currentRun && noMessagesYet && teamConfig && (
             <div
-              className={`text-center ${
-                showDetailViewer && !isDetailViewerMinimized
-                  ? "w-full"
-                  : "w-full max-w-full md:max-w-4xl lg:max-w-5xl xl:max-w-6xl"
-              } mx-auto px-4 sm:px-6 md:px-8`}
+              className={`text-center ${showDetailViewer && !isDetailViewerMinimized
+                ? "w-full"
+                : "w-full max-w-full md:max-w-4xl lg:max-w-5xl xl:max-w-6xl"
+                } mx-auto px-4 sm:px-6 md:px-8`}
             >
               <div className="text-secondary text-lg mb-6">
                 Enter a message to get started

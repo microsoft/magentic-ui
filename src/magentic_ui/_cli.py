@@ -165,6 +165,8 @@ async def get_team(
         cli_files_path = os.path.join(internal_workspace_root, "cli_files")
         log_debug(f"Creating CLI files directory at: {cli_files_path}", debug)
         os.makedirs(cli_files_path, exist_ok=True)
+        # Set proper permissions for Docker Desktop file sharing
+        os.chmod(cli_files_path, 0o755)
 
         paths = RunPaths(
             internal_root_dir=Path(internal_workspace_root),
@@ -189,6 +191,8 @@ async def get_team(
         cli_files_path = os.path.join(work_dir, "cli_files")
         log_debug(f"Creating CLI files directory at: {cli_files_path}", debug)
         os.makedirs(cli_files_path, exist_ok=True)
+        # Set proper permissions for Docker Desktop file sharing
+        os.chmod(cli_files_path, 0o755)
         work_dir_files = work_dir_path / "cli_files"
 
         paths = RunPaths(

@@ -34,6 +34,11 @@ class Team(SQLModel, table=True):
     version: Optional[str] = "0.0.1"
     component: Union[ComponentModel, dict[str, Any]] = Field(sa_column=Column(JSON))
 
+    @field_serializer("created_at", "updated_at")
+    def serialize_datetime(cls, value: datetime) -> str:
+        if isinstance(value, datetime):
+            return value.isoformat()
+
 
 class Message(SQLModel, table=True):
     __table_args__ = {"sqlite_autoincrement": True}
@@ -63,6 +68,11 @@ class Message(SQLModel, table=True):
         default={}, sa_column=Column(JSON)
     )
 
+    @field_serializer("created_at", "updated_at")
+    def serialize_datetime(cls, value: datetime) -> str:
+        if isinstance(value, datetime):
+            return value.isoformat()
+
 
 class Session(SQLModel, table=True):
     __table_args__ = {"sqlite_autoincrement": True}
@@ -81,6 +91,11 @@ class Session(SQLModel, table=True):
         sa_column=Column(Integer, ForeignKey("team.id", ondelete="CASCADE")),
     )
     name: Optional[str] = None
+
+    @field_serializer("created_at", "updated_at")
+    def serialize_datetime(cls, value: datetime) -> str:
+        if isinstance(value, datetime):
+            return value.isoformat()
 
 
 class RunStatus(str, Enum):
@@ -194,6 +209,11 @@ class Settings(SQLModel, table=True):
     config: Union[SettingsConfig, dict[str, Any]] = Field(
         default_factory=SettingsConfig, sa_column=Column(JSON)
     )
+
+    @field_serializer("created_at", "updated_at")
+    def serialize_datetime(cls, value: datetime) -> str:
+        if isinstance(value, datetime):
+            return value.isoformat()
 
 
 class Plan(SQLModel, table=True):

@@ -34,12 +34,12 @@ const normalizePlanData = (
     task: planData.task || defaultTask,
     steps: Array.isArray(planData.steps)
       ? planData.steps.map((step: any) => ({
-          title: step.title || "Untitled Step",
-          details: step.details || "",
-          enabled: step.enabled !== false,
-          open: step.open || false,
-          agent_name: step.agent_name || "",
-        }))
+        title: step.title || "Untitled Step",
+        details: step.details || "",
+        enabled: step.enabled !== false,
+        open: step.open || false,
+        agent_name: step.agent_name || "",
+      }))
       : [],
     user_id: planData.user_id || userId,
     session_id: planData.session_id || null,
@@ -157,8 +157,7 @@ const PlanList: React.FC<PlanListProps> = ({
     } catch (err) {
       console.error("Error creating new plan:", err);
       message.error(
-        `Failed to create plan: ${
-          err instanceof Error ? err.message : String(err)
+        `Failed to create plan: ${err instanceof Error ? err.message : String(err)
         }`
       );
     } finally {
@@ -202,9 +201,8 @@ const PlanList: React.FC<PlanListProps> = ({
     } catch (err) {
       console.error("Error importing plan:", err);
       message.error({
-        content: `Failed to import plan: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
+        content: `Failed to import plan: ${err instanceof Error ? err.message : String(err)
+          }`,
         duration: 5,
       });
     }

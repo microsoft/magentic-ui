@@ -2,6 +2,9 @@
 FROM python:3.12-slim AS builder
 ENV EXIFTOOL_PATH=/usr/bin/exiftool
 ENV FFMPEG_PATH=/usr/bin/ffmpeg
+# Set TMPDIR to avoid cross-device link errors during pip operations
+ENV TMPDIR=/tmp
+
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -10,34 +13,41 @@ RUN apt-get update && apt-get install -y \
     exiftool \
     && rm -rf /var/lib/apt/lists/*
 
-
-
-# Create and activate virtual environment
-RUN python -m venv /opt/venv
+# Create and activate virtual environment with proper permissions
+RUN python -m venv /opt/venv && \
+    chmod -R 755 /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install Python packages
+# Clear pip cache and upgrade pip
+RUN pip cache purge || true
+RUN pip install --upgrade pip --no-cache-dir
+
+# Copy requirements and install Python packages with error-resistant flags
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --force-reinstall --no-deps -r requirements.txt || \
+    pip install --no-cache-dir -r requirements.txt
 
 # Final stage
 FROM python:3.12-slim
+
+# Set TMPDIR to avoid cross-device link errors
+ENV TMPDIR=/tmp
 
 # Install FFmpeg and its dependencies
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /workspace
-
-# Copy virtual environment from builder
+# Copy virtual environment from builder with proper permissions
 COPY --from=builder /opt/venv /opt/venv
+RUN chmod -R 755 /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Set Python to run in unbuffered mode
 ENV PYTHONUNBUFFERED=1
 
-RUN mkdir -p /workspace
+# Create workspace directory with proper permissions for Docker Desktop file sharing
+RUN mkdir -p /workspace && chmod 755 /workspace
 WORKDIR /workspace
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

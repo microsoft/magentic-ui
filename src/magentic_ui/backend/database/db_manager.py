@@ -170,7 +170,7 @@ class DatabaseManager:
                 ).first()
                 if existing_model:
                     model.updated_at = datetime.now()
-                    for key, value in model.model_dump().items():
+                    for key, value in model.model_dump(mode="json").items():
                         setattr(existing_model, key, value)
                     model = existing_model  # Use the updated existing model
                     session.add(model)
@@ -195,7 +195,7 @@ class DatabaseManager:
                 else f"{model_class.__name__} Created Successfully"
             ),
             status=status,
-            data=model.model_dump() if return_json else model,
+            data=model.model_dump(mode="json") if return_json else model,
         )
 
     def get(

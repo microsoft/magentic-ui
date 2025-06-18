@@ -3,11 +3,14 @@ import os
 import yaml
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Any
+from datetime import datetime
+import json
 
 # import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from loguru import logger
 
 from ...version import VERSION
@@ -23,6 +26,8 @@ from .routes import (
     validation,
     ws,
 )
+
+from .utils import DateTimeEncoder
 
 # Initialize application
 app_file_path = os.path.dirname(os.path.abspath(__file__))
@@ -78,8 +83,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.error(f"Error during shutdown: {str(e)}")
 
 
-# Create FastAPI application
+# Create FastAPI application with custom JSON encoder
 app = FastAPI(lifespan=lifespan, debug=True)
+
+# Configure custom JSON encoder for datetime serialization
+app.default_response_class = type(
+    "CustomJSONResponse",
+    (JSONResponse,),
+    {
+        "media_type": "application/json",
+        "render": lambda self, content: json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+            cls=DateTimeEncoder,
+        ).encode("utf-8"),
+    },
+)
 
 # CORS middleware configuration
 app.add_middleware(

@@ -1,0 +1,114 @@
+name: Checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '0 3 * * 1'  # Every Monday at 03:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          version: "0.5.18"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: uv sync --all-extras
+        working-directory: .
+      - name: Run task
+        run: |
+          source .venv/bin/activate
+          poe fmt src --check
+          poe fmt samples --check
+          poe fmt tests --check
+
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          version: "0.5.18"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: uv sync --all-extras
+        working-directory: .
+      - name: Run task
+        run: |
+          source .venv/bin/activate
+          poe lint src
+          poe lint samples
+          poe lint tests
+  pyright:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          version: "0.5.18"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: uv sync --all-extras
+        working-directory: .
+      - name: Run task
+        run: |
+          source .venv/bin/activate
+          poe pyright src
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          version: "0.5.18"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: uv sync --all-extras
+        working-directory: .
+      - name: Run tests
+        run: |
+          source .venv/bin/activate
+          poe test
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-magentic-ui
+          path: coverage.xml
+
+# Turn on this step after open source.
+#   codecov:
+#     runs-on: ubuntu-latest
+#     needs: [test]
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/download-artifact@v4
+#         with:
+#           name: coverage-magentic-ui
+#           path: ./
+#       - uses: codecov/codecov-action@v5
+#         with:
+#           files: coverage.xml
+#           flags: unittests
+#           name: codecov-umbrella
+#           fail_ci_if_error: true
+#           token: ${{ secrets.CODECOV_TOKEN }}

@@ -103,13 +103,18 @@ class TeamManager:
 
         internal_run_dir = internal_workspace_root / Path(run_suffix)
         external_run_dir = external_workspace_root / Path(run_suffix)
-        # Can only make dir on internal, as it is what a potential docker container sees.
-        # TO-ANSWER: why?
+        
         logger.info(f"Creating run dirs: {internal_run_dir} and {external_run_dir}")
+        
+        # Always create external_run_dir on host for Docker bind mounts
+        external_run_dir.mkdir(parents=True, exist_ok=True)
+        # Set proper permissions for Docker Desktop file sharing
+        external_run_dir.chmod(0o755)
+        
+        # Create internal_run_dir when inside Docker
         if self.inside_docker:
             internal_run_dir.mkdir(parents=True, exist_ok=True)
-        else:
-            external_run_dir.mkdir(parents=True, exist_ok=True)
+            internal_run_dir.chmod(0o755)
 
         return RunPaths(
             internal_root_dir=internal_workspace_root,

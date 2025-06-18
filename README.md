@@ -31,6 +31,21 @@ magentic ui --port 8081
 ```
 If your port is 8081, you can then access Magentic-UI at <http://localhost:8081>.
 
+### 📊 Logging Configuration
+
+Magentic-UI now supports comprehensive logging configuration for better debugging and monitoring:
+
+```bash
+# Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+magentic ui --log-level INFO
+
+# Log to a file in addition to console
+magentic ui --log-level DEBUG --log-file /path/to/logfile.log
+
+# For Docker deployments, logs are automatically configured
+# and saved to /workspace/.magentic_ui/logs/backend.log
+```
+
 
 To use Azure models or Ollama please install with the optional dependencies:
 ```bash
@@ -371,3 +386,62 @@ Any use of third-party trademarks or logos are subject to those third-party's po
 Privacy information can be found at <https://go.microsoft.com/fwlink/?LinkId=521839>
 
 Microsoft and any contributors reserve all other rights, whether under their respective copyrights, patents, or trademarks, whether by implication, estoppel, or otherwise.
+
+# ──────────────────────────────
+# Useful Commands – magentic-ui
+# ──────────────────────────────
+
+# ─── Build images ────────────────────────────────────────────────────────────
+docker build -t magentic-ui-python-env \
+  -f src/magentic_ui/docker/magentic-ui-python-env/Dockerfile .
+
+docker build -t magentic-ui-browser \
+  -f src/magentic_ui/docker/magentic-ui-browser-docker/Dockerfile .
+
+# ─── Run containers ─────────────────────────────────────────────────────────
+# Browser container (detached)
+docker run -d --name magentic-ui-browser magentic-ui-browser
+
+# Python container (detached, bind source + Docker sock, expose 8081)
+docker run -d --name magentic-ui-python --rm \
+  -v /Users/dank/Desktop/magentic/magentic-ui:/workspace \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -p 8081:8081 \
+  magentic-ui-python-env tail -f /dev/null
+
+# Alternate Python run (no Docker sock)
+docker run -d --name magentic-ui-python \
+  -v /Users/dank/Desktop/magentic/magentic-ui:/workspace \
+  magentic-ui-python-env:latest tail -f /dev/null
+
+# ─── Package install / CLI usage ────────────────────────────────────────────
+docker exec magentic-ui-python pip install -e /workspace -v
+docker exec magentic-ui-python python3 -m magentic_ui.backend.cli --host 0.0.0.0 --port 8081
+docker exec magentic-ui-python magentic-ui --host 0.0.0.0 --port 8081
+
+# CLI help
+docker exec magentic-ui-python python3 -m magentic_ui.backend.cli --help
+docker exec -it magentic-ui-python magentic-ui --help
+
+# ─── Monitoring & health checks ─────────────────────────────────────────────
+docker logs magentic-ui-python --tail 20
+docker exec magentic-ui-python python3 -c \
+  "import requests, os; print(requests.get('http://localhost:8081/health').status_code)"
+docker exec magentic-ui-python pgrep -f magentic-ui
+
+# ─── Docker Compose equivalent ─────────────────────────────────────────────
+docker-compose exec magentic-ui-python \
+  python3 -m magentic_ui.backend.cli --host 0.0.0.0 --port 8081
+
+# ─── Clean-up utilities ─────────────────────────────────────────────────────
+docker rm -f magentic-ui-python magentic-ui-browser
+docker stop $(docker ps -q) 2>/dev/null || true
+docker rm -f $(docker ps -aq) 2>/dev/null || true
+docker network rm my-network 2>/dev/null || true
+docker system prune -f
+
+# ─── Miscellaneous ──────────────────────────────────────────────────────────
+# Launch browser UI (noVNC)
+open http://localhost:6080/
+# Install Gatsby CLI globally
+npm install -g gatsby-cli

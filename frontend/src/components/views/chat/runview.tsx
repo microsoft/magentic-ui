@@ -73,6 +73,8 @@ const RunView: React.FC<RunViewProps> = ({
     Set<number>
   >(new Set());
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
+  const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [lastAssistantMessage, setLastAssistantMessage] = useState<Message | null>(null);
 
   const isTogglingRef = useRef(false);
 
@@ -108,12 +110,43 @@ const RunView: React.FC<RunViewProps> = ({
 
   // Effect to handle browser_address message
   useEffect(() => {
+    console.log('[RunView] Filtering browser address messages from run:', {
+      runId: run.id,
+      totalMessages: run.messages.length,
+      runStatus: run.status
+    });
+    
     const browserAddressMessages = run.messages.filter(
-      (msg: Message) => msg.config.metadata?.type === "browser_address"
+      (msg: Message) => {
+        const isBrowserAddress = msg.config.metadata?.type === "browser_address";
+        if (isBrowserAddress) {
+          console.log('[RunView] Found browser address message:', {
+            messageId: msg.id,
+            metadata: msg.config.metadata,
+            novncPort: msg.config.metadata?.novnc_port
+          });
+        }
+        return isBrowserAddress;
+      }
     );
+    
+    console.log('[RunView] Browser address messages found:', {
+      count: browserAddressMessages.length,
+      messages: browserAddressMessages.map(msg => ({
+        id: msg.id,
+        novncPort: msg.config.metadata?.novnc_port,
+        metadata: msg.config.metadata
+      }))
+    });
+    
     const lastBrowserAddressMsg =
       browserAddressMessages[browserAddressMessages.length - 1];
-    console.log("Last browserAddressMsg", lastBrowserAddressMsg);
+    console.log("[RunView] Last browserAddressMsg", {
+      found: !!lastBrowserAddressMsg,
+      novncPort: lastBrowserAddressMsg?.config.metadata?.novnc_port,
+      currentNovncPort: novncPort,
+      message: lastBrowserAddressMsg
+    });
     // only update if novncPort is it is different from the current novncPort
     if (
       lastBrowserAddressMsg &&
@@ -546,6 +579,51 @@ const RunView: React.FC<RunViewProps> = ({
       }, 100);
     }
   }, [run.status]);
+
+  useEffect(() => {
+    console.log('[RunView] Run status changed:', {
+      runId: run.id,
+      newStatus: run.status,
+      previousRunning: isRunning,
+      messageCount: run.messages.length,
+      timestamp: new Date().toISOString()
+    });
+    
+    if (run.status === "complete" || run.status === "error") {
+       console.log('[RunView] Setting isRunning to false due to status:', run.status);
+       setIsRunning(false);
+     } else {
+       console.log('[RunView] Setting isRunning to true for status:', run.status);
+       setIsRunning(true);
+     }
+  }, [run.status]);
+
+  useEffect(() => {
+    console.log('[RunView] Messages updated:', {
+      runId: run.id,
+      messageCount: run.messages.length,
+      runStatus: run.status,
+      timestamp: new Date().toISOString()
+    });
+    
+    if (run.messages.length > 0) {
+       const lastMessage = run.messages[run.messages.length - 1];
+       console.log('[RunView] Last message:', {
+         messageId: lastMessage.id,
+         source: lastMessage.config?.source || 'unknown',
+         contentLength: typeof (lastMessage.config as any)?.content === 'string' ? (lastMessage.config as any).content.length : 0,
+         content: typeof (lastMessage.config as any)?.content === 'string' ? (lastMessage.config as any).content.substring(0, 100) : 'non-string content',
+         createdAt: lastMessage.created_at
+       });
+       
+       if (lastMessage.config?.source === "assistant") {
+         console.log('[RunView] Setting last assistant message');
+         setLastAssistantMessage(lastMessage);
+       }
+     } else {
+       console.log('[RunView] No messages in run');
+     }
+  }, [run.messages]);
 
   return (
     <div

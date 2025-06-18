@@ -1,0 +1,8 @@
+numpy
+pandas
+scikit-learn
+matplotlib
+pillow
+requests
+beautifulsoup4
+markitdown[all]~=0.1.1

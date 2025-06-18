@@ -137,52 +137,62 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity w-8 justify-end flex-shrink-0">
                 <Dropdown
                   trigger={["click"]}
-                  overlay={
-                    <Menu>
-                      <Menu.Item
-                        key="edit"
-                        onClick={(e) => {
+                  menu={{
+                    items: [
+                      {
+                        key: "edit",
+                        label: (
+                          <>
+                            <Edit className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />{" "}
+                            Edit
+                          </>
+                        ),
+                        onClick: (e) => {
                           e.domEvent.stopPropagation();
                           onEditSession(s);
-                        }}
-                      >
-                        <Edit className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />{" "}
-                        Edit
-                      </Menu.Item>
-                      <Menu.Item
-                        key="stop"
-                        onClick={(e) => {
+                        },
+                      },
+                      {
+                        key: "stop",
+                        label: (
+                          <>
+                            <StopCircle className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />{" "}
+                            Disconnect
+                          </>
+                        ),
+                        onClick: (e) => {
                           e.domEvent.stopPropagation();
                           if (isActive && s.id) onStopSession(s.id);
-                        }}
-                        disabled={!isActive}
-                        danger
-                      >
-                        <StopCircle className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />{" "}
-                        Disconnect
-                      </Menu.Item>
-                      <Menu.Item
-                        key="delete"
-                        onClick={(e) => {
+                        },
+                        disabled: !isActive,
+                        danger: true,
+                      },
+                      {
+                        key: "delete",
+                        label: (
+                          <>
+                            <Trash2 className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />{" "}
+                            Delete
+                          </>
+                        ),
+                        onClick: (e) => {
                           e.domEvent.stopPropagation();
                           if (s.id) onDeleteSession(s.id);
-                        }}
-                        danger
-                      >
-                        <Trash2 className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />{" "}
-                        Delete
-                      </Menu.Item>
-                      <Menu.Item
-                        key="learn-plan"
-                        onClick={(e) => e.domEvent.stopPropagation()}
-                      >
-                        <LearnPlanButton
-                          sessionId={Number(s.id)}
-                          messageId={-1}
-                        />
-                      </Menu.Item>
-                    </Menu>
-                  }
+                        },
+                        danger: true,
+                      },
+                      {
+                        key: "learn-plan",
+                        label: (
+                          <LearnPlanButton
+                            sessionId={Number(s.id)}
+                            messageId={-1}
+                          />
+                        ),
+                        onClick: (e) => e.domEvent.stopPropagation(),
+                      },
+                    ],
+                  }}
                   placement="bottomRight"
                 >
                   <Button

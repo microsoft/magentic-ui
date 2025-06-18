@@ -10,10 +10,10 @@ import { ChevronDownIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { ClipboardList } from "lucide-react";
 import {
   DragDropContext,
-  Droppable,
   Draggable,
   DropResult,
 } from "@hello-pangea/dnd";
+import StrictModeDroppable from "../../StrictModeDroppable";
 import { Trash2 } from "lucide-react";
 import { appContext } from "../../../hooks/provider";
 import { IPlanStep } from "../../types/plan";
@@ -193,7 +193,7 @@ const PlanView: React.FC<PlanProps> = ({
               </div>
             )}
             <DragDropContext onDragEnd={!viewOnly ? onDragEnd : noop}>
-              <Droppable droppableId="plan">
+              <StrictModeDroppable droppableId="plan">
                 {(provided) => (
                   <div {...provided.droppableProps} ref={provided.innerRef}>
                     {localPlan.map((item, index) => (
@@ -269,7 +269,7 @@ const PlanView: React.FC<PlanProps> = ({
                     {provided.placeholder}
                   </div>
                 )}
-              </Droppable>
+              </StrictModeDroppable>
             </DragDropContext>
             {!viewOnly && (
               <div className="mt-2 p-0 flex justify-end">

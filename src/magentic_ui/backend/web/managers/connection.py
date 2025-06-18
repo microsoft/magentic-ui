@@ -5,6 +5,9 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Sequence, Union
 import json
 
+# Import DateTimeEncoder for proper datetime serialization
+from ..utils import DateTimeEncoder
+
 from autogen_agentchat.base._task import TaskResult
 from autogen_agentchat.messages import (
     AgentEvent,
@@ -512,7 +515,9 @@ class WebSocketManager:
         try:
             if run_id in self._connections:
                 websocket = self._connections[run_id]
-                await websocket.send_json(message)
+                # Use custom DateTimeEncoder to handle datetime serialization
+                json_message = json.dumps(message, cls=DateTimeEncoder)
+                await websocket.send_text(json_message)
         except WebSocketDisconnect:
             logger.warning(
                 f"WebSocket disconnected while sending message for run {run_id}"
@@ -555,6 +560,8 @@ class WebSocketManager:
             await self._update_run(
                 run_id, RunStatus.ERROR, team_result=error_result, error=str(error)
             )
+            # Also send system message with error for WebSocket clients
+            await self._update_run_status(run_id, RunStatus.ERROR, str(error))
 
     def _format_message(self, message: Any) -> Optional[Dict[str, Any]]:
         """Format message for WebSocket transmission
@@ -651,14 +658,14 @@ class WebSocketManager:
             run.error_message = error
             self.db_manager.upsert(run)
         # send system message to client with status
-        await self._send_message(
-            run_id,
-            {
-                "type": "system",
-                "status": status,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            },
-        )
+        message = {
+            "type": "system",
+            "status": status,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        if error:
+            message["error"] = error
+        await self._send_message(run_id, message)
 
     async def cleanup(self) -> None:
         """Clean up all active connections and resources when server is shutting down"""
