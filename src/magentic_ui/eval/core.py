@@ -588,7 +588,7 @@ def evaluate_benchmark_func(
         else:
             avg_time = -1
 
-        metrics = benchmark.compute_aggregate_metrics(scores)
+        metrics = benchmark.compute_aggregate_metrics(scores, quids)
         logger.info(f"Evaluation metrics: {metrics}")
 
         # Add average time and scores to metrics
@@ -611,7 +611,7 @@ def evaluate_benchmark_func(
             benchmark_name, benchmark_dir, benchmark_constructor
         )
         aggregate_metrics = benchmark.compute_aggregate_metrics_multiple_runs(
-            all_scores, all_durations
+            all_scores, all_durations, all_quids
         )
 
         # Save aggregate metrics to a file

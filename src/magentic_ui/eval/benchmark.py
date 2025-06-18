@@ -55,7 +55,7 @@ class Benchmark(ABC):
         pass
 
     def compute_aggregate_metrics(
-        self, scores: List[AllEvalResultTypes]
+        self, scores: List[AllEvalResultTypes], task_ids: List[str]
     ) -> Dict[str, Any]:
         """
         Compute aggregate metrics (e.g. average score).
@@ -66,7 +66,7 @@ class Benchmark(ABC):
 
         Args:
             scores (List[AllEvalResultTypes]): A list of scores.
-
+            task_ids (List[str]): A list of task ids.
         Returns:
             Dict[str, Any]: A dictionary containing the aggregate metrics.
         """
@@ -129,6 +129,7 @@ class Benchmark(ABC):
         self,
         all_scores: List[List[AllEvalResultTypes]],
         all_durations: List[List[float]],
+        all_quids: List[List[str]],
     ) -> Dict[str, Any]:
         """
         Compute aggregate metrics for multiple runs.
@@ -137,7 +138,7 @@ class Benchmark(ABC):
             all_scores (List[List[AllEvalResultTypes]]): A list of score lists from multiple runs.
                                     Each inner list contains AllEvalResultTypes objects from one complete run.
             all_durations (List[List[float]]): A list of duration lists from multiple runs.
-
+            all_quids (List[List[str]]): A list of task id lists from multiple runs.
         Returns:
             Dict[str, Any]: A dictionary containing the aggregate metrics across all runs.
         """
@@ -152,7 +153,8 @@ class Benchmark(ABC):
 
         # Compute metrics for each run
         run_metrics = [
-            self.compute_aggregate_metrics(run_scores) for run_scores in all_scores
+            self.compute_aggregate_metrics(run_scores, run_quids)
+            for run_scores, run_quids in zip(all_scores, all_quids)
         ]
 
         # Combine metrics across runs appropriately
