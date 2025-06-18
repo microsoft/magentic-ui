@@ -29,9 +29,10 @@ def test_magentic_ui_system():
         eval_method="gpt_eval",
         model_client=client,
     )
-    #benchmark.download_dataset()
+    benchmark.download_dataset()
     benchmark.load_dataset()
     test_task = benchmark.tasks["Allrecipes--0"]
+    print(test_task)
     os.makedirs("test_output_magentic_ui", exist_ok=True)
     answer = system.get_answer(
         task_id="Allrecipes--0",
@@ -67,6 +68,7 @@ def test_magentic_one_system():
     benchmark.download_dataset()
     benchmark.load_dataset()
     test_task = benchmark.tasks["Allrecipes--0"]
+    print(test_task)
     os.makedirs("test_output_magentic_one", exist_ok=True)
     answer = system.get_answer(
         task_id="Allrecipes--0",

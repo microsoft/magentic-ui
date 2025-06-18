@@ -14,16 +14,16 @@ from autogen_agentchat.messages import (
     MultiModalMessage,
     TextMessage,
 )
-from magentic_ui.eval.basesystem import BaseSystem
-from magentic_ui.eval.models import BaseTask, BaseCandidate, WebVoyagerCandidate
-from magentic_ui.types import CheckpointEvent
+
 from autogen_ext.agents.file_surfer import FileSurfer
 from autogen_ext.agents.web_surfer import MultimodalWebSurfer
 from autogen_ext.agents.magentic_one import MagenticOneCoderAgent
 from autogen_ext.code_executors.local import LocalCommandLineCodeExecutor
 from autogen_agentchat.agents import CodeExecutorAgent
 from autogen_agentchat.teams import MagenticOneGroupChat
-
+from magentic_ui.eval.basesystem import BaseSystem
+from magentic_ui.eval.models import BaseTask, BaseCandidate, WebVoyagerCandidate
+from magentic_ui.types import CheckpointEvent
 
 logger = logging.getLogger(__name__)
 logging.getLogger("autogen").setLevel(logging.WARNING)
@@ -98,11 +98,9 @@ class MagenticOneSystem(BaseSystem):
 
             task_question: str = task.question
             # Adapted from MagenticOne. Minor change is to allow an explanation of the final answer before the final answer.
-            FINAL_ANSWER_PROMPT = f"""
+            FINAL_ANSWER_PROMPT = """
             output a FINAL ANSWER to the task.
-
-            The real task is: {task_question}
-
+            The task is: {task}`
 
             To output the final answer, use the following template: [any explanation for final answer] FINAL ANSWER: [YOUR FINAL ANSWER]
             Don't put your answer in brackets or quotes. 
@@ -135,7 +133,11 @@ class MagenticOneSystem(BaseSystem):
                 fs = FileSurfer("FileSurfer", model_client=model_client)
 
                 agents = [fs, ws, coder, executor]
-            m1_agent = MagenticOneGroupChat(agents, model_client=model_client)
+            m1_agent = MagenticOneGroupChat(
+                agents,
+                model_client=model_client,
+                final_answer_prompt=FINAL_ANSWER_PROMPT,
+            )
 
             # Step 3: Prepare the task message
             answer: str = ""
@@ -195,6 +197,7 @@ class MagenticOneSystem(BaseSystem):
                     last_message_with_orchestrator = message
             if last_message_with_orchestrator:
                 answer = last_message_with_orchestrator.content
+                answer = answer.split("FINAL ANSWER:")[0].strip()
             else:
                 answer = messages_so_far[-1].content
 
