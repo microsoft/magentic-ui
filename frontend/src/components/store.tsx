@@ -21,6 +21,7 @@ export interface GeneralConfig {
   model_client_configs: {orchestrator: any, web_surfer: any, coder: any, file_surfer: any, action_guard: any};
   mcp_agent_configs: any[];
   retrieve_relevant_plans: "never" | "hint" | "reuse"; // this is for using task centric memory to retrieve relevant plans
+  server_url: string; // Optional server URL for VNC/live view
 }
 
 const defaultConfig: GeneralConfig = {
@@ -34,6 +35,7 @@ const defaultConfig: GeneralConfig = {
   do_bing_search: false,
   websurfer_loop: false,
   retrieve_relevant_plans: "never",
+  server_url: "localhost",
   mcp_agent_configs: [],
   model_client_configs: {
     "orchestrator": DEFAULT_OPENAI,
@@ -41,7 +43,7 @@ const defaultConfig: GeneralConfig = {
     "coder": DEFAULT_OPENAI,
     "file_surfer": DEFAULT_OPENAI,
     "action_guard": PROVIDER_FORM_MAP[DEFAULT_OPENAI.provider].presets["gpt-4.1-nano-2025-04-14"],
-  }
+  },
 };
 
 interface SettingsState {

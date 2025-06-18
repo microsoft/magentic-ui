@@ -8,17 +8,23 @@ const StdioServerForm: React.FC<{
     onValueChanged: (idx: number, updated: StdioServerParams) => void;
 }> = ({ value, idx, onValueChanged }) => {
     const stdioCommandError = !value.command || value.command.trim() === '';
-
+    
     let command = value.command ?? "";
-    if (value.args) {
+    if (value.args !== undefined && value.args.length > 0) {
         command = command.concat(" ").concat(value.args.join(" "));
     }
-
+    
     const handleCommandValueChanged: React.ChangeEventHandler<HTMLInputElement> = (event) => {
-        const parts = event.target.value?.split(" ").map(part => part.trim()).filter(part => part.length > 0);
+        const parts = event.target.value?.trimStart().split(" ");
+        
+        if (parts.length > 1) {
+            // Trim the command only if there is an arg. Otherwise you can't type a space.
+            parts[0] = parts[0].trim()
+        }
 
         const command = parts.length > 0 ? parts[0] : "";
         const args = parts.length > 1 ? parts.slice(1) : [];
+
 
         onValueChanged(idx, {
             ...value,
@@ -33,6 +39,7 @@ const StdioServerForm: React.FC<{
             <Tooltip title={stdioCommandError ? 'Command is required' : 'Provide the command and arguments, e.g. "npx -y mcp-server-fetch"'}>
                 <Form.Item label="Command (including args)" required>
                     <Input
+                        placeholder="npx -y mcp-server-fetch"
                         value={command}
                         status={stdioCommandError ? 'error' : ''}
                         onChange={handleCommandValueChanged}
