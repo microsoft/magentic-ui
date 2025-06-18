@@ -209,6 +209,7 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
             showTakeControlOverlay={!isControlMode}
             onTakeControl={handleTakeControl}
             isControlMode={isControlMode}
+            serverUrl={serverHost}
           />
         ) : (
           <div
