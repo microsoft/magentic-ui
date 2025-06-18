@@ -42,5 +42,6 @@ export interface ModelConfigFormProps {
   onChange?: (config: ModelConfig) => void;
   onSubmit?: (config: ModelConfig) => void;
   value?: ModelConfig;
+  hideAdvancedToggles?: boolean;
 }
 

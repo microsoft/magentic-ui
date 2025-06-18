@@ -205,9 +205,7 @@ class TeamManager:
                     }
                 )
 
-                logger.info(
-                    f"Getting team with config:\n{magentic_ui_config.model_dump_json(indent=2)}"
-                )
+
 
                 self.team = cast(
                     Team,

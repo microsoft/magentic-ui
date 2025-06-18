@@ -136,6 +136,18 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onChange, value }) => {
     }
   };
 
+  // --- Hide advanced toggles for OpenAI recognized models (except OpenRouter) ---
+  let hideAdvancedToggles = false;
+  if (
+    provider === DEFAULT_OPENAI.provider &&
+    providerFormEntry &&
+    preset &&
+    Object.keys(providerFormEntry.presets).includes(preset) &&
+    preset !== 'OpenRouter'
+  ) {
+    hideAdvancedToggles = true;
+  }
+
   return (
     <Collapse>
       <Collapse.Panel
@@ -168,6 +180,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onChange, value }) => {
           <FormComponent
             onChange={onChange}
             value={value}
+            hideAdvancedToggles={hideAdvancedToggles}
           />
         )}
       </Collapse.Panel>
