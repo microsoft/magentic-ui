@@ -4,7 +4,6 @@ import os
 import aiofiles
 import logging
 import datetime
-from pathlib import Path
 from PIL import Image
 from pydantic import BaseModel
 from typing import List, Dict, Any, Tuple
@@ -15,16 +14,15 @@ from autogen_agentchat.messages import (
     MultiModalMessage,
     TextMessage,
 )
-from autogen_agentchat.conditions import TimeoutTermination
-from magentic_ui import OrchestratorConfig
 from magentic_ui.eval.basesystem import BaseSystem
 from magentic_ui.eval.models import BaseTask, BaseCandidate, WebVoyagerCandidate
 from magentic_ui.types import CheckpointEvent
-from magentic_ui.agents import WebSurfer, CoderAgent, FileSurfer
-from magentic_ui.teams import GroupChat
-from magentic_ui.tools.playwright.browser import VncDockerPlaywrightBrowser
-from magentic_ui.tools.playwright.browser.utils import get_available_port
-from autogen_ext.teams.magentic_one import MagenticOne
+from autogen_ext.agents.file_surfer import FileSurfer
+from autogen_ext.agents.web_surfer import MultimodalWebSurfer
+from autogen_ext.agents.magentic_one import MagenticOneCoderAgent
+from autogen_ext.code_executors.local import LocalCommandLineCodeExecutor
+from autogen_agentchat.agents import CodeExecutorAgent
+from autogen_agentchat.teams import MagenticOneGroupChat
 
 
 logger = logging.getLogger(__name__)
@@ -57,12 +55,14 @@ class MagenticOneSystem(BaseSystem):
     Args:
         name (str): Name of the system instance.
         model_client_config (Dict[str, Any]): Model client config.
+        web_surfer_only (bool): If True, only the web surfer agent is used.
         dataset_name (str): Name of the evaluation dataset (e.g., "Gaia").
     """
 
     def __init__(
         self,
         model_client_config: Dict[str, Any],
+        web_surfer_only: bool = False,
         name: str = "MagenticOneSystem",
         dataset_name: str = "Gaia",
     ):
@@ -70,6 +70,7 @@ class MagenticOneSystem(BaseSystem):
         self.candidate_class = WebVoyagerCandidate
         self.model_client_config = model_client_config
         self.dataset_name = dataset_name
+        self.web_surfer_only = web_surfer_only
 
     def get_answer(
         self, task_id: str, task: BaseTask, output_dir: str
@@ -113,13 +114,28 @@ class MagenticOneSystem(BaseSystem):
             You must answer the question and provide a smart guess if you are unsure. Provide a guess even if you have no idea about the answer.
             """
 
+            model_client = ChatCompletionClient.load_component(self.model_client_config)
 
-            model_client = ChatCompletionClient.load_component(
-                self.model_client_config
+            # Instantiate agents explicitly
+            ws = MultimodalWebSurfer(
+                "WebSurfer",
+                model_client=model_client,
+                to_save_screenshots=True,
+                debug_dir=output_dir,
             )
 
-            m1_agent = MagenticOne(client=model_client)
+            agents: List[ChatAgent] = []
+            if self.web_surfer_only:
+                agents = [ws]
+            else:
+                coder = MagenticOneCoderAgent("Coder", model_client=model_client)
+                executor = CodeExecutorAgent(
+                    "ComputerTerminal", code_executor=LocalCommandLineCodeExecutor()
+                )
+                fs = FileSurfer("FileSurfer", model_client=model_client)
 
+                agents = [fs, ws, coder, executor]
+            m1_agent = MagenticOneGroupChat(agents, model_client=model_client)
 
             # Step 3: Prepare the task message
             answer: str = ""
@@ -172,10 +188,15 @@ class MagenticOneSystem(BaseSystem):
                     await f.write(json.dumps(messages_json, indent=2))
                 # how the final answer is formatted:  "Final Answer: FINAL ANSWER: Actual final answer"
 
-                if message_str.startswith("Final Answer:"):
-                    answer = message_str[len("Final Answer:") :].strip()
-                    # remove the "FINAL ANSWER:" part and get the string after it
-                    answer = answer.split("FINAL ANSWER:")[1].strip()
+            # get last message with source MagenticOneOrchestrator, might not be the last message
+            last_message_with_orchestrator = None
+            for message in messages_so_far:
+                if message.source == "MagenticOneOrchestrator":
+                    last_message_with_orchestrator = message
+            if last_message_with_orchestrator:
+                answer = last_message_with_orchestrator.content
+            else:
+                answer = messages_so_far[-1].content
 
             assert isinstance(
                 answer, str
@@ -198,7 +219,7 @@ class MagenticOneSystem(BaseSystem):
             screenshots_paths = []
             # check the directory for screenshots which start with screenshot_raw_
             for file in os.listdir(output_dir):
-                if file.startswith("screenshot_raw_"):
+                if file.startswith("screenshot_"):
                     timestamp = file.split("_")[1]
                     screenshots_paths.append(
                         [timestamp, os.path.join(output_dir, file)]

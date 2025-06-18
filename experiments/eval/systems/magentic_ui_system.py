@@ -158,7 +158,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
 
             # launch the browser
             if self.use_local_browser:
-                browser = LocalPlaywrightBrowser()
+                browser = LocalPlaywrightBrowser(headless=True)
             else:
                 playwright_port, socket = get_available_port()
                 novnc_port, socket_vnc = get_available_port()
@@ -170,28 +170,13 @@ class MagenticUIAutonomousSystem(BaseSystem):
                     novnc_port=novnc_port,
                     inside_docker=False,
                 )
-            browser_location_log = LogEventSystem(
-                source="browser",
-                content=f"Browser at novnc port {novnc_port} and playwright port {playwright_port} launched",
-                timestamp=datetime.datetime.now().isoformat(),
-            )
-            messages_so_far.append(browser_location_log)
+                browser_location_log = LogEventSystem(
+                    source="browser",
+                    content=f"Browser at novnc port {novnc_port} and playwright port {playwright_port} launched",
+                    timestamp=datetime.datetime.now().isoformat(),
+                )
+                messages_so_far.append(browser_location_log)
 
-            # CREATE AGENTS
-            coder_agent = CoderAgent(
-                name="coder_agent",
-                model_client=model_client_coder,
-                work_dir=os.path.abspath(output_dir),
-                model_context_token_limit=model_context_token_limit,
-            )
-
-            file_surfer = FileSurfer(
-                name="file_surfer",
-                model_client=model_client_file_surfer,
-                work_dir=os.path.abspath(output_dir),
-                bind_dir=os.path.abspath(output_dir),
-                model_context_token_limit=model_context_token_limit,
-            )
             # Create web surfer
             web_surfer = WebSurfer(
                 name="web_surfer",
@@ -206,10 +191,24 @@ class MagenticUIAutonomousSystem(BaseSystem):
                 to_save_screenshots=True,
             )
 
-            agent_list: List[ChatAgent] = [web_surfer, coder_agent, file_surfer]
-            if self.web_surfer_only:
-                agent_list = [web_surfer]
+            agent_list: List[ChatAgent] = [web_surfer]
+            if not self.web_surfer_only:
+                coder_agent = CoderAgent(
+                    name="coder_agent",
+                    model_client=model_client_coder,
+                    work_dir=os.path.abspath(output_dir),
+                    model_context_token_limit=model_context_token_limit,
+                )
 
+                file_surfer = FileSurfer(
+                    name="file_surfer",
+                    model_client=model_client_file_surfer,
+                    work_dir=os.path.abspath(output_dir),
+                    bind_dir=os.path.abspath(output_dir),
+                    model_context_token_limit=model_context_token_limit,
+                )
+                agent_list.append(coder_agent)
+                agent_list.append(file_surfer)
             team = GroupChat(
                 participants=agent_list,
                 orchestrator_config=orchestrator_config,
