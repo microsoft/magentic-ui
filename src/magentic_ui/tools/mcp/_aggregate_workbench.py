@@ -9,7 +9,6 @@ from autogen_core.tools import (
     Workbench,
 )
 from pydantic import BaseModel
-from typing import Self
 
 from autogen_ext.tools.mcp import (
     McpWorkbench,
@@ -203,7 +202,7 @@ class AggregateMcpWorkbench(Workbench, Component[AggregateMcpWorkbenchConfig]):
         return AggregateMcpWorkbenchConfig(named_server_params=named_server_params)
 
     @classmethod
-    def _from_config(cls, config: AggregateMcpWorkbenchConfig) -> Self:
+    def _from_config(cls, config: AggregateMcpWorkbenchConfig):
         return cls(named_server_params=config.named_server_params)
 
     def __del__(self) -> None:
