@@ -83,7 +83,7 @@ def main(
         bool,
         typer.Option(
             "--run-without-docker",
-            help="Run without docker. This will remove coder and filesurfer agents and disale live browser view.",
+            help="Run without docker. This will remove coder and filesurfer agents and disable live browser view.",
         ),
     ] = False,
 ):

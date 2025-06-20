@@ -374,7 +374,7 @@ def main() -> None:
         dest="run_without_docker",
         action="store_true",
         default=False,
-        help="Run without docker. This will remove coder and filesurfer agents and disale live browser view.",
+        help="Run without docker. This will remove coder and filesurfer agents and disable live browser view.",
     )
     parser.add_argument(
         "--debug",
