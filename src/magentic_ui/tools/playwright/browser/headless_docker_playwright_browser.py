@@ -10,6 +10,7 @@ from docker.models.containers import Container
 from pydantic import BaseModel
 
 from .base_playwright_browser import DockerPlaywrightBrowser
+from .utils import get_available_port
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -81,8 +82,16 @@ class HeadlessDockerPlaywrightBrowser(
         """
         Generate a new address for the Playwright browser. Used if the current address fails to connect.
         """
-        # TODO: Implement this
-        pass
+        self._playwright_port, s = get_available_port()
+
+        # Update hostname based on new port
+        self._hostname = (
+            f"magentic-ui-headless-browser_{self._playwright_port}"
+            if self._inside_docker
+            else "127.0.0.1"
+        )
+        s.close()
+        logger.info(f"Generated new browser address: {self.browser_address}")
 
     async def create_container(self) -> Container:
         """
