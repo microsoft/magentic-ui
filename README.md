@@ -387,7 +387,7 @@ npm run start
 4. Then run the UI:
 
 ```bash
-magentic ui --port 8081
+magentic-ui --port 8081
 ```
 
 The frontend from source will be available at <http://localhost:8000>, and the compiled frontend will be available at <http://localhost:8081>.
