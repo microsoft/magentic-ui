@@ -20,6 +20,13 @@ from .agents.mcp._config import McpAgentConfig
 from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
 from .types import RunPaths
 from .utils import LLMCallFilter
+from ._docker import (
+    check_docker_running,
+    check_browser_image,
+    check_python_image,
+    build_browser_image,
+    build_python_image,
+)
 
 BOLD = "\033[1m"
 RESET = "\033[0m"
@@ -619,6 +626,43 @@ def main() -> None:
             log_debug(
                 f"Task from argument, length: {len(task if task else '')}", args.debug
             )
+
+    if not args.run_without_docker:
+        # Check Docker and build images if necessary
+        log_debug("Checking Docker setup...", args.debug)
+        logger.info("Checking if Docker is running...")
+
+        if not check_docker_running():
+            logger.error("Docker is not running. Please start Docker and try again.")
+            sys.exit(1)
+        else:
+            logger.success("Docker is running")
+
+        # Check and build Docker images if needed
+        logger.info("Checking Docker vnc browser image...")
+        if not check_browser_image():
+            logger.warning("VNC browser image needs to be built")
+            logger.info("Building Docker vnc image (this WILL take a few minutes)")
+            build_browser_image()
+        else:
+            logger.success("VNC browser image is available")
+
+        logger.info("Checking Docker python image...")
+        if not check_python_image():
+            logger.warning("Python image needs to be built")
+            logger.info("Building Docker python image (this WILL take a few minutes)")
+            build_python_image()
+        else:
+            logger.success("Python image is available")
+
+        # Verify Docker images exist after attempted build
+        if not check_browser_image() or not check_python_image():
+            logger.error(
+                "Docker images not found. Please build the images and try again."
+            )
+            sys.exit(1)
+
+        log_debug("Docker setup completed successfully", args.debug)
 
     log_debug("Processing final answer prompt", args.debug)
     final_answer_prompt: str | None = None
