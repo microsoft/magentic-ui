@@ -120,6 +120,7 @@ async def get_team(
     mcp_agents: List[McpAgentConfig] | None = None,
     use_pretty_ui: bool = True,
     run_without_docker: bool = False,
+    browser_headless: bool = False,
 ) -> None:
     log_debug("=== Starting get_team function ===", debug)
     log_debug(
@@ -240,6 +241,7 @@ async def get_team(
         inside_docker=inside_docker,
         mcp_agent_configs=mcp_agents,
         run_without_docker=run_without_docker,
+        browser_headless=browser_headless,
     )
     log_debug(
         f"MagenticUIConfig created with planning={cooperative_planning}, execution={autonomous_execution}",
@@ -375,6 +377,13 @@ def main() -> None:
         action="store_true",
         default=False,
         help="Run without docker. This will remove coder and filesurfer agents and disable live browser view.",
+    )
+    parser.add_argument(
+        "--headless",
+        dest="browser_headless",
+        action="store_true",
+        default=False,
+        help="Run browser in headless mode (default: False, browser runs with GUI)",
     )
     parser.add_argument(
         "--debug",
@@ -538,6 +547,7 @@ def main() -> None:
         log_debug(
             f"Console mode: {'Pretty' if args.use_pretty_ui else 'Old'}", args.debug
         )
+        log_debug(f"Browser headless: {args.browser_headless}", args.debug)
 
     # Validate user proxy type
     log_debug("Validating user proxy type", args.debug)
@@ -699,6 +709,7 @@ def main() -> None:
             use_pretty_ui=args.use_pretty_ui,
             mcp_agents=mcp_agents,
             run_without_docker=args.run_without_docker,
+            browser_headless=args.browser_headless,
         )
     )
     log_debug("Asyncio event loop and get_team function completed", args.debug)

@@ -110,6 +110,6 @@ class MagenticUIConfig(BaseModel):
     hints: Optional[str] = None
     answer: Optional[str] = None
     inside_docker: bool = True
-    browser_headless: bool = True
     browser_local: bool = False
     run_without_docker: bool = False
+    browser_headless: bool = False
