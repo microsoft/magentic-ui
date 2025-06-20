@@ -5,6 +5,10 @@ from .webvoyager.webvoyager import WebVoyagerBenchmark
 from .bearcubs.bearcubs import BearcubsBenchmark
 from .webgames.webgames import WebGamesBenchmark
 
+# QA
+from .simpleqa.simpleqa import SimpleQABenchmark
+from .gpqa.gpqa import GPQABenchmark
+
 __all__ = [
     "AssistantBenchBenchmark",
     "CustomBenchmark",
@@ -12,4 +16,6 @@ __all__ = [
     "WebVoyagerBenchmark",
     "BearcubsBenchmark",
     "WebGamesBenchmark",
+    "SimpleQABenchmark",
+    "GPQABenchmark",
 ]
