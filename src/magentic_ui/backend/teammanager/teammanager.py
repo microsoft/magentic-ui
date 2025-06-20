@@ -208,8 +208,14 @@ class TeamManager:
                     "inside_docker": self.inside_docker,
                 }
                 if self.run_without_docker:
-                    config_params["run_without_docker"] = self.run_without_docker
-
+                    config_params["run_without_docker"] = True
+                    # Allow browser_headless to be set by settings_config
+                else:
+                    if settings_config.get("run_without_docker", False):
+                        # Allow settings_config to set browser_headless
+                        pass
+                    else:
+                        config_params["browser_headless"] = False
                 magentic_ui_config = MagenticUIConfig(**config_params)  # type: ignore
 
                 self.team = cast(
