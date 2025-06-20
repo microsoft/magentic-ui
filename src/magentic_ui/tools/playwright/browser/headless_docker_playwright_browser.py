@@ -10,10 +10,20 @@ from docker.models.containers import Container
 from pydantic import BaseModel
 
 from .base_playwright_browser import DockerPlaywrightBrowser
-from .utils import get_available_port
+import socket
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+
+def get_available_port() -> tuple[int, socket.socket]:
+    """
+    Get an available port on the local machine.
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    return port, s
 
 
 class HeadlessBrowserConfig(BaseModel):
