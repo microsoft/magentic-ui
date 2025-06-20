@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
-import { Input, Form, Button, Flex, Collapse, Switch } from "antd";
-import { ModelConfigFormProps, AzureModelConfig } from "./types";
+import { Input, Form, Button, Flex, Collapse, Switch, Select } from "antd";
+import { ModelConfigFormProps, AzureModelConfig, ModelFamilySchema } from "./types";
 
 export const DEFAULT_AZURE: AzureModelConfig = {
   provider: "AzureOpenAIChatCompletionClient",
@@ -9,12 +9,6 @@ export const DEFAULT_AZURE: AzureModelConfig = {
     azure_endpoint: "",
     azure_deployment: "",
     api_version: "2024-10-21",
-    model_info: {
-      vision: true,
-      function_calling: true,
-      json_output: false,
-      structured_output: false,
-    },
     max_retries: 10,
   }
 };
@@ -22,25 +16,29 @@ export const DEFAULT_AZURE: AzureModelConfig = {
 const ADVANCED_DEFAULTS = {
   vision: true,
   function_calling: true,
-  json_output: false,
+  json_output: true,
+  family: "unknown" as const,
   structured_output: false,
+  multiple_system_messages: false,
 };
 
 function normalizeConfig(config: any, hideAdvancedToggles?: boolean) {
-  const newConfig = { ...config };
+  const newConfig = { ...DEFAULT_AZURE, ...config };
   if (hideAdvancedToggles) {
-    if (newConfig.model_info) delete newConfig.model_info;
+    if (newConfig.config.model_info) delete newConfig.config.model_info;
   } else {
-    newConfig.model_info = {
+    newConfig.config.model_info = {
       ...ADVANCED_DEFAULTS,
-      ...(newConfig.model_info || {})
+      ...(newConfig.config.model_info || {})
     };
   }
   return newConfig;
 }
 
+
 export const AzureModelConfigForm: React.FC<ModelConfigFormProps> = ({ onChange, onSubmit, value, hideAdvancedToggles }) => {
   const [form] = Form.useForm();
+
   const handleValuesChange = (_: any, allValues: any) => {
     const mergedConfig = { ...DEFAULT_AZURE.config, ...allValues.config };
     const normalizedConfig = normalizeConfig(mergedConfig, hideAdvancedToggles);
@@ -53,15 +51,17 @@ export const AzureModelConfigForm: React.FC<ModelConfigFormProps> = ({ onChange,
     const newValue = { ...DEFAULT_AZURE, config: normalizedConfig };
     if (onSubmit) onSubmit(newValue);
   };
+
   useEffect(() => {
     if (value) {
-      form.setFieldsValue(value);
+      form.setFieldsValue(normalizeConfig(value, hideAdvancedToggles))
     }
   }, [value, form]);
+
   return (
     <Form
       form={form}
-      initialValues={value || DEFAULT_AZURE.config}
+      initialValues={normalizeConfig(value, hideAdvancedToggles)}
       onFinish={handleSubmit}
       onValuesChange={handleValuesChange}
       layout="vertical"
@@ -84,13 +84,22 @@ export const AzureModelConfigForm: React.FC<ModelConfigFormProps> = ({ onChange,
             <Input />
           </Form.Item>
         </Flex>
-        <Collapse>
+        <Collapse style={{ width: "100%" }}>
           <Collapse.Panel key="1" header="Optional Properties">
             <Form.Item label="Max Retries" name={["config", "max_retries"]} rules={[{ type: "number", min: 1, max: 20, message: "Enter a value between 1 and 20" }]}>
               <Input type="number" />
             </Form.Item>
             {!hideAdvancedToggles && (
               <Flex gap="small" wrap justify="space-between">
+                <Form.Item label="Model Family" name={["config", "model_info", "family"]}>
+                  <Select placeholder="Select model family" popupMatchSelectWidth={false}>
+                    {ModelFamilySchema.options.map((family) => (
+                      <Select.Option key={family} value={family}>
+                        {family}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
                 <Form.Item label="Vision" name={["config", "model_info", "vision"]} valuePropName="checked">
                   <Switch />
                 </Form.Item>
@@ -101,6 +110,9 @@ export const AzureModelConfigForm: React.FC<ModelConfigFormProps> = ({ onChange,
                   <Switch />
                 </Form.Item>
                 <Form.Item label="Structured Output" name={["config", "model_info", "structured_output"]} valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+                <Form.Item label="Multiple System Messages" name={["config", "model_info", "multiple_system_messages"]} valuePropName="checked">
                   <Switch />
                 </Form.Item>
               </Flex>
