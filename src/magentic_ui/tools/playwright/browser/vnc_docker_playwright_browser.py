@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any, Dict, Tuple
 
 from pathlib import Path
 import secrets
@@ -101,7 +102,7 @@ class VncDockerPlaywrightBrowser(
         )
         self._docker_name = f"magentic-ui-vnc-browser_{self._playwright_websocket_path}_{self._novnc_port}"
 
-    def _get_available_port(self) -> tuple[int, socket.socket]:
+    def _get_available_port(self) -> Tuple[int, socket.socket]:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
@@ -160,27 +161,26 @@ class VncDockerPlaywrightBrowser(
         )
 
         client = docker.from_env()
-
-        return await asyncio.to_thread(
-            client.containers.create,
-            name=self._docker_name,
-            image=self._image,
-            detach=True,
-            auto_remove=True,
-            network=self._network_name if self._inside_docker else None,
-            ports={
+        container_config: Dict[str, Any] = {
+            "name": self._docker_name,
+            "image": self._image,
+            "detach": True,
+            "auto_remove": True,
+            "network": self._network_name if self._inside_docker else None,
+            "ports": {
                 f"{self._playwright_port}/tcp": self._playwright_port,
                 f"{self._novnc_port}/tcp": self._novnc_port,
             },
-            volumes={
+            "volumes": {
                 str(self._bind_dir.resolve()): {"bind": "/workspace", "mode": "rw"}
             },
-            environment={
+            "environment": {
                 "PLAYWRIGHT_WS_PATH": self._playwright_websocket_path,
                 "PLAYWRIGHT_PORT": str(self._playwright_port),
                 "NO_VNC_PORT": str(self._novnc_port),
             },
-        )
+        }
+        return await asyncio.to_thread(client.containers.create, **container_config)
 
     def _to_config(self) -> VncDockerPlaywrightBrowserConfig:
         return VncDockerPlaywrightBrowserConfig(
