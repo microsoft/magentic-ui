@@ -89,8 +89,22 @@ class CustomEvalResult(BaseEvalResult):
     pass
 
 
+class SimpleQATask(BaseTask):
+    system_instruction: str
+
+
+class SimpleQACandidate(BaseCandidate):
+    pass
+
+
+class SimpleQAEvalResult(BaseEvalResult):
+    pass
+
+
 # Union types for all tasks, candidates, and eval results
-AllTaskTypes = Union[BaseTask, AssistantBenchTask, GaiaTask, WebVoyagerTask, CustomTask]
+AllTaskTypes = Union[
+    BaseTask, AssistantBenchTask, GaiaTask, WebVoyagerTask, CustomTask, SimpleQATask
+]
 
 AllCandidateTypes = Union[
     BaseCandidate,
@@ -98,6 +112,7 @@ AllCandidateTypes = Union[
     GaiaCandidate,
     WebVoyagerCandidate,
     CustomCandidate,
+    SimpleQACandidate,
 ]
 
 AllEvalResultTypes = Union[
@@ -106,4 +121,5 @@ AllEvalResultTypes = Union[
     GaiaEvalResult,
     WebVoyagerEvalResult,
     CustomEvalResult,
+    SimpleQAEvalResult,
 ]
