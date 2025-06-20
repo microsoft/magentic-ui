@@ -5,6 +5,7 @@ import logging
 
 from autogen_core import Component
 import docker
+import docker.errors
 from docker.models.containers import Container
 from pydantic import BaseModel
 
@@ -36,6 +37,11 @@ class HeadlessDockerPlaywrightBrowser(
     Properties:
         browser_address (str): Returns the WebSocket address for connecting to the browser.
             Format: "ws://127.0.0.1:{playwright_port}" (or container name if inside_docker=True)
+
+    If you are having trouble with installing the docker image try:
+    ```bash
+    docker pull mcr.microsoft.com/playwright:v1.51.1-noble
+    ```
 
     Example:
         ```python
@@ -87,10 +93,21 @@ class HeadlessDockerPlaywrightBrowser(
         )
 
         client = docker.from_env()
+        image_name = "mcr.microsoft.com/playwright:v1.51.1-noble"
+
+        # Check if the image exists locally, if not pull it
+        try:
+            client.images.get(image_name)
+            logger.info(f"Docker image {image_name} found locally")
+        except docker.errors.ImageNotFound:
+            logger.info(f"Docker image {image_name} not found locally, pulling...")
+            await asyncio.to_thread(client.images.pull, image_name)
+            logger.info(f"Successfully pulled Docker image {image_name}")
+
         return await asyncio.to_thread(
             client.containers.create,
             name=f"magentic-ui-headless-browser_{self._playwright_port}",
-            image="mcr.microsoft.com/playwright:v1.51.1-noble",
+            image=image_name,
             detach=True,
             auto_remove=True,
             ports={
