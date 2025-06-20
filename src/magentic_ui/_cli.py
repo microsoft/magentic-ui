@@ -119,6 +119,7 @@ async def get_team(
     answer: str | None = None,
     mcp_agents: List[McpAgentConfig] | None = None,
     use_pretty_ui: bool = True,
+    run_without_docker: bool = False,
 ) -> None:
     log_debug("=== Starting get_team function ===", debug)
     log_debug(
@@ -238,6 +239,7 @@ async def get_team(
         answer=answer,
         inside_docker=inside_docker,
         mcp_agent_configs=mcp_agents,
+        run_without_docker=run_without_docker,
     )
     log_debug(
         f"MagenticUIConfig created with planning={cooperative_planning}, execution={autonomous_execution}",
@@ -366,6 +368,13 @@ def main() -> None:
         type=str,
         default=None,
         help="Path to the configuration file (default: 'config.yaml')",
+    )
+    parser.add_argument(
+        "--run-without-docker",
+        dest="run_without_docker",
+        action="store_true",
+        default=False,
+        help="Run without docker. This will remove coder and filesurfer agents and disale live browser view.",
     )
     parser.add_argument(
         "--debug",
@@ -689,6 +698,7 @@ def main() -> None:
             answer=args.metadata_answer if args.user_proxy_type == "metadata" else None,
             use_pretty_ui=args.use_pretty_ui,
             mcp_agents=mcp_agents,
+            run_without_docker=args.run_without_docker,
         )
     )
     log_debug("Asyncio event loop and get_team function completed", args.debug)

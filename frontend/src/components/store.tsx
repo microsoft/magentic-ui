@@ -18,6 +18,8 @@ export interface GeneralConfig {
   allow_for_replans: boolean;
   do_bing_search: boolean;
   websurfer_loop: boolean;
+  run_without_docker: boolean;
+  browser_headless: boolean;
   model_client_configs: {orchestrator: any, web_surfer: any, coder: any, file_surfer: any, action_guard: any};
   mcp_agent_configs: any[];
   retrieve_relevant_plans: "never" | "hint" | "reuse"; // this is for using task centric memory to retrieve relevant plans
@@ -37,6 +39,8 @@ const defaultConfig: GeneralConfig = {
   retrieve_relevant_plans: "never",
   server_url: "localhost",
   mcp_agent_configs: [],
+  run_without_docker: false,
+  browser_headless: true,
   model_client_configs: {
     "orchestrator": DEFAULT_OPENAI,
     "web_surfer": DEFAULT_OPENAI,
