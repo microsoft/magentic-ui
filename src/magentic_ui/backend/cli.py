@@ -79,6 +79,13 @@ def main(
     version: bool = typer.Option(
         False, "--version", help="Print the version of Magentic-UI and exit."
     ),
+    run_without_docker: Annotated[
+        bool,
+        typer.Option(
+            "--run-without-docker",
+            help="Run without docker. This will remove coder and filesurfer agents and disable live browser view.",
+        ),
+    ] = False,
 ):
     """
     Magentic-UI: A human-centered interface for web agents.
@@ -104,6 +111,7 @@ def main(
             upgrade_database=upgrade_database,
             config=config,
             rebuild_docker=rebuild_docker,
+            run_without_docker=run_without_docker,
         )
 
 
@@ -118,6 +126,7 @@ def run_ui(
     upgrade_database: bool,
     config: Optional[str],
     rebuild_docker: Optional[bool],
+    run_without_docker: bool,
 ):
     """
     Core logic to run the Magentic-UI web application.
@@ -134,45 +143,64 @@ def run_ui(
         upgrade_database (bool, optional): Whether to upgrade the database schema. Defaults to False.
         config (str, optional): Path to the config file. Defaults to config.yaml if present.
         rebuild_docker (bool, optional): Rebuild the docker images. Defaults to False.
+        run_without_docker (bool, optional): Run without docker. This will remove coder and filesurfer agents and disale live browser view. Defaults to False.
     """
     # Display a green, bold "Starting Magentic-UI" message
     typer.echo(typer.style("Starting Magentic-UI", fg=typer.colors.GREEN, bold=True))
 
     # === Docker Setup ===
     # Check if Docker is running and prepare required images
-    typer.echo("Checking if Docker is running...", nl=False)
+    if not run_without_docker:
+        typer.echo("Checking if Docker is running...", nl=False)
 
-    if not check_docker_running():
-        typer.echo(typer.style("Failed\n", fg=typer.colors.RED, bold=True))
-        typer.echo("Docker is not running. Please start Docker and try again.")
-        raise typer.Exit(1)  # Exit with error code 1
+        if not check_docker_running():
+            typer.echo(typer.style("Failed\n", fg=typer.colors.RED, bold=True))
+            typer.echo("Docker is not running. Please start Docker and try again.")
+            raise typer.Exit(1)  # Exit with error code 1
+        else:
+            typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
+
+        # Check and build Docker images if needed
+        typer.echo("Checking Docker vnc browser image...", nl=False)
+        if not check_browser_image() or rebuild_docker:
+            typer.echo(typer.style("Update\n", fg=typer.colors.YELLOW, bold=True))
+            typer.echo("Building Docker vnc image (this WILL take a few minutes)")
+            build_browser_image()
+            typer.echo("\n")
+        else:
+            typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
+
+        typer.echo("Checking Docker python image...", nl=False)
+        if not check_python_image() or rebuild_docker:
+            typer.echo(typer.style("Update\n", fg=typer.colors.YELLOW, bold=True))
+            typer.echo("Building Docker python image (this WILL take a few minutes)")
+            build_python_image()
+            typer.echo("\n")
+        else:
+            typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
+
+        # Verify Docker images exist after attempted build
+        if not check_browser_image() or not check_python_image():
+            typer.echo(typer.style("Failed\n", fg=typer.colors.RED, bold=True))
+            typer.echo(
+                "Docker images not found. Please build the images and try again."
+            )
+            raise typer.Exit(1)
     else:
-        typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
-
-    # Check and build Docker images if needed
-    typer.echo("Checking Docker vnc browser image...", nl=False)
-    if not check_browser_image() or rebuild_docker:
-        typer.echo(typer.style("Update\n", fg=typer.colors.YELLOW, bold=True))
-        typer.echo("Building Docker vnc image (this WILL take a few minutes)")
-        build_browser_image()
-        typer.echo("\n")
-    else:
-        typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
-
-    typer.echo("Checking Docker python image...", nl=False)
-    if not check_python_image() or rebuild_docker:
-        typer.echo(typer.style("Update\n", fg=typer.colors.YELLOW, bold=True))
-        typer.echo("Building Docker python image (this WILL take a few minutes)")
-        build_python_image()
-        typer.echo("\n")
-    else:
-        typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
-
-    # Verify Docker images exist after attempted build
-    if not check_browser_image() or not check_python_image():
-        typer.echo(typer.style("Failed\n", fg=typer.colors.RED, bold=True))
-        typer.echo("Docker images not found. Please build the images and try again.")
-        raise typer.Exit(1)
+        typer.echo(
+            typer.style(
+                "Running without docker... This will remove the live browser view and will disable code and file manipulation.",
+                fg=typer.colors.YELLOW,
+                bold=True,
+            )
+        )
+        typer.echo(
+            typer.style(
+                "For the full experience of Magentic-UI please use docker.",
+                fg=typer.colors.YELLOW,
+                bold=True,
+            )
+        )
 
     typer.echo("Launching Web Application...")
 
@@ -196,6 +224,7 @@ def run_ui(
     env_vars["INSIDE_DOCKER"] = "0"
     env_vars["EXTERNAL_WORKSPACE_ROOT"] = appdir
     env_vars["INTERNAL_WORKSPACE_ROOT"] = appdir
+    env_vars["RUN_WITHOUT_DOCKER"] = str(run_without_docker)
 
     # Handle configuration file path
     if not config:
@@ -241,6 +270,13 @@ def ui(
     upgrade_database: bool = False,
     config: Optional[str] = None,
     rebuild_docker: Optional[bool] = False,
+    run_without_docker: Annotated[
+        bool,
+        typer.Option(
+            "--run-without-docker",
+            help="Run without docker. This will remove coder and filesurfer agents and disale live browser view.",
+        ),
+    ] = False,
 ):
     """
     [Deprecated] Run Magentic-UI.
@@ -258,6 +294,7 @@ def ui(
         upgrade_database=upgrade_database,
         config=config,
         rebuild_docker=rebuild_docker,
+        run_without_docker=run_without_docker,
     )
 
 

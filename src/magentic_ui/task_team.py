@@ -87,7 +87,8 @@ async def get_task_team(
             magentic_ui_config.playwright_port,
             magentic_ui_config.inside_docker,
             headless=magentic_ui_config.browser_headless,
-            local=magentic_ui_config.browser_local,
+            local=magentic_ui_config.browser_local
+            or magentic_ui_config.run_without_docker,
         )
     )
 
@@ -195,24 +196,26 @@ async def get_task_team(
         )
         await team.lazy_init()
         return team
+    coder_agent: CoderAgent | None = None
+    file_surfer: FileSurfer | None = None
+    if not magentic_ui_config.run_without_docker:
+        coder_agent = CoderAgent(
+            name="coder_agent",
+            model_client=model_client_coder,
+            work_dir=paths.internal_run_dir,
+            bind_dir=paths.external_run_dir,
+            model_context_token_limit=magentic_ui_config.model_context_token_limit,
+            approval_guard=approval_guard,
+        )
 
-    coder_agent = CoderAgent(
-        name="coder_agent",
-        model_client=model_client_coder,
-        work_dir=paths.internal_run_dir,
-        bind_dir=paths.external_run_dir,
-        model_context_token_limit=magentic_ui_config.model_context_token_limit,
-        approval_guard=approval_guard,
-    )
-
-    file_surfer = FileSurfer(
-        name="file_surfer",
-        model_client=model_client_file_surfer,
-        work_dir=paths.internal_run_dir,
-        bind_dir=paths.external_run_dir,
-        model_context_token_limit=magentic_ui_config.model_context_token_limit,
-        approval_guard=approval_guard,
-    )
+        file_surfer = FileSurfer(
+            name="file_surfer",
+            model_client=model_client_file_surfer,
+            work_dir=paths.internal_run_dir,
+            bind_dir=paths.external_run_dir,
+            model_context_token_limit=magentic_ui_config.model_context_token_limit,
+            approval_guard=approval_guard,
+        )
 
     # Setup any mcp_agents
     mcp_agents: List[McpAgent] = [
@@ -236,9 +239,11 @@ async def get_task_team(
     team_participants: List[ChatAgent] = [
         web_surfer,
         user_proxy,
-        coder_agent,
-        file_surfer,
     ]
+    if not magentic_ui_config.run_without_docker:
+        assert coder_agent is not None
+        assert file_surfer is not None
+        team_participants.extend([coder_agent, file_surfer])
     team_participants.extend(mcp_agents)
 
     team = GroupChat(

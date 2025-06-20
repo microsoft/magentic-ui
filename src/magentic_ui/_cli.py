@@ -20,6 +20,13 @@ from .agents.mcp._config import McpAgentConfig
 from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
 from .types import RunPaths
 from .utils import LLMCallFilter
+from ._docker import (
+    check_docker_running,
+    check_browser_image,
+    check_python_image,
+    build_browser_image,
+    build_python_image,
+)
 
 BOLD = "\033[1m"
 RESET = "\033[0m"
@@ -119,6 +126,8 @@ async def get_team(
     answer: str | None = None,
     mcp_agents: List[McpAgentConfig] | None = None,
     use_pretty_ui: bool = True,
+    run_without_docker: bool = False,
+    browser_headless: bool = False,
 ) -> None:
     log_debug("=== Starting get_team function ===", debug)
     log_debug(
@@ -238,6 +247,8 @@ async def get_team(
         answer=answer,
         inside_docker=inside_docker,
         mcp_agent_configs=mcp_agents,
+        run_without_docker=run_without_docker,
+        browser_headless=browser_headless,
     )
     log_debug(
         f"MagenticUIConfig created with planning={cooperative_planning}, execution={autonomous_execution}",
@@ -366,6 +377,20 @@ def main() -> None:
         type=str,
         default=None,
         help="Path to the configuration file (default: 'config.yaml')",
+    )
+    parser.add_argument(
+        "--run-without-docker",
+        dest="run_without_docker",
+        action="store_true",
+        default=False,
+        help="Run without docker. This will remove coder and filesurfer agents and disable live browser view.",
+    )
+    parser.add_argument(
+        "--headless",
+        dest="browser_headless",
+        action="store_true",
+        default=False,
+        help="Run browser in headless mode (default: False, browser runs with GUI)",
     )
     parser.add_argument(
         "--debug",
@@ -529,6 +554,7 @@ def main() -> None:
         log_debug(
             f"Console mode: {'Pretty' if args.use_pretty_ui else 'Old'}", args.debug
         )
+        log_debug(f"Browser headless: {args.browser_headless}", args.debug)
 
     # Validate user proxy type
     log_debug("Validating user proxy type", args.debug)
@@ -600,6 +626,43 @@ def main() -> None:
             log_debug(
                 f"Task from argument, length: {len(task if task else '')}", args.debug
             )
+
+    if not args.run_without_docker:
+        # Check Docker and build images if necessary
+        log_debug("Checking Docker setup...", args.debug)
+        logger.info("Checking if Docker is running...")
+
+        if not check_docker_running():
+            logger.error("Docker is not running. Please start Docker and try again.")
+            sys.exit(1)
+        else:
+            logger.success("Docker is running")
+
+        # Check and build Docker images if needed
+        logger.info("Checking Docker vnc browser image...")
+        if not check_browser_image():
+            logger.warning("VNC browser image needs to be built")
+            logger.info("Building Docker vnc image (this WILL take a few minutes)")
+            build_browser_image()
+        else:
+            logger.success("VNC browser image is available")
+
+        logger.info("Checking Docker python image...")
+        if not check_python_image():
+            logger.warning("Python image needs to be built")
+            logger.info("Building Docker python image (this WILL take a few minutes)")
+            build_python_image()
+        else:
+            logger.success("Python image is available")
+
+        # Verify Docker images exist after attempted build
+        if not check_browser_image() or not check_python_image():
+            logger.error(
+                "Docker images not found. Please build the images and try again."
+            )
+            sys.exit(1)
+
+        log_debug("Docker setup completed successfully", args.debug)
 
     log_debug("Processing final answer prompt", args.debug)
     final_answer_prompt: str | None = None
@@ -689,6 +752,8 @@ def main() -> None:
             answer=args.metadata_answer if args.user_proxy_type == "metadata" else None,
             use_pretty_ui=args.use_pretty_ui,
             mcp_agents=mcp_agents,
+            run_without_docker=args.run_without_docker,
+            browser_headless=args.browser_headless,
         )
     )
     log_debug("Asyncio event loop and get_team function completed", args.debug)
