@@ -5,7 +5,7 @@ export const getServerUrl = () => {
   return process.env.GATSBY_API_URL || "/api";
 };
 
-export function setCookie(name: string, value: any, days: number) {
+export function setCookie(name: string, value: string, days: number) {
   let expires = "";
   if (days) {
     const date = new Date();
@@ -27,17 +27,17 @@ export function getCookie(name: string) {
 }
 export function setLocalStorage(
   name: string,
-  value: any,
+  value: unknown,
   stringify: boolean = true
 ) {
   if (stringify) {
     localStorage.setItem(name, JSON.stringify(value));
   } else {
-    localStorage.setItem(name, value);
+    localStorage.setItem(name, value as string);
   }
 }
 
-export function getLocalStorage(name: string, stringify: boolean = true): any {
+export function getLocalStorage(name: string, stringify: boolean = true): unknown {
   if (typeof window !== "undefined") {
     const value = localStorage.getItem(name);
     try {
@@ -56,8 +56,8 @@ export function getLocalStorage(name: string, stringify: boolean = true): any {
 
 export function fetchJSON(
   url: string | URL,
-  payload: any = {},
-  onSuccess: (data: any) => void,
+  payload: RequestInit = {},
+  onSuccess: (data: unknown) => void,
   onError: (error: IStatus) => void,
   onFinal: () => void = () => {}
 ) {

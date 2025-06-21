@@ -316,6 +316,7 @@ export class PlanAPI {
     }
 
     const { created_at, ...dataWithoutCreatedAt } = planData;
+    void created_at; // Explicitly ignore this variable
 
     const plan = {
       ...dataWithoutCreatedAt,
@@ -345,28 +346,24 @@ export class PlanAPI {
   }
 
   async deletePlan(planId: number, userId: string): Promise<void> {
-    try {
-      const response = await fetch(
-        `${this.getBaseUrl()}/plans/${planId}?user_id=${userId}`,
-        {
-          method: "DELETE",
-          headers: this.getHeaders(),
-        }
+    const response = await fetch(
+      `${this.getBaseUrl()}/plans/${planId}?user_id=${userId}`,
+      {
+        method: "DELETE",
+        headers: this.getHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to delete plan. Server responded with status: ${response.status}`
       );
+    }
 
-      if (!response.ok) {
-        throw new Error(
-          `Failed to delete plan. Server responded with status: ${response.status}`
-        );
-      }
+    const data = await response.json();
 
-      const data = await response.json();
-
-      if (!data.status) {
-        throw new Error(data.message || "Failed to delete plan");
-      }
-    } catch (error) {
-      throw error;
+    if (!data.status) {
+      throw new Error(data.message || "Failed to delete plan");
     }
   }
 

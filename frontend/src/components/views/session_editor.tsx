@@ -1,8 +1,7 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect } from "react";
 import { Modal, Form, message, Input, Button } from "antd";
 import type { FormProps } from "antd";
 import { SessionEditorProps } from "./types";
-import { Team } from "../types/datamodel";
 import { teamAPI } from "./api";
 import { appContext } from "../../hooks/provider";
 
@@ -18,8 +17,6 @@ export const SessionEditor: React.FC<SessionEditorProps> = ({
   isOpen,
 }) => {
   const [form] = Form.useForm();
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [loading, setLoading] = useState(false);
   const { user } = useContext(appContext);
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -39,15 +36,11 @@ export const SessionEditor: React.FC<SessionEditorProps> = ({
     const fetchTeams = async () => {
       if (isOpen) {
         try {
-          setLoading(true);
           const userId = user?.email || "";
-          const teamsData = await teamAPI.listTeams(userId);
-          setTeams(teamsData);
+          await teamAPI.listTeams(userId);
         } catch (error) {
           messageApi.error("Error loading teams");
           console.error("Error loading teams:", error);
-        } finally {
-          setLoading(false);
         }
       }
     };

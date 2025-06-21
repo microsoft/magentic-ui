@@ -32,10 +32,10 @@ interface RunViewProps {
     plan?: IPlan,
     fresh_socket?: boolean
   ) => void;
-  onCancel?: () => void;
+  _onCancel?: () => void;
   error?: IStatus | null;
   chatInputRef?: React.RefObject<any>;
-  onExecutePlan?: (plan: IPlan) => void;
+  _onExecutePlan?: (plan: IPlan) => void;
   enable_upload?: boolean;
 }
 
@@ -54,10 +54,10 @@ const RunView: React.FC<RunViewProps> = ({
   // Add new props here
   onInputResponse,
   onRunTask,
-  onCancel,
+  _onCancel,
   error,
   chatInputRef,
-  onExecutePlan,
+  _onExecutePlan,
   enable_upload = false,
 }) => {
   const threadContainerRef = useRef<HTMLDivElement | null>(null);
@@ -164,7 +164,7 @@ const RunView: React.FC<RunViewProps> = ({
         Array.isArray(msg.config.content) &&
         msg.config.metadata?.type === "browser_screenshot"
       ) {
-        msg.config.content.forEach((item: any, itemIndex: number) => {
+        msg.config.content.forEach((item: any) => {
           if (typeof item === "object" && ("url" in item || "data" in item)) {
             const imageUrl =
               ("url" in item && item.url) ||
@@ -414,12 +414,13 @@ const RunView: React.FC<RunViewProps> = ({
                     // delay for 100ms
                     await new Promise((resolve) => setTimeout(resolve, 100));
                   }
-                } catch {}
+                } catch {
+                  // eslint-disable-line no-empty
+                }
               }
             }
             continue;
           }
-          const content = JSON.parse(msg.config.content);
 
           // If this is a step execution that's not repeated
           if (
@@ -439,11 +440,15 @@ const RunView: React.FC<RunViewProps> = ({
                       await new Promise((resolve) => setTimeout(resolve, 100));
                     }
                   }
-                } catch {}
+                } catch {
+                  // eslint-disable-line no-empty
+                }
               }
             }
           }
-        } catch {}
+        } catch {
+          // eslint-disable-line no-empty
+        }
       }
 
       if (
@@ -554,15 +559,14 @@ const RunView: React.FC<RunViewProps> = ({
     >
       {/* Messages section */}
       <div
-        className={`items-start relative flex flex-col h-full ${
-          showDetailViewer &&
+        className={`items-start relative flex flex-col h-full ${showDetailViewer &&
           novncPort !== undefined &&
           !isDetailViewerMinimized
-            ? detailViewerExpanded
-              ? "w-0"
-              : "w-[40%]"
-            : "w-full"
-        } transition-all duration-300`}
+          ? detailViewerExpanded
+            ? "w-0"
+            : "w-[40%]"
+          : "w-full"
+          } transition-all duration-300`}
       >
         {/* Thread Section - use flex-1 for height, but remove overflow-y-auto */}
         <div className="w-full flex-1">
@@ -665,13 +669,11 @@ const RunView: React.FC<RunViewProps> = ({
               }
             }}
             error={error ?? null}
-            onCancel={onCancel}
             runStatus={run.status}
             isPlanMessage={isPlanMsg}
             onPause={onPause}
             enable_upload={enable_upload}
             inputRequest={run.input_request}
-            onExecutePlan={onExecutePlan}
           />
         </div>
       </div>
@@ -691,9 +693,8 @@ const RunView: React.FC<RunViewProps> = ({
         novncPort !== undefined &&
         !isDetailViewerMinimized && (
           <div
-            className={`${
-              detailViewerExpanded ? "w-full" : "w-[60%]"
-            } self-start sticky top-0 h-full`}
+            className={`${detailViewerExpanded ? "w-full" : "w-[60%]"
+              } self-start sticky top-0 h-full`}
           >
             <div className="h-full flex-1">
               <DetailViewer

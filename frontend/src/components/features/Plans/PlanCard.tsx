@@ -268,10 +268,11 @@ const PlanCard: React.FC<PlanCardProps> = ({
         {isModalOpen && (
           <div>
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">
+              <label htmlFor="plan-title-input" className="block text-sm font-medium mb-1">
                 Plan Title
               </label>
               <Input
+                id="plan-title-input"
                 type="text"
                 value={localTask}
                 onChange={(e) => setLocalTask(e.target.value)}

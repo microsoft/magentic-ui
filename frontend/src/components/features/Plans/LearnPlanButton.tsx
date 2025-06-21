@@ -19,7 +19,6 @@ export const LearnPlanButton: React.FC<LearnPlanButtonProps> = ({
 }) => {
   const [isLearning, setIsLearning] = useState(false);
   const [isLearned, setIsLearned] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const { user, darkMode } = useContext(appContext);
   const planAPI = new PlanAPI();
 
@@ -44,7 +43,6 @@ export const LearnPlanButton: React.FC<LearnPlanButtonProps> = ({
 
     try {
       setIsLearning(true);
-      setError(null);
       message.loading({
         content: "Creating plan from conversation...",
         key: "learnPlan",
@@ -75,7 +73,6 @@ export const LearnPlanButton: React.FC<LearnPlanButtonProps> = ({
       }
     } catch (error) {
       console.error("Error creating plan:", error);
-      setError(error instanceof Error ? error.message : "Unknown error");
       message.error({
         content: `Failed to create plan: ${
           error instanceof Error ? error.message : "Unknown error"

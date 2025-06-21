@@ -77,6 +77,15 @@ const ContentHeader = ({
               <div
                 className="flex items-center space-x-2 cursor-pointer"
                 onClick={() => setIsEmailModalOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setIsEmailModalOpen(true);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label="View or update your profile"
               >
                 {user.avatar_url ? (
                   <img
