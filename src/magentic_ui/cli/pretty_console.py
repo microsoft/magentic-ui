@@ -270,6 +270,15 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
                         "Regular Step" if step_type == "PlanStep" else "Sentinel Step"
                     )
                     print(f"{left}{' ' * 5}{BOLD}Type:{RESET} {type_name}")
+                    if step_type == "SentinelPlanStep":
+                        if step.get("counter"):
+                            print(
+                                f"{left}{' ' * 5}{BOLD}Counter:{RESET} {step['counter']}"
+                            )
+                        if step.get("sleep_duration"):
+                            print(
+                                f"{left}{' ' * 5}{BOLD}Sleep Duration:{RESET} {step['sleep_duration']}s"
+                            )
 
         # Always show acceptance prompt for full plans
         print()  # tail spacer
@@ -301,6 +310,11 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
         if step_type:
             type_name = "Regular Step" if step_type == "PlanStep" else "Sentinel Step"
             print(f"{left}{BOLD}Type:{RESET} {type_name}")
+            if step_type == "SentinelPlanStep":
+                if obj.get("counter"):
+                    print(f"{left}    {BOLD}Counter:{RESET} {obj['counter']}")
+                if obj.get("sleep_duration"):
+                    print(f"{left}    {BOLD}Sleep Duration:{RESET} {obj['sleep_duration']}s")
 
         if obj.get("details"):
             print(f"{left}{BOLD}Details:{RESET}")
