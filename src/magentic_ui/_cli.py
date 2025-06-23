@@ -14,6 +14,7 @@ import yaml
 from autogen_core import EVENT_LOGGER_NAME, CancellationToken
 from .cli import Console, PrettyConsole
 from .task_team import get_task_team
+from .teams.orchestrator._prompts import initialize_prompts
 from loguru import logger
 
 from .agents.mcp._config import McpAgentConfig
@@ -119,6 +120,7 @@ async def get_team(
     answer: str | None = None,
     mcp_agents: List[McpAgentConfig] | None = None,
     use_pretty_ui: bool = True,
+    sentinel_tasks: bool = False,
 ) -> None:
     log_debug("=== Starting get_team function ===", debug)
     log_debug(
@@ -129,6 +131,9 @@ async def get_team(
         f"Args: inside_docker={inside_docker}, action_policy={action_policy}, user_proxy_type={user_proxy_type}",
         debug,
     )
+
+    # Initialize the prompts based on the CLI flag
+    initialize_prompts(sentinel_tasks)
 
     if reset:
         print(f"Resetting state file: {state_file}")
@@ -510,6 +515,13 @@ def main() -> None:
         default=True,
         help="Use the old console without fancy formatting (default: use pretty terminal)",
     )
+    advanced.add_argument(
+        "--sentinel-tasks",
+        dest="sentinel_tasks",
+        action="store_true",
+        default=False,
+        help="Use sentinel tasks to guide the agent's behavior (default: False)",
+    )
     args = parser.parse_args()
     log_debug(f"Command line arguments parsed: debug={args.debug}", args.debug)
 
@@ -526,6 +538,7 @@ def main() -> None:
         log_debug(f"Config file: {args.config}", args.debug)
         log_debug(f"User proxy type: {args.user_proxy_type}", args.debug)
         log_debug(f"LLM log directory: {args.llmlog_dir}", args.debug)
+        log_debug(f"Sentinel tasks: {args.sentinel_tasks}", args.debug)
         log_debug(
             f"Console mode: {'Pretty' if args.use_pretty_ui else 'Old'}", args.debug
         )
@@ -689,6 +702,7 @@ def main() -> None:
             answer=args.metadata_answer if args.user_proxy_type == "metadata" else None,
             use_pretty_ui=args.use_pretty_ui,
             mcp_agents=mcp_agents,
+            sentinel_tasks=args.sentinel_tasks,
         )
     )
     log_debug("Asyncio event loop and get_team function completed", args.debug)

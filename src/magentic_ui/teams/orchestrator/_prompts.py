@@ -1,13 +1,20 @@
 from typing import Any, Dict, List
 
-# Currently hardcoded to False to keep original Magentic UI behavior
-_SENTINEL_TASKS = True
+class PromptHolder:
+    """A container to hold a prompt string that can be updated at runtime."""
+
+    def __init__(self, value: str = ""):
+        self.value = value
+
+    def format(self, *args: Any, **kwargs: Any) -> str:
+        """Allows the holder to be used like a string with .format()."""
+        return self.value.format(*args, **kwargs)
 
 
 def get_orchestrator_system_message_planning(
     sentinel_tasks_enabled: bool = False,
 ) -> str:
-    """Get the orchestrator system message for planning, with optional SentinelStep support."""
+    """Get the orchestrator system message for planning, with optional SentinelPlanStep support."""
 
     base_message = """
     
@@ -43,7 +50,7 @@ def get_orchestrator_system_message_planning(
     Your plan should should be a sequence of steps that will complete the task."""
 
     if sentinel_tasks_enabled:
-        # Add SentinelStep functionality
+        # Add SentinelPlanStep functionality
         step_types_section = """
 
             ## Step Types
@@ -134,13 +141,13 @@ def get_orchestrator_system_message_planning(
             Step 1:
             - title: "Monitor Instagram follower count until reaching 2000 followers"
             - details: "Monitor Instagram follower count until reaching 2000 followers. \\n Periodically check the user's Instagram account follower count, sleeping between checks to avoid excessive API calls, and continue monitoring until the 2000 follower threshold is reached."
-            - step_type: "SentinelStep"
+            - step_type: "SentinelPlanStep"
             - agent_name: "web_surfer"
 
             Step 2:
             - title: "Send partnership message to Nike"
             - details: "Send partnership message to Nike. \\n Once the follower threshold is met, compose and send a professional partnership inquiry message to Nike through their official channels."
-            - step_type: "RegularStep"
+            - step_type: "PlanStep"
             - agent_name: "web_surfer"
 
 
@@ -151,13 +158,13 @@ def get_orchestrator_system_message_planning(
             Step 1:
             - title: "Periodically search the internet for new resources about Ayrton Senna"
             - details: "Periodically search the internet for new resources about Ayrton Senna. \\n Repeatedly search the web for new articles, posts, or mentions, monitoring for new information over time and identifying resources that haven't been previously collected."
-            - step_type: "SentinelStep"
+            - step_type: "SentinelPlanStep"
             - agent_name: "web_surfer"
 
             Step 2:
             - title: "Append new resources to a local txt file"
             - details: "Append new resources to a local txt file. \\n Each time a new resource is found, add its details to a local txt file, ensuring a cumulative and organized record of relevant resources."
-            - step_type: "RegularStep"
+            - step_type: "PlanStep"  
             - agent_name: "coder_agent"
 
 
@@ -168,14 +175,14 @@ def get_orchestrator_system_message_planning(
             Step 1:
             - title: "Monitor GitHub repository stars with 5 repeated checks"
             - details: "Monitor GitHub repository stars with 5 repeated checks. \\n Visit the magentic-ui GitHub repository 5 times, recording the star count at each visit and compiling a report of all star counts collected during the monitoring period."
-            - step_type: "SentinelStep"
+            - step_type: "SentinelPlanStep"
             - counter: 5
             - agent_name: "web_surfer"
 
             Step 2:
             - title: "Say hi to the user using code"
             - details: "Say hi to the user using the coder agent. \\n Execute code to generate a greeting message."
-            - step_type: "RegularStep"
+            - step_type: "PlanStep"
             - agent_name: "coder_agent"
 
 
@@ -193,7 +200,7 @@ def get_orchestrator_system_message_planning(
             Step 1:
             - title: "Execute sleep cycle with 3 iterations of 2 seconds each"
             - details: "Execute sleep cycle with 3 iterations of 2 seconds each. \\n Perform a monitoring task that sleeps for 2 seconds per iteration, repeating this process exactly 3 times before completing."
-            - step_type: "SentinelStep"
+            - step_type: "SentinelPlanStep"
             - counter: 3
             - sleep_duration: 2
             - agent_name: "sentinel_agent"
@@ -206,10 +213,11 @@ def get_orchestrator_system_message_planning(
             - Aim for a plan with the least number of steps possible.
             - Use a search engine or platform to find the information you need. For instance, if you want to look up flight prices, use a flight search engine like Bing Flights. However, your final answer should not stop with a Bing search only.
             - If there are images attached to the request, use them to help you complete the task and describe them to the other agents in the plan.
-            - Carefully classify each step as either SentinelStep or RegularStep based on whether it requires long-term monitoring, waiting, or periodic execution."""
+            - Carefully classify each step as either SentinelPlanStep or PlanStep based on whether it requires long-term monitoring, waiting, or periodic execution.
+        """
 
     else:
-        # Use original format from without SentinelStep functionality
+        # Use original format from without SentinelPlanStep functionality
         step_types_section = """
 
             Each step should have a title and details field.
@@ -290,44 +298,35 @@ def get_orchestrator_system_message_planning(
             - Remember, there is no requirement to involve all team members -- a team member's particular expertise may not be needed for this task.
             - Aim for a plan with the least number of steps possible.
             - Use a search engine or platform to find the information you need. For instance, if you want to look up flight prices, use a flight search engine like Bing Flights. However, your final answer should not stop with a Bing search only.
-            - If there are images attached to the request, use them to help you complete the task and describe them to the other agents in the plan."""
+            - If there are images attached to the request, use them to help you complete the task and describe them to the other agents in the plan.
+        """
 
-    return (
-        base_message
-        + step_types_section
-        + examples_section
-        + """
-
-
-"""
-    )
+    return base_message + step_types_section + examples_section
 
 
 def get_orchestrator_system_message_planning_autonomous(
     sentinel_tasks_enabled: bool = False,
 ) -> str:
-    """Get the autonomous orchestrator system message for planning, with optional SentinelStep support."""
+    """Get the autonomous orchestrator system message for planning, with optional SentinelPlanStep support."""
 
-    base_message = """You are a helpful AI assistant named Magentic-UI built by Microsoft Research AI Frontiers.
-Your goal is to help the user with their request.
-You can complete actions on the web, complete actions on behalf of the user, execute code, and more.
-You have access to a team of agents who can help you answer questions and complete tasks.
-You are primarly a planner, and so you can devise a plan to do anything. 
+    base_message = """
+    
+    You are a helpful AI assistant named Magentic-UI built by Microsoft Research AI Frontiers.
+    Your goal is to help the user with their request.
+    You can complete actions on the web, complete actions on behalf of the user, execute code, and more.
+    You have access to a team of agents who can help you answer questions and complete tasks.
+    You are primarly a planner, and so you can devise a plan to do anything. 
 
-The date today is: {date_today}
+    The date today is: {date_today}
 
+    You have access to the following team members that can help you address the request each with unique expertise:
 
+    {team}
 
-You have access to the following team members that can help you address the request each with unique expertise:
-
-{team}
-
-
-
-Your plan should should be a sequence of steps that will complete the task."""
+    Your plan should should be a sequence of steps that will complete the task."""
 
     if sentinel_tasks_enabled:
-        # Add SentinelStep functionality
+        # Add SentinelPlanStep functionality
         step_types_section = """
 
             ## Step Types
@@ -393,7 +392,7 @@ Your plan should should be a sequence of steps that will complete the task."""
             Step 1:
             - title: "Locate the starter code for the autogen repo"
             - details: "Locate the starter code for the autogen repo. \\n Search for the official AutoGen repository on GitHub, navigate to their examples or getting started section, and identify the recommended starter code for new users."
-            - step_type: "Plan
+            - step_type: "PlanStep"
             - agent_name: "web_surfer"
 
             Step 2:
@@ -412,12 +411,14 @@ Your plan should should be a sequence of steps that will complete the task."""
             - details: "Periodically search the internet for new resources about Ayrton Senna. \\n Repeatedly search the web for new articles, posts, or mentions, monitoring for new information over time and identifying resources that haven't been previously collected."
             - step_type: "SentinelPlanStep"
             - agent_name: "web_surfer"
+            - sleep_duration: 300 # 5 minutes
+            - counter: 10
 
             Step 2:
             - title: "Append new resources to a local txt file"
             - details: "Append new resources to a local txt file. \\n Each time a new resource is found, add its details to a local txt file, ensuring a cumulative and organized record of relevant resources."
             - step_type: "PlanStep"
-            - agent_name: "coder_agent\"
+            - agent_name: "coder_agent"
             """
 
         helpful_tips = """
@@ -427,10 +428,10 @@ Your plan should should be a sequence of steps that will complete the task."""
             - Aim for a plan with the least number of steps possible.
             - Use a search engine or platform to find the information you need. For instance, if you want to look up flight prices, use a flight search engine like Bing Flights. However, your final answer should not stop with a Bing search only.
             - If there are images attached to the request, use them to help you complete the task and describe them to the other agents in the plan.
-            - Carefully classify each step as either SentinelStep or RegularStep based on whether it requires long-term monitoring, waiting, or periodic execution."""
+            - Carefully classify each step as either SentinelPlanStep or PlanStep based on whether it requires long-term monitoring, waiting, or periodic execution."""
 
     else:
-        # Use old format without SentinelStep functionality
+        # Use original format without SentinelPlanStep functionality
         step_types_section = ""
         step_fields_section = "Each step should have a title and details field."
         step_format_section = ""
@@ -513,7 +514,7 @@ Your plan should should be a sequence of steps that will complete the task."""
 
 
 def get_orchestrator_plan_prompt_json(sentinel_tasks_enabled: bool = False) -> str:
-    """Get the orchestrator plan prompt in JSON format, with optional SentinelStep support."""
+    """Get the orchestrator plan prompt in JSON format, with optional SentinelPlanStep support."""
 
     base_prompt = """
     
@@ -528,7 +529,7 @@ def get_orchestrator_plan_prompt_json(sentinel_tasks_enabled: bool = False) -> s
         Your plan should should be a sequence of steps that will complete the task."""
 
     if sentinel_tasks_enabled:
-        # Add SentinelStep functionality
+        # Add SentinelPlanStep functionality
         step_types_section = """
 
             ## Step Types
@@ -586,7 +587,7 @@ def get_orchestrator_plan_prompt_json(sentinel_tasks_enabled: bool = False) -> s
         }}"""
 
     else:
-        # Use old format without SentinelStep functionality
+        # Use old format without SentinelPlanStep functionality
         step_types_section = ""
 
         json_schema = """{{
@@ -639,7 +640,7 @@ def get_orchestrator_plan_prompt_json(sentinel_tasks_enabled: bool = False) -> s
 
 
 def get_orchestrator_plan_replan_json(sentinel_tasks_enabled: bool = False) -> str:
-    """Get the orchestrator replan prompt in JSON format, with optional SentinelStep support."""
+    """Get the orchestrator replan prompt in JSON format, with optional SentinelPlanStep support."""
 
     replan_intro = """
 
@@ -658,7 +659,7 @@ def get_orchestrator_plan_replan_json(sentinel_tasks_enabled: bool = False) -> s
     if sentinel_tasks_enabled:
         replan_intro += """
 
-    When creating the new plan, make sure to properly classify each step as either RegularStep or SentinelStep based on whether it requires long-term monitoring, waiting, or periodic execution."""
+    When creating the new plan, make sure to properly classify each step as either PlanStep or SentinelPlanStep based on whether it requires long-term monitoring, waiting, or periodic execution."""
 
     return replan_intro + get_orchestrator_plan_prompt_json(sentinel_tasks_enabled)
 
@@ -666,7 +667,7 @@ def get_orchestrator_plan_replan_json(sentinel_tasks_enabled: bool = False) -> s
 def get_orchestrator_progress_ledger_prompt(
     sentinel_tasks_enabled: bool = False,
 ) -> str:
-    """Get the orchestrator progress ledger prompt, with optional SentinelStep support."""
+    """Get the orchestrator progress ledger prompt, with optional SentinelPlanStep support."""
 
     base_prompt = """Recall we are working on the following request:
 
@@ -683,7 +684,7 @@ def get_orchestrator_progress_ledger_prompt(
     Details: {step_details}"""
 
     if sentinel_tasks_enabled:
-        # Add SentinelStep-aware section
+        # Add SentinelPlanStep-aware section
         step_type_section = """
 
         Step Type: {step_type}
@@ -710,7 +711,7 @@ def get_orchestrator_progress_ledger_prompt(
         - If the condition is not yet met, the step should remain incomplete
         - Provide instructions to check the specific condition being monitored
         - The step will automatically wait and retry checking the condition periodically
-        - Examples of SentinelStep conditions:
+        - Examples of SentinelPlanStep conditions:
         * "Wait until follower count reaches 2000" - only complete when count >= 2000
         * "Monitor for new mentions" - only complete when new mentions are found
         * "Check daily for updates" - only complete when update condition is satisfied"""
@@ -725,7 +726,7 @@ def get_orchestrator_progress_ledger_prompt(
             * For SentinelPlanStep: True ONLY if the monitoring condition is definitively met"""
 
     else:
-        # Use old format without SentinelStep functionality
+        # Use old format without SentinelPlanStep functionality
         step_type_section = """
 
             agent_name: {agent_name}
@@ -739,7 +740,6 @@ def get_orchestrator_progress_ledger_prompt(
         instruction_guidance = """    - instruction_or_question: Provide complete instructions to accomplish the current step with all context needed about the task and the plan. Provide a very detailed reasoning chain for how to complete the step. If the next agent is the user, pose it directly as a question. Otherwise pose it as something you will do."""
 
         completion_guidance = """    - is_current_step_complete: Is the current step complete? (True if complete, or False if the current step is not yet complete)"""
-
 
     # Create the questions section based on whether sentinel tasks are enabled
     questions_section = f"""
@@ -859,6 +859,32 @@ def validate_plan_json_with_mode(
     return True
 
 
+def initialize_prompts(sentinel_tasks_enabled: bool) -> None:
+    """
+    Initializes or updates the global prompt constants based on runtime configuration.
+    """
+    global ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING, ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING_AUTONOMOUS
+    global ORCHESTRATOR_PLAN_PROMPT_JSON, ORCHESTRATOR_PLAN_REPLAN_JSON
+    global ORCHESTRATOR_PROGRESS_LEDGER_PROMPT, _SENTINEL_TASKS_ENABLED
+
+    _SENTINEL_TASKS_ENABLED = sentinel_tasks_enabled
+    ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING.value = get_orchestrator_system_message_planning(
+        sentinel_tasks_enabled
+    )
+    ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING_AUTONOMOUS.value = (
+        get_orchestrator_system_message_planning_autonomous(sentinel_tasks_enabled)
+    )
+    ORCHESTRATOR_PLAN_PROMPT_JSON.value = get_orchestrator_plan_prompt_json(
+        sentinel_tasks_enabled
+    )
+    ORCHESTRATOR_PLAN_REPLAN_JSON.value = get_orchestrator_plan_replan_json(
+        sentinel_tasks_enabled
+    )
+    ORCHESTRATOR_PROGRESS_LEDGER_PROMPT.value = get_orchestrator_progress_ledger_prompt(
+        sentinel_tasks_enabled
+    )
+
+
 # =============================================================================
 # Constants that don't change between modes
 # =============================================================================
@@ -919,25 +945,21 @@ ORCHESTRATOR_TASK_LEDGER_FULL_FORMAT = """
 # By default, sentinel tasks are disabled to keep original Magentic UI behavior
 # =============================================================================
 
-# Create the same variable names as _prompts.py for drop-in compatibility
-ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING = get_orchestrator_system_message_planning(
-    _SENTINEL_TASKS
-)
-ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING_AUTONOMOUS = get_orchestrator_system_message_planning_autonomous(
-    _SENTINEL_TASKS
-)
-ORCHESTRATOR_PLAN_PROMPT_JSON = get_orchestrator_plan_prompt_json(
-    _SENTINEL_TASKS
-)
-ORCHESTRATOR_PLAN_REPLAN_JSON = get_orchestrator_plan_replan_json(
-    _SENTINEL_TASKS
-)
-ORCHESTRATOR_PROGRESS_LEDGER_PROMPT = get_orchestrator_progress_ledger_prompt(
-    _SENTINEL_TASKS
-)
+# This global flag will be updated by the initializer
+_SENTINEL_TASKS_ENABLED = False
+
+# The capitalized variables are now instances of PromptHolder
+ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING = PromptHolder()
+ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING_AUTONOMOUS = PromptHolder()
+ORCHESTRATOR_PLAN_PROMPT_JSON = PromptHolder()
+ORCHESTRATOR_PLAN_REPLAN_JSON = PromptHolder()
+ORCHESTRATOR_PROGRESS_LEDGER_PROMPT = PromptHolder()
+
+# Initialize prompts with the default value (False)
+initialize_prompts(False)
 
 
 # Validation function with compatibility layer
 def validate_plan_json(json_response: Dict[str, Any]) -> bool:
     """Compatibility wrapper for validate_plan_json with default sentinel tasks setting."""
-    return validate_plan_json_with_mode(json_response, _SENTINEL_TASKS)
+    return validate_plan_json_with_mode(json_response, _SENTINEL_TASKS_ENABLED)
