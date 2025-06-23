@@ -91,18 +91,28 @@ async def get_task_team(
         )
     )
 
+    # Initialize the orchestrator agent configuration using arguments from the MagenticUIConfig
     orchestrator_config = OrchestratorConfig(
         cooperative_planning=magentic_ui_config.cooperative_planning,
         autonomous_execution=magentic_ui_config.autonomous_execution,
-        allowed_websites=magentic_ui_config.allowed_websites,
+        allow_follow_up_input=magentic_ui_config.allow_follow_up_input,
         plan=magentic_ui_config.plan,
-        model_context_token_limit=magentic_ui_config.model_context_token_limit,
+        # max_turns not passed
+        # allow_for_replans not passed
+        # max_json_retries not passed
+        # saved_facts not passed
+        allowed_websites=magentic_ui_config.allowed_websites,
         do_bing_search=magentic_ui_config.do_bing_search,
+        final_answer_prompt=magentic_ui_config.final_answer_prompt,
+        model_context_token_limit=magentic_ui_config.model_context_token_limit,
         retrieve_relevant_plans=magentic_ui_config.retrieve_relevant_plans,
         memory_controller_key=magentic_ui_config.memory_controller_key,
-        allow_follow_up_input=magentic_ui_config.allow_follow_up_input,
-        final_answer_prompt=magentic_ui_config.final_answer_prompt,
+        # max_replans not passed
+        # no_overwrite_of_task not passed
+        sentinel_tasks=magentic_ui_config.sentinel_tasks,
     )
+
+    # Initialize the web surfer agent configuration using arguments from the MagenticUIConfig
     websurfer_model_client = magentic_ui_config.model_client_configs.web_surfer
     if websurfer_model_client is None:
         websurfer_model_client = ModelClientConfigs.get_default_client_config()
@@ -125,8 +135,9 @@ async def get_task_team(
         to_save_screenshots=False,
     )
 
+    
+    # Initialize the user proxy agent configuration
     user_proxy: DummyUserProxy | MetadataUserProxy | UserProxyAgent
-
     if magentic_ui_config.user_proxy_type == "dummy":
         user_proxy = DummyUserProxy(name="user_proxy")
     elif magentic_ui_config.user_proxy_type == "metadata":
@@ -196,6 +207,7 @@ async def get_task_team(
         await team.lazy_init()
         return team
 
+    # Initialize the coder agent configuration
     coder_agent = CoderAgent(
         name="coder_agent",
         model_client=model_client_coder,
@@ -205,6 +217,7 @@ async def get_task_team(
         approval_guard=approval_guard,
     )
 
+    # Initialize the file surfer agent configuration
     file_surfer = FileSurfer(
         name="file_surfer",
         model_client=model_client_file_surfer,
