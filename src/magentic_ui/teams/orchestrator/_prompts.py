@@ -1,19 +1,6 @@
 from typing import Any, Dict, List
 
-class PromptHolder:
-    """A container to hold a prompt string that can be updated at runtime."""
-
-    def __init__(self, value: str = ""):
-        self.value = value
-
-    def format(self, *args: Any, **kwargs: Any) -> str:
-        """Allows the holder to be used like a string with .format()."""
-        return self.value.format(*args, **kwargs)
-
-
-def get_orchestrator_system_message_planning(
-    sentinel_tasks_enabled: bool = False,
-) -> str:
+def get_orchestrator_system_message_planning(sentinel_tasks_enabled: bool = False) -> str:
     """Get the orchestrator system message for planning, with optional SentinelPlanStep support."""
 
     base_message = """
@@ -304,9 +291,7 @@ def get_orchestrator_system_message_planning(
     return base_message + step_types_section + examples_section
 
 
-def get_orchestrator_system_message_planning_autonomous(
-    sentinel_tasks_enabled: bool = False,
-) -> str:
+def get_orchestrator_system_message_planning_autonomous(sentinel_tasks_enabled: bool = False) -> str:
     """Get the autonomous orchestrator system message for planning, with optional SentinelPlanStep support."""
 
     base_message = """
@@ -664,9 +649,7 @@ def get_orchestrator_plan_replan_json(sentinel_tasks_enabled: bool = False) -> s
     return replan_intro + get_orchestrator_plan_prompt_json(sentinel_tasks_enabled)
 
 
-def get_orchestrator_progress_ledger_prompt(
-    sentinel_tasks_enabled: bool = False,
-) -> str:
+def get_orchestrator_progress_ledger_prompt(sentinel_tasks_enabled: bool = False) -> str:
     """Get the orchestrator progress ledger prompt, with optional SentinelPlanStep support."""
 
     base_prompt = """Recall we are working on the following request:
@@ -822,10 +805,7 @@ def validate_ledger_json(json_response: Dict[str, Any], agent_names: List[str]) 
     return True
 
 
-# Validate the plan JSON response, with different requirements based on the step type
-def validate_plan_json_with_mode(
-    json_response: Dict[str, Any], sentinel_tasks_enabled: bool = False
-) -> bool:
+def validate_plan_json(json_response: Dict[str, Any], sentinel_tasks_enabled: bool = False) -> bool:
     """Validate plan JSON response, with different requirements based on sentinel tasks mode."""
     if not isinstance(json_response, dict):
         return False
@@ -858,31 +838,6 @@ def validate_plan_json_with_mode(
                 return False
     return True
 
-
-def initialize_prompts(sentinel_tasks_enabled: bool) -> None:
-    """
-    Initializes or updates the global prompt constants based on runtime configuration.
-    """
-    global ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING, ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING_AUTONOMOUS
-    global ORCHESTRATOR_PLAN_PROMPT_JSON, ORCHESTRATOR_PLAN_REPLAN_JSON
-    global ORCHESTRATOR_PROGRESS_LEDGER_PROMPT, _SENTINEL_TASKS_ENABLED
-
-    _SENTINEL_TASKS_ENABLED = sentinel_tasks_enabled
-    ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING.value = get_orchestrator_system_message_planning(
-        sentinel_tasks_enabled
-    )
-    ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING_AUTONOMOUS.value = (
-        get_orchestrator_system_message_planning_autonomous(sentinel_tasks_enabled)
-    )
-    ORCHESTRATOR_PLAN_PROMPT_JSON.value = get_orchestrator_plan_prompt_json(
-        sentinel_tasks_enabled
-    )
-    ORCHESTRATOR_PLAN_REPLAN_JSON.value = get_orchestrator_plan_replan_json(
-        sentinel_tasks_enabled
-    )
-    ORCHESTRATOR_PROGRESS_LEDGER_PROMPT.value = get_orchestrator_progress_ledger_prompt(
-        sentinel_tasks_enabled
-    )
 
 
 # =============================================================================
@@ -938,28 +893,3 @@ ORCHESTRATOR_TASK_LEDGER_FULL_FORMAT = """
     \\n\\n
     {plan}
 """
-
-
-# =============================================================================
-# Keeps the same variable names as _prompts.py for backward compatibility
-# By default, sentinel tasks are disabled to keep original Magentic UI behavior
-# =============================================================================
-
-# This global flag will be updated by the initializer
-_SENTINEL_TASKS_ENABLED = False
-
-# The capitalized variables are now instances of PromptHolder
-ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING = PromptHolder()
-ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING_AUTONOMOUS = PromptHolder()
-ORCHESTRATOR_PLAN_PROMPT_JSON = PromptHolder()
-ORCHESTRATOR_PLAN_REPLAN_JSON = PromptHolder()
-ORCHESTRATOR_PROGRESS_LEDGER_PROMPT = PromptHolder()
-
-# Initialize prompts with the default value (False)
-initialize_prompts(False)
-
-
-# Validation function with compatibility layer
-def validate_plan_json(json_response: Dict[str, Any]) -> bool:
-    """Compatibility wrapper for validate_plan_json with default sentinel tasks setting."""
-    return validate_plan_json_with_mode(json_response, _SENTINEL_TASKS_ENABLED)
