@@ -25,12 +25,23 @@ Here's how you can get started with Magentic-UI:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install magentic-ui
+pip install magentic-ui --upgrade
 # export OPENAI_API_KEY=<YOUR API KEY>
-magentic ui --port 8081
+magentic-ui --port 8081
 ```
 If your port is 8081, you can then access Magentic-UI at <http://localhost:8081>.
 
+
+If you are not able to setup Docker, you can run a limited version of Magentic-UI which does not have the ability to execute code, navigate files or display the browser in the interface with the command:
+
+```bash
+magentic-ui --run-without-docker --port 8081
+```
+
+You can also run Magentic-UI in a command-line-interface:
+```bash
+magentic-cli --work-dir PATH/TO/STORE/DATA
+```
 
 To use Azure models or Ollama please install with the optional dependencies:
 ```bash
@@ -174,14 +185,14 @@ uv pip install magentic-ui
 To run Magentic-UI, make sure that Docker is running, then run the following command:
 
 ```bash
-magentic ui --port 8081
+magentic-ui --port 8081
 ```
 
 The first time that you run this command, it will take a while to build the Docker images -- go grab a coffee or something. The next time you run it, it will be much faster as it doesn't have to build the Docker again.
 
 If you have trouble building the dockers, please try to rebuild them with the command:
 ```bash
-magentic ui --rebuild-docker --port 8081
+magentic-ui --rebuild-docker --port 8081
 ```
 If you face further issues, please refer to the [TROUBLESHOOTING.md](TROUBLESHOOTING.md) document.
 
@@ -200,7 +211,7 @@ magentic-cli --work-dir PATH_TO_STORE_LOGS
 
 If you want to use a different OpenAI key, or if you want to configure use with Azure OpenAI or Ollama, you can do so inside the UI by navigating to settings (top right icon) and changing model configuration with the format of the `config.yaml` file below. You can also create a `config.yaml` and import it inside the UI or point Magentic-UI to its path at startup time: 
 ```bash
-magentic ui --config path/to/config.yaml
+magentic-ui --config path/to/config.yaml
 ```
 
 An example `config.yaml` for OpenAI is given below:
@@ -341,7 +352,7 @@ yarn build
 #### 5. Run Magentic-UI, as usual.
 
 ```bash
-magentic ui --port 8081
+magentic-ui --port 8081
 ```
 
 >**Note**: Running this command for the first time will build two docker containers required for the Magentic-UI agents. If you encounter problems, you can build them directly with the following commands from inside the repository: 
@@ -376,7 +387,7 @@ npm run start
 4. Then run the UI:
 
 ```bash
-magentic ui --port 8081
+magentic-ui --port 8081
 ```
 
 The frontend from source will be available at <http://localhost:8000>, and the compiled frontend will be available at <http://localhost:8081>.

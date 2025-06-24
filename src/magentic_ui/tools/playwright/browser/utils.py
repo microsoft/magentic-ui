@@ -56,7 +56,7 @@ def get_browser_resource_config(
     novnc_port: int = -1,
     playwright_port: int = -1,
     inside_docker: bool = True,
-    headless: bool = False,
+    headless: bool = True,
     local: bool = False,
 ) -> Tuple[ComponentModel, int, int]:
     """

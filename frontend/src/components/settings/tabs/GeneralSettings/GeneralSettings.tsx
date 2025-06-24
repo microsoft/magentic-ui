@@ -80,6 +80,23 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({
             />
           </Flex>
           <Divider style={{ margin: "0px" }} />
+          <Flex align="center" justify="space-between" wrap gap="large">
+            <Flex align="center" justify="start" gap="small" wrap>
+              Browser Headless
+              <Tooltip title="Only applicable when running without docker. When enabled, the browser will run in headless mode (no UI).">
+                <InfoCircleOutlined className="text-secondary hover:text-primary cursor-help" />
+              </Tooltip>
+            </Flex>
+            <Switch
+              checked={config.browser_headless}
+              checkedChildren="ON"
+              unCheckedChildren="OFF"
+              onChange={(checked) =>
+                handleUpdateConfig({ browser_headless: checked })
+              }
+            />
+          </Flex>
+          <Divider style={{ margin: "0px" }} />
 
           <Flex align="center" justify="space-between" wrap gap="small">
             <Flex align="center" gap="small">

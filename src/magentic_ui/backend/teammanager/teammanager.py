@@ -56,6 +56,7 @@ class TeamManager:
         self,
         internal_workspace_root: Path,
         external_workspace_root: Path,
+        run_without_docker: bool,
         inside_docker: bool = True,
         config: dict[str, Any] = {},
     ) -> None:
@@ -64,6 +65,7 @@ class TeamManager:
         self.internal_workspace_root = internal_workspace_root
         self.external_workspace_root = external_workspace_root
         self.inside_docker = inside_docker
+        self.run_without_docker = run_without_docker
         self.config = config
 
     @staticmethod
@@ -147,10 +149,14 @@ class TeamManager:
         paths: RunPaths,
     ) -> tuple[Team, int, int]:
         """Create team instance from config"""
+        if not self.run_without_docker:
+            _, novnc_port, playwright_port = get_browser_resource_config(
+                paths.external_run_dir, -1, -1, self.inside_docker
+            )
+        else:
+            novnc_port = -1
+            playwright_port = -1
 
-        _, novnc_port, playwright_port = get_browser_resource_config(
-            paths.external_run_dir, -1, -1, self.inside_docker
-        )
         try:
             if not self.load_from_config:
                 # The settings_config dictionary provides the Model configs in a key `model_configs`
@@ -189,21 +195,28 @@ class TeamManager:
                 #     ),
                 # )
 
-                magentic_ui_config = MagenticUIConfig(
-                    **{
-                        # Lowest priority defaults
-                        **self.config,  # type: ignore
-                        # Provided settings override defaults
-                        **settings_config,  # type: ignore,
-                        # Set to manually merged dictionary
-                        # "model_client_configs": model_client_configs,
-                        # These must always be set to the values computed above
-                        "playwright_port": playwright_port,
-                        "novnc_port": novnc_port,
-                        # Defer to self for inside_docker
-                        "inside_docker": self.inside_docker,
-                    }
-                )
+                config_params = {
+                    # Lowest priority defaults
+                    **self.config,  # type: ignore
+                    # Provided settings override defaults
+                    **settings_config,  # type: ignore,
+                    # "model_client_configs": model_client_configs,
+                    # These must always be set to the values computed above
+                    "playwright_port": playwright_port,
+                    "novnc_port": novnc_port,
+                    # Defer to self for inside_docker
+                    "inside_docker": self.inside_docker,
+                }
+                if self.run_without_docker:
+                    config_params["run_without_docker"] = True
+                    # Allow browser_headless to be set by settings_config
+                else:
+                    if settings_config.get("run_without_docker", False):
+                        # Allow settings_config to set browser_headless
+                        pass
+                    else:
+                        config_params["browser_headless"] = False
+                magentic_ui_config = MagenticUIConfig(**config_params)  # type: ignore
 
                 self.team = cast(
                     Team,
