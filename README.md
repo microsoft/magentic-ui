@@ -152,7 +152,7 @@ If you're interested in reading more checkout our [blog post](https://www.micros
 
 
 
-2. During the Installation step, you will need to set up your `OPENAI_API_KEY`. To use other models, review the [Custom Client Configuration](#custom-client-configuration) section below.
+2. During the Installation step, you will need to set up your `OPENAI_API_KEY`. To use other models, review the [Custom Client Configuration](#Configuration) section below.
 
 3. You need at least [Python 3.10](https://www.python.org/downloads/) installed.
 
