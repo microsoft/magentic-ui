@@ -69,8 +69,21 @@ def get_orchestrator_system_message_planning(sentinel_tasks_enabled: bool = Fals
             Each step should have a title, details, step_type, and agent_name field.
 
             For **SentinelPlanStep** only, you should also include:
-            - **sleep_duration** (integer): Number of seconds to wait between checks. Extract this from the user's request if they specify timing (e.g., "2 seconds", "5s", "wait 3 seconds"). If not specified, omit this field and a default will be used.
-            - **counter** (integer or string): Number of iterations or descriptive text like "until goal is met".
+            - **sleep_duration** (integer): Number of seconds to wait between checks. Intelligently extract timing from the user's request:
+              * Explicit timing: "every 5 seconds" → 5, "check hourly" → 3600, "daily monitoring" → 86400
+              * Contextual defaults based on task type:
+                - Social media monitoring: 300-900 seconds (5-15 minutes)
+                - Stock/price monitoring: 60-300 seconds (1-5 minutes) 
+                - System health checks: 30-60 seconds
+                - Web content changes: 600-3600 seconds (10 minutes-1 hour)
+                - General "constantly": 60-300 seconds
+                - General "periodically": 300-1800 seconds (5-30 minutes)
+              * If no timing specified, choose based on context and avoid being too aggressive to prevent rate limiting
+            - **counter** (integer or string): Number of iterations. Extract from user request:
+              * Explicit counts: "5 times" → 5, "check 10 times" → 10
+              * Conditional: "until condition met" → "until_condition_met"
+              * Indefinite monitoring: "constantly monitor" → "indefinite"
+              * If not specified, default to "indefinite" for ongoing monitoring tasks
 
             The title should be a short one sentence description of the step.
 
@@ -129,6 +142,8 @@ def get_orchestrator_system_message_planning(sentinel_tasks_enabled: bool = Fals
             - title: "Monitor Instagram follower count until reaching 2000 followers"
             - details: "Monitor Instagram follower count until reaching 2000 followers. \\n Periodically check the user's Instagram account follower count, sleeping between checks to avoid excessive API calls, and continue monitoring until the 2000 follower threshold is reached."
             - step_type: "SentinelPlanStep"
+            - sleep_duration: 600
+            - counter: "until_condition_met"
             - agent_name: "web_surfer"
 
             Step 2:
@@ -146,6 +161,8 @@ def get_orchestrator_system_message_planning(sentinel_tasks_enabled: bool = Fals
             - title: "Periodically search the internet for new resources about Ayrton Senna"
             - details: "Periodically search the internet for new resources about Ayrton Senna. \\n Repeatedly search the web for new articles, posts, or mentions, monitoring for new information over time and identifying resources that haven't been previously collected."
             - step_type: "SentinelPlanStep"
+            - sleep_duration: 1800
+            - counter: "indefinite"
             - agent_name: "web_surfer"
 
             Step 2:
@@ -193,6 +210,25 @@ def get_orchestrator_system_message_planning(sentinel_tasks_enabled: bool = Fals
             - agent_name: "sentinel_agent"
 
 
+            Example 8:
+
+            User request: "Check the price of avocados at Walmart every day, and if the price ever goes above $4, generate code that prints 'Woah Expensive Avocados' 10 times"
+
+            Step 1:
+            - title: "Monitor Walmart daily for avocado prices and check if price exceeds $4"
+            - details: "Monitor Walmart daily for avocado prices and check if price exceeds $4. \\n Each day, check the avocado prices at Walmart online, and determine if any listing is priced above $4."
+            - step_type: "SentinelPlanStep"
+            - sleep_duration: 86400
+            - counter: "until_condition_met"
+            - agent_name: "web_surfer"
+
+            Step 2:
+            - title: "Generate code to print 'Woah Expensive Avocados' 10 times"
+            - details: "Generate code to print 'Woah Expensive Avocados' 10 times. \\n When the monitored avocado price exceeds $4, create and execute code that prints the alert message 10 times."
+            - step_type: "PlanStep"
+            - agent_name: "coder_agent"
+
+
             Helpful tips:
             - If the plan needs information from the user, try to get that information before creating the plan.
             - When creating the plan you only need to add a step to the plan if it requires a different agent to be completed, or if the step is very complicated and can be split into two steps.
@@ -201,6 +237,7 @@ def get_orchestrator_system_message_planning(sentinel_tasks_enabled: bool = Fals
             - Use a search engine or platform to find the information you need. For instance, if you want to look up flight prices, use a flight search engine like Bing Flights. However, your final answer should not stop with a Bing search only.
             - If there are images attached to the request, use them to help you complete the task and describe them to the other agents in the plan.
             - Carefully classify each step as either SentinelPlanStep or PlanStep based on whether it requires long-term monitoring, waiting, or periodic execution.
+            - For SentinelPlanStep timing: Always analyze the user's request for timing clues ("daily", "every hour", "constantly", "until X happens") and choose appropriate sleep_duration and counter values. Consider the nature of the task to avoid being too aggressive with checking frequency.
         """
 
     else:
@@ -396,8 +433,8 @@ def get_orchestrator_system_message_planning_autonomous(sentinel_tasks_enabled: 
             - details: "Periodically search the internet for new resources about Ayrton Senna. \\n Repeatedly search the web for new articles, posts, or mentions, monitoring for new information over time and identifying resources that haven't been previously collected."
             - step_type: "SentinelPlanStep"
             - agent_name: "web_surfer"
-            - sleep_duration: 300 # 5 minutes
-            - counter: 10
+            - sleep_duration: 1800
+            - counter: "indefinite"
 
             Step 2:
             - title: "Append new resources to a local txt file"
