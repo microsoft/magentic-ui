@@ -144,11 +144,13 @@ If you're interested in reading more checkout our [blog post](https://www.micros
 
 ### 📝 Pre-Requisites
 
-1. If running on **Windows** or **Mac** you must use [Docker Desktop](https://www.docker.com/products/docker-desktop/). If running on **Linux**, you should use [Docker Engine](https://docs.docker.com/engine/install/). **Magentic-UI was not tested with other container providers.**
+**Note**: If you're using Windows, we highly recommend using [WSL2](https://docs.microsoft.com/en-us/windows/wsl/install) (Windows Subsystem for Linux).
 
-    2. If using Docker Desktop, make sure it is set up to use WSL2:
-        - Go to Settings > Resources > WSL Integration
-        - Enable integration with your development distro You can find more detailed instructions about this step [here](https://docs.microsoft.com/en-us/windows/wsl/tutorials/wsl-containers).
+1. If running on **Windows** or **Mac** you should use [Docker Desktop](https://www.docker.com/products/docker-desktop/) or if inside WSL2 you can install Docker directly inside WSL [docker in WSL2 guide](https://gist.github.com/dehsilvadeveloper/c3bdf0f4cdcc5c177e2fe9be671820c7). If running on **Linux**, you should use [Docker Engine](https://docs.docker.com/engine/install/). 
+
+If using Docker Desktop, make sure it is set up to use WSL2:
+    - Go to Settings > Resources > WSL Integration
+    - Enable integration with your development distro You can find more detailed instructions about this step [here](https://docs.microsoft.com/en-us/windows/wsl/tutorials/wsl-containers).
 
 
 
@@ -157,7 +159,7 @@ If you're interested in reading more checkout our [blog post](https://www.micros
 3. You need at least [Python 3.10](https://www.python.org/downloads/) installed.
 
 
-If you are on Windows, you **must** run Magentic-UI inside [WSL2](https://docs.microsoft.com/en-us/windows/wsl/install) (Windows Subsystem for Linux) for correct Docker and file path compatibility. The steps below assume you are using VS Code. 
+If you are on Windows, we recommend to run Magentic-UI inside [WSL2](https://docs.microsoft.com/en-us/windows/wsl/install) (Windows Subsystem for Linux) for correct Docker and file path compatibility.
 
 
 
