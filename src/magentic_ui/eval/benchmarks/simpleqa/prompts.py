@@ -69,7 +69,7 @@ Here is a new example. Simply reply with either CORRECT, INCORRECT, NOT ATTEMPTE
 ```
 Question: {question}
 Gold target: {target}
-Predicted answer: {predicted_answer}
+Predicted answer: {answer}
 ```
 
 Grade the predicted answer of this new question as one of:

@@ -6,7 +6,7 @@ import datetime
 from typing import Optional, Dict, Any, Callable
 from magentic_ui.eval.core import run_evaluate_benchmark_func, evaluate_benchmark_func
 from systems.magentic_ui_sim_user_system import MagenticUISimUserSystem
-from systems.llm_system import LLMSystem
+from magentic_ui.eval.systems import LLMSystem
 from magentic_ui.eval.benchmarks import WebVoyagerBenchmark
 from magentic_ui.eval.benchmark import Benchmark
 from autogen_core.models import ChatCompletionClient
@@ -162,8 +162,7 @@ def run_system_sim_user(args: argparse.Namespace, system_name: str) -> None:
         # Use LLMSystem for LLM-based evaluations
         system = LLMSystem(
             system_name=system_name,
-            endpoint_config=config.get("model_config") if config else None,
-            dataset_name=args.dataset,
+            endpoint_config=config.get("model_client") if config else None,
         )
     else:
         system = MagenticUISimUserSystem(

@@ -5,7 +5,7 @@ import os
 import logging
 import pandas as pd
 import requests
-from ...baseqa import BaseQABenchmark
+from ..baseqa import BaseQABenchmark
 from ...utils import get_id_for_str
 from ...models import (
     SimpleQATask,
@@ -167,10 +167,11 @@ class SimpleQABenchmark(BaseQABenchmark):
         eval_prompt = self.EVALUATOR_INSTRUCTION.format(
             question=task.question, target=task.ground_truth, answer=candidate.answer
         )
+        assert isinstance(eval_prompt, str), "Eval prompt must be a string"
 
         evaluator_response = asyncio.run(
             self.evaluator_client.create(
-                UserMessage(content=eval_prompt, source="user")  # type: ignore
+                [UserMessage(content=eval_prompt, source="user")] 
             )
         )
 

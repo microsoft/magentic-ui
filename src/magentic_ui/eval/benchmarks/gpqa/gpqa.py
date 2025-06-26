@@ -2,7 +2,7 @@ import re
 import os
 import logging
 import pandas as pd
-from ...baseqa import BaseQABenchmark
+from ..baseqa import BaseQABenchmark
 from ...models import (
     GPQACandidate,
     GPQATask,
@@ -103,7 +103,7 @@ class GPQABenchmark(BaseQABenchmark):
             answer_search_by_format.group(1) if answer_search_by_format else None
         )
 
-        ground_truth_answer = task.answer  # type: ignore
+        ground_truth_answer = candidate.answer  
         score = ground_truth_answer == extracted_answer  # type: ignore
         return GPQAEvalResult(  # type: ignore
             score=score,  # type: ignore

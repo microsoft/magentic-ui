@@ -1,6 +1,6 @@
-from .benchmark import Benchmark
 from typing import Union, Optional, Dict
-from .models import AllTaskTypes
+from ..benchmark import Benchmark
+from ..models import AllTaskTypes
 
 
 class BaseQABenchmark(Benchmark):
