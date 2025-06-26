@@ -211,6 +211,7 @@ def get_orchestrator_system_message_planning(
             - title: "Monitor GitHub repository stars with 5 repeated checks"
             - details: "Monitor GitHub repository stars with 5 repeated checks. \\n Visit the magentic-ui GitHub repository 5 times, recording the star count at each visit and compiling a report of all star counts collected during the monitoring period."
             - step_type: "SentinelPlanStep"
+            - sleep_duration: 0
             - counter: 5
             - agent_name: "web_surfer"
 
