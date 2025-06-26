@@ -339,7 +339,7 @@ def get_orchestrator_system_message_planning_autonomous(
     Your goal is to help the user with their request.
     You can complete actions on the web, complete actions on behalf of the user, execute code, and more.
     You have access to a team of agents who can help you answer questions and complete tasks.
-    You are primarly a planner, and so you can devise a plan to do anything. 
+    You are primarily a planner, and so you can devise a plan to do anything. 
 
     The date today is: {date_today}
 
@@ -357,7 +357,7 @@ def get_orchestrator_system_message_planning_autonomous(
 
             There are two types of plan steps:
 
-            **[PlanStep]**: Short-term, immediate tasks that complete quickly (within minutes to hours). These are the standard steps that agents can complete in a single execution cycle.
+            **[PlanStep]**: Short-term, immediate tasks that complete quickly (within seconds to minutes). These are the standard steps that agents can complete in a single execution cycle.
 
             **[SentinelPlanStep]**: Long-running, periodic, or recurring tasks that may take days, weeks, or months to complete. These steps involve:
             - Monitoring conditions over extended time periods
@@ -380,7 +380,29 @@ def get_orchestrator_system_message_planning_autonomous(
             - Tasks that can be completed in a single execution cycle"""
 
         step_fields_section = """
-            Each step should have a title, details, step_type, and agent_name field."""
+            Each step should have a title, details, step_type, and agent_name field.
+
+            For **SentinelPlanStep** only, you should also include:
+            - **sleep_duration** (integer): Number of seconds to wait between checks. Intelligently extract timing from the user's request:
+              * Explicit timing: "every 5 seconds" → 5, "check hourly" → 3600, "daily monitoring" → 86400
+              * Contextual defaults based on task type:
+                - Social media monitoring: 300-900 seconds (5-15 minutes)
+                - Stock/price monitoring: 60-300 seconds (1-5 minutes) 
+                - System health checks: 30-60 seconds
+                - Web content changes: 600-3600 seconds (10 minutes-1 hour)
+                - General "constantly": 60-300 seconds
+                - General "periodically": 300-1800 seconds (5-30 minutes)
+              * If no timing specified, choose based on context and avoid being too aggressive to prevent rate limiting
+            - **counter** (integer or string): Number of iterations. Extract from user request:
+              * Explicit counts: "5 times" → 5, "check 10 times" → 10
+              * Conditional: "until condition met" → "until_condition_met"
+              * Indefinite monitoring: "constantly monitor" → "indefinite"
+              * If not specified, default to "indefinite" for ongoing monitoring tasks
+
+            The title should be a short one sentence description of the step.
+
+            The details should be a detailed description of the step. The details should be concise and directly describe the action to be taken.
+            The details should start with a brief recap of the title. We then follow it with a new line. We then add any additional details without repeating information from the title. We should be concise but mention all crucial details to allow the human to verify the step."""
 
         step_format_section = """
             The step_type should be either "SentinelPlanStep" or "PlanStep" based on the classification above."""
@@ -452,7 +474,8 @@ def get_orchestrator_system_message_planning_autonomous(
             - Aim for a plan with the least number of steps possible.
             - Use a search engine or platform to find the information you need. For instance, if you want to look up flight prices, use a flight search engine like Bing Flights. However, your final answer should not stop with a Bing search only.
             - If there are images attached to the request, use them to help you complete the task and describe them to the other agents in the plan.
-            - Carefully classify each step as either SentinelPlanStep or PlanStep based on whether it requires long-term monitoring, waiting, or periodic execution."""
+            - Carefully classify each step as either SentinelPlanStep or PlanStep based on whether it requires long-term monitoring, waiting, or periodic execution.
+            - For SentinelPlanStep timing: Always analyze the user's request for timing clues ("daily", "every hour", "constantly", "until X happens") and choose appropriate sleep_duration and counter values. Consider the nature of the task to avoid being too aggressive with checking frequency."""
 
     else:
         # Use original format without SentinelPlanStep functionality
