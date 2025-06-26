@@ -103,7 +103,7 @@ class GPQABenchmark(BaseQABenchmark):
             answer_search_by_format.group(1) if answer_search_by_format else None
         )
 
-        ground_truth_answer = candidate.answer  
+        ground_truth_answer = candidate.answer
         score = ground_truth_answer == extracted_answer  # type: ignore
         return GPQAEvalResult(  # type: ignore
             score=score,  # type: ignore

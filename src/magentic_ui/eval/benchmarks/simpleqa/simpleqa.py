@@ -40,28 +40,30 @@ class SimpleQABenchmark(BaseQABenchmark):
         name: str,
         data_dir: Union[str, None] = None,
         tasks: Optional[Dict[str, AllTaskTypes]] = None,
-        num_instances=None,  # type: ignore
-        evaluator_kwargs: Dict = None,  # type: ignore
+        num_instances: Optional[int] = None,
+        evaluator_kwargs: Optional[Dict[str, Any]] = None,
         system_instruction: str = SYSTEM_INSTRUCTION,
     ):
-        super().__init__(name, data_dir, tasks, num_instances)  # type: ignore
+        super().__init__(name, data_dir, tasks, num_instances)
 
-        self.file_path = (  # type: ignore
-            os.path.join(self.data_dir, self.FILE_NAME) if data_dir else self.FILE_NAME  # type: ignore
-        )
-        self.evaluator_kwargs = (  # type: ignore
-            evaluator_kwargs if evaluator_kwargs is not None else self.EVALUATOR_KWARGS  # type: ignore
+        if data_dir is not None:
+            self.file_path: str = os.path.join(data_dir, self.FILE_NAME)
+        else:
+            self.file_path: str = self.FILE_NAME
+        self.evaluator_kwargs: Dict[str, Any] = (
+            evaluator_kwargs if evaluator_kwargs is not None else self.EVALUATOR_KWARGS
         )
         self.system_instruction = system_instruction
 
-        self._load_evaluator_client(self.evaluator_kwargs)  # type: ignore
+        self.evaluator_client: ChatCompletionClient
+        self._load_evaluator_client(self.evaluator_kwargs)
 
-    def _load_evaluator_client(self, kwargs: Dict[str, Any]) -> None:  # type: ignore
+    def _load_evaluator_client(self, kwargs: Dict[str, Any]) -> None:
         """
         Load the evaluator for the benchmark.
         This method is called by the base class to set up the evaluator.
         """
-        self.evaluator_client = ChatCompletionClient.load_component(kwargs)  # type: ignore
+        self.evaluator_client = ChatCompletionClient.load_component(kwargs)
 
     def download_dataset(self) -> None:
         """
@@ -78,10 +80,10 @@ class SimpleQABenchmark(BaseQABenchmark):
         )
 
         # download the dataset
-        if not os.path.exists(self.file_path):  # type: ignore
+        if not os.path.exists(self.file_path):
             response = requests.get(self.DATASET_URL)
             if response.status_code == 200:
-                with open(self.file_path, "wb") as f:  # type: ignore
+                with open(self.file_path, "wb") as f:
                     f.write(response.content)
                 logging.info(
                     "[SimpleQABenchmark] Dataset downloaded successfully. Skipping..."
@@ -139,9 +141,9 @@ class SimpleQABenchmark(BaseQABenchmark):
             ground truth answer, and metadata.
         """
 
-        question: str = task["problem"].strip()  # type: ignore
-        ground_truth: str = task["answer"].strip()  # type: ignore
-        metadata = task.get("metadata", {})  # type: ignore
+        question: str = task["problem"].strip()
+        ground_truth: str = task["answer"].strip()
+        metadata = task.get("metadata", {})
         if isinstance(metadata, str):
             metadata = {"metadata": ast.literal_eval(metadata.strip())}
 
@@ -171,18 +173,21 @@ class SimpleQABenchmark(BaseQABenchmark):
 
         evaluator_response = asyncio.run(
             self.evaluator_client.create(
-                [UserMessage(content=eval_prompt, source="user")] 
+                [UserMessage(content=eval_prompt, source="user")]
             )
         )
 
-        match = re.search(r"(A|B|C)", evaluator_response.content)  # type: ignore
-        llm_answer = match.group(1) if match else "C"  # type: ignore
+        content = evaluator_response.content
+        if not isinstance(content, str):
+            raise TypeError("evaluator_response.content must be a string")
+        match = re.search(r"(A|B|C)", content)
+        llm_answer = match.group(1) if match else "C"
 
-        score = int(llm_answer == "A")  # type: ignore
+        score = int(llm_answer == "A")
         metadata = {
             "is_correct": score == 1,
-            "is_incorrect": int(llm_answer == "B"),  # type: ignore
-            "is_not_attempted": int(llm_answer == "C"),  # type: ignore
+            "is_incorrect": int(llm_answer == "B"),
+            "is_not_attempted": int(llm_answer == "C"),
         }
 
         return SimpleQAEvalResult(score=score, metadata=metadata)

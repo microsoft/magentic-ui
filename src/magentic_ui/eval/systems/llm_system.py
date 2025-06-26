@@ -50,7 +50,7 @@ class LLMSystem(BaseSystem):
                 task_question = task.format_to_user_message()
             else:
                 task_question = task.question
-                
+
             if hasattr(task, "system_instruction"):
                 assert isinstance(task, BaseQATask), "Task must be a BaseQATask"
                 system_instruction = task.system_instruction
