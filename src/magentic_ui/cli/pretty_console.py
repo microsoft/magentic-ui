@@ -314,7 +314,9 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
                 if obj.get("counter"):
                     print(f"{left}    {BOLD}Counter:{RESET} {obj['counter']}")
                 if obj.get("sleep_duration"):
-                    print(f"{left}    {BOLD}Sleep Duration:{RESET} {obj['sleep_duration']}s")
+                    print(
+                        f"{left}    {BOLD}Sleep Duration:{RESET} {obj['sleep_duration']}s"
+                    )
 
         if obj.get("details"):
             print(f"{left}{BOLD}Details:{RESET}")

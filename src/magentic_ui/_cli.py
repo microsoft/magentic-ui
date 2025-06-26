@@ -139,7 +139,7 @@ async def get_team(
         f"Args: inside_docker={inside_docker}, action_policy={action_policy}, user_proxy_type={user_proxy_type}",
         debug,
     )
-    
+
     if reset:
         print(f"Resetting state file: {state_file}")
         # delete the state file if it exists
@@ -283,7 +283,7 @@ async def get_team(
             with open(state_file, "r") as f:
                 state = json.load(f)
                 log_debug("State loaded successfully", debug)
-                
+
             log_debug("Calling team.load_state with loaded state", debug)
             await team.load_state(state)
             log_debug("State loading completed", debug)

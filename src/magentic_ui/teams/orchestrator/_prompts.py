@@ -1,6 +1,57 @@
 from typing import Any, Dict, List
 
-def get_orchestrator_system_message_planning(sentinel_tasks_enabled: bool = False) -> str:
+ORCHESTRATOR_SYSTEM_MESSAGE_EXECUTION = """
+    You are a helpful AI assistant named Magentic-UI built by Microsoft Research AI Frontiers.
+    Your goal is to help the user with their request.
+    You can complete actions on the web, complete actions on behalf of the user, execute code, and more.
+    The browser the web_surfer accesses is also controlled by the user.
+    You have access to a team of agents who can help you answer questions and complete tasks.
+
+    The date today is: {date_today}
+"""
+
+ORCHESTRATOR_FINAL_ANSWER_PROMPT = """
+    We are working on the following task:
+
+    {task}
+
+    The above messages contain the steps that took place to complete the task.
+
+    Based on the information gathered, provide a final response to the user in response to the task.
+
+    Make sure the user can easily verify your answer, include links if there are any. Make sure to include any links.
+
+    There is no need to be verbose, but make sure it contains enough information for the user.
+"""
+
+# The specific format of the instruction for the agents to follow
+INSTRUCTION_AGENT_FORMAT = """
+    Step {step_index}: {step_title}
+    \\n\\n
+    {step_details}
+    \\n\\n
+    Instruction for {agent_name}: {instruction}
+"""
+
+# Keeps track of the task progress with a ledger so the orchestrator can see the progress
+ORCHESTRATOR_TASK_LEDGER_FULL_FORMAT = """
+    We are working to address the following user request:
+    \\n\\n
+    {task}
+    \\n\\n
+    To answer this request we have assembled the following team:
+    \\n\\n
+    {team}
+    \\n\\n
+    Here is the plan to follow as best as possible:
+    \\n\\n
+    {plan}
+"""
+
+
+def get_orchestrator_system_message_planning(
+    sentinel_tasks_enabled: bool = False,
+) -> str:
     """Get the orchestrator system message for planning, with optional SentinelPlanStep support."""
 
     base_message = """
@@ -152,27 +203,7 @@ def get_orchestrator_system_message_planning(sentinel_tasks_enabled: bool = Fals
             - step_type: "PlanStep"
             - agent_name: "web_surfer"
 
-
             Example 4:
-
-            User request: "Constantly check the internet for resources describing Ayrton Senna and add these to a local txt file"
-
-            Step 1:
-            - title: "Periodically search the internet for new resources about Ayrton Senna"
-            - details: "Periodically search the internet for new resources about Ayrton Senna. \\n Repeatedly search the web for new articles, posts, or mentions, monitoring for new information over time and identifying resources that haven't been previously collected."
-            - step_type: "SentinelPlanStep"
-            - sleep_duration: 1800
-            - counter: "indefinite"
-            - agent_name: "web_surfer"
-
-            Step 2:
-            - title: "Append new resources to a local txt file"
-            - details: "Append new resources to a local txt file. \\n Each time a new resource is found, add its details to a local txt file, ensuring a cumulative and organized record of relevant resources."
-            - step_type: "PlanStep"  
-            - agent_name: "coder_agent"
-
-
-            Example 5:
 
             User request: "Browse to the magentic-ui GitHub repository a total of 5 times and report the number of stars at each check"
 
@@ -190,43 +221,11 @@ def get_orchestrator_system_message_planning(sentinel_tasks_enabled: bool = Fals
             - agent_name: "coder_agent"
 
 
-            Example 6:
+            Example 5:
 
             User request: "Can you paraphrase the following sentence: 'The quick brown fox jumps over the lazy dog'"
 
             You should not provide a plan for this request. Instead, just answer the question directly.
-
-
-            Example 7:
-
-            User request: "Create a plan where the sentinel agent sleeps for 3 times for 2 seconds each"
-
-            Step 1:
-            - title: "Execute sleep cycle with 3 iterations of 2 seconds each"
-            - details: "Execute sleep cycle with 3 iterations of 2 seconds each. \\n Perform a monitoring task that sleeps for 2 seconds per iteration, repeating this process exactly 3 times before completing."
-            - step_type: "SentinelPlanStep"
-            - counter: 3
-            - sleep_duration: 2
-            - agent_name: "sentinel_agent"
-
-
-            Example 8:
-
-            User request: "Check the price of avocados at Walmart every day, and if the price ever goes above $4, generate code that prints 'Woah Expensive Avocados' 10 times"
-
-            Step 1:
-            - title: "Monitor Walmart daily for avocado prices and check if price exceeds $4"
-            - details: "Monitor Walmart daily for avocado prices and check if price exceeds $4. \\n Each day, check the avocado prices at Walmart online, and determine if any listing is priced above $4."
-            - step_type: "SentinelPlanStep"
-            - sleep_duration: 86400
-            - counter: "until_condition_met"
-            - agent_name: "web_surfer"
-
-            Step 2:
-            - title: "Generate code to print 'Woah Expensive Avocados' 10 times"
-            - details: "Generate code to print 'Woah Expensive Avocados' 10 times. \\n When the monitored avocado price exceeds $4, create and execute code that prints the alert message 10 times."
-            - step_type: "PlanStep"
-            - agent_name: "coder_agent"
 
 
             Helpful tips:
@@ -328,7 +327,9 @@ def get_orchestrator_system_message_planning(sentinel_tasks_enabled: bool = Fals
     return base_message + step_types_section + examples_section
 
 
-def get_orchestrator_system_message_planning_autonomous(sentinel_tasks_enabled: bool = False) -> str:
+def get_orchestrator_system_message_planning_autonomous(
+    sentinel_tasks_enabled: bool = False,
+) -> str:
     """Get the autonomous orchestrator system message for planning, with optional SentinelPlanStep support."""
 
     base_message = """
@@ -680,13 +681,14 @@ def get_orchestrator_plan_replan_json(sentinel_tasks_enabled: bool = False) -> s
 
     if sentinel_tasks_enabled:
         replan_intro += """
-
-    When creating the new plan, make sure to properly classify each step as either PlanStep or SentinelPlanStep based on whether it requires long-term monitoring, waiting, or periodic execution."""
+        When creating the new plan, make sure to properly classify each step as either PlanStep or SentinelPlanStep based on whether it requires long-term monitoring, waiting, or periodic execution."""
 
     return replan_intro + get_orchestrator_plan_prompt_json(sentinel_tasks_enabled)
 
 
-def get_orchestrator_progress_ledger_prompt(sentinel_tasks_enabled: bool = False) -> str:
+def get_orchestrator_progress_ledger_prompt(
+    sentinel_tasks_enabled: bool = False,
+) -> str:
     """Get the orchestrator progress ledger prompt, with optional SentinelPlanStep support."""
 
     base_prompt = """Recall we are working on the following request:
@@ -842,7 +844,9 @@ def validate_ledger_json(json_response: Dict[str, Any], agent_names: List[str]) 
     return True
 
 
-def validate_plan_json(json_response: Dict[str, Any], sentinel_tasks_enabled: bool = False) -> bool:
+def validate_plan_json(
+    json_response: Dict[str, Any], sentinel_tasks_enabled: bool = False
+) -> bool:
     """Validate plan JSON response, with different requirements based on sentinel tasks mode."""
     if not isinstance(json_response, dict):
         return False
@@ -856,7 +860,7 @@ def validate_plan_json(json_response: Dict[str, Any], sentinel_tasks_enabled: bo
             return False
 
         if sentinel_tasks_enabled:
-            # New format requires step_type
+            # SentinelPlanStep requires step_type
             if (
                 "title" not in item
                 or "details" not in item
@@ -870,63 +874,7 @@ def validate_plan_json(json_response: Dict[str, Any], sentinel_tasks_enabled: bo
             if item["step_type"] not in ["PlanStep", "SentinelPlanStep"]:
                 return False
         else:
-            # Old format doesn't require step_type
+            # PlanStep doesn't require step_type
             if "title" not in item or "details" not in item or "agent_name" not in item:
                 return False
     return True
-
-
-
-# =============================================================================
-# Constants that don't change between modes
-# =============================================================================
-
-# The specific format of the system message for the agents to follow
-ORCHESTRATOR_SYSTEM_MESSAGE_EXECUTION = """
-    You are a helpful AI assistant named Magentic-UI built by Microsoft Research AI Frontiers.
-    Your goal is to help the user with their request.
-    You can complete actions on the web, complete actions on behalf of the user, execute code, and more.
-    The browser the web_surfer accesses is also controlled by the user.
-    You have access to a team of agents who can help you answer questions and complete tasks.
-
-    The date today is: {date_today}
-"""
-
-# The specific format of the final answer to the user once the task is complete
-ORCHESTRATOR_FINAL_ANSWER_PROMPT = """
-    We are working on the following task:
-
-    {task}
-
-    The above messages contain the steps that took place to complete the task.
-
-    Based on the information gathered, provide a final response to the user in response to the task.
-
-    Make sure the user can easily verify your answer, include links if there are any.
-
-    There is no need to be verbose, but make sure it contains enough information for the user.
-"""
-
-# The specific format of the instruction for the agents to follow
-INSTRUCTION_AGENT_FORMAT = """
-    Step {step_index}: {step_title}
-    \\n\\n
-    {step_details}
-    \\n\\n
-    Instruction for {agent_name}: {instruction}
-"""
-
-# Keeps track of the task progress with a ledger so the orchestrator can see the progress
-ORCHESTRATOR_TASK_LEDGER_FULL_FORMAT = """
-    We are working to address the following user request:
-    \\n\\n
-    {task}
-    \\n\\n
-    To answer this request we have assembled the following team:
-    \\n\\n
-    {team}
-    \\n\\n
-    Here is the plan to follow as best as possible:
-    \\n\\n
-    {plan}
-"""
