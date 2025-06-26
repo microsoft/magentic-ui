@@ -18,7 +18,10 @@ class GPQABenchmark(BaseQABenchmark):
     DATASET_URL = "hf://datasets/Idavidrein/gpqa/"
     DATASET_REPO_ID = "Idavidrein/gpqa"
     SPLITS = ["diamond", "extended", "main"]
-    SYSTEM_INSTRUCTION = """You are a helpful assistant that answers questions."""
+    SYSTEM_INSTRUCTION = (
+        "You are a helpful assistant that answers multiple-choice questions. "
+        "Return your answer in the format: Answer: X, where X is a single uppercase letter (A, B, C, or D)."
+    )
 
     def __init__(
         self,
@@ -67,8 +70,8 @@ class GPQABenchmark(BaseQABenchmark):
             for _, row in df.iterrows():
                 self.tasks[row["Record ID"]] = GPQATask(  # type: ignore
                     id=row["Record ID"],  # type: ignore
-                    question=row["Question"],
-                    answer=row["Correct Answer"],  # type: ignore
+                    question=row["Question"],  # type: ignore
+                    ground_truth=row["Correct Answer"],  # type: ignore
                     options=[  # type: ignore
                         row["Correct Answer"],
                         row["Incorrect Answer 1"],
@@ -103,12 +106,23 @@ class GPQABenchmark(BaseQABenchmark):
             answer_search_by_format.group(1) if answer_search_by_format else None
         )
 
-        ground_truth_answer = candidate.answer
-        score = ground_truth_answer == extracted_answer  # type: ignore
+        # Find the correct letter (A/B/C/D) for the ground truth answer
+        options = task.options
+        ground_truth = task.ground_truth
+        try:
+            correct_index = options.index(ground_truth)
+            correct_letter = "ABCD"[correct_index]
+        except (ValueError, IndexError):
+            correct_letter = None
+            raise ValueError(
+                f"Ground truth answer {ground_truth} not found in options {options}"
+            )
+
+        score = correct_letter == extracted_answer  # type: ignore
         return GPQAEvalResult(  # type: ignore
             score=score,  # type: ignore
             metadata={
-                "ground_truth_answer": ground_truth_answer,
+                "ground_truth_answer": task.ground_truth,
                 "extracted_answer": extracted_answer,
                 "llm_response": candidate.answer,
                 "task_id": task.id,
