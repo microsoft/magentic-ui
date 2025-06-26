@@ -70,6 +70,7 @@ async def init_managers(
     external_workspace_root: str,
     inside_docker: bool,
     config: Dict[str, Any],
+    run_without_docker: bool,
 ) -> None:
     """Initialize all manager instances"""
     global _db_manager, _websocket_manager, _team_manager
@@ -93,6 +94,7 @@ async def init_managers(
             external_workspace_root=Path(external_workspace_root),
             inside_docker=inside_docker,
             config=config,
+            run_without_docker=run_without_docker,
         )
         logger.info("Connection manager initialized")
 

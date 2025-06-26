@@ -81,6 +81,7 @@ class MagenticUIConfig(BaseModel):
         browser_headless (bool, optional): Whether to run a headless browser or not. Default: False.
         browser_local (bool, optional): Whether to run a local browser (as opposed to dockerized browser). Default: False.
         sentinel_tasks (bool, optional): Whether to enable SentinelPlanStep functionality. Default: False.
+        run_without_docker (bool, optional): If docker is not available, run without docker for browser, remove coder and filesurfer agents. Default: False.
     """
 
     model_client_configs: ModelClientConfigs = Field(default_factory=ModelClientConfigs)
@@ -110,6 +111,7 @@ class MagenticUIConfig(BaseModel):
     hints: Optional[str] = None
     answer: Optional[str] = None
     inside_docker: bool = True
-    browser_headless: bool = False
     browser_local: bool = False
     sentinel_tasks: bool = False
+    run_without_docker: bool = False
+    browser_headless: bool = False

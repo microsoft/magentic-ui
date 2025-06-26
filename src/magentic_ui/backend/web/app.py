@@ -56,6 +56,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             os.environ["EXTERNAL_WORKSPACE_ROOT"],
             os.environ["INSIDE_DOCKER"] == "1",
             config,
+            os.environ["RUN_WITHOUT_DOCKER"] == "True",
         )
 
         # Any other initialization code

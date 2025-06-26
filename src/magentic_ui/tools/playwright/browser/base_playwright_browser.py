@@ -23,12 +23,18 @@ async def connect_browser_with_retry(
 ) -> Browser:
     """Wait for the WebSocket server to be ready."""
     start_time = asyncio.get_event_loop().time()
+    first_try = True
     while asyncio.get_event_loop().time() - start_time < timeout:
         try:
             return await playwright.chromium.connect(url)
         except Exception as e:
-            logger.warning(f"Connection failed: {e}. Retrying")
-            await asyncio.sleep(2)  # Wait and retry
+            if first_try:
+                logger.info(f"Trying to establish connection to browser at {url}...")
+                first_try = False
+            else:
+                logger.warning(f"Retrying connection in 5 seconds: {e}.")
+            await asyncio.sleep(5)
+
     raise TimeoutError("Browser did not become available in time")
 
 
