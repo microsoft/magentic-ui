@@ -6,6 +6,7 @@ import datetime
 from typing import Optional, Dict, Any, Callable
 from magentic_ui.eval.core import run_evaluate_benchmark_func, evaluate_benchmark_func
 from systems.magentic_ui_sim_user_system import MagenticUISimUserSystem
+from magentic_ui.eval.systems import LLMSystem
 from magentic_ui.eval.benchmarks import WebVoyagerBenchmark
 from magentic_ui.eval.benchmark import Benchmark
 from autogen_core.models import ChatCompletionClient
@@ -157,19 +158,26 @@ def run_system_sim_user(args: argparse.Namespace, system_name: str) -> None:
     """
     config = load_config(args.config)
 
-    system = MagenticUISimUserSystem(
-        simulated_user_type=args.simulated_user_type,
-        endpoint_config_orch=config.get("orchestrator_client") if config else None,
-        endpoint_config_websurfer=config.get("web_surfer_client") if config else None,
-        endpoint_config_coder=config.get("coder_client") if config else None,
-        endpoint_config_file_surfer=config.get("file_surfer_client")
-        if config
-        else None,
-        endpoint_config_user_proxy=config.get("user_proxy_client") if config else None,
-        web_surfer_only=args.web_surfer_only,
-        how_helpful_user_proxy=args.how_helpful_user_proxy,
-        dataset_name=args.dataset,
-    )
+    if system_name == "LLM":
+        # Use LLMSystem for LLM-based evaluations
+        system = LLMSystem(
+            system_name=system_name,
+            endpoint_config=config.get("model_client") if config else None,
+        )
+    else:
+        system = MagenticUISimUserSystem(
+            simulated_user_type=args.simulated_user_type,
+            endpoint_config_orch=config.get("orchestrator_client") if config else None,
+            endpoint_config_websurfer=config.get("web_surfer_client") if config else None,
+            endpoint_config_coder=config.get("coder_client") if config else None,
+            endpoint_config_file_surfer=config.get("file_surfer_client")
+            if config
+            else None,
+            endpoint_config_user_proxy=config.get("user_proxy_client") if config else None,
+            web_surfer_only=args.web_surfer_only,
+            how_helpful_user_proxy=args.how_helpful_user_proxy,
+            dataset_name=args.dataset,
+        )
 
     run_system_evaluation(args, system, system_name, config)
 
@@ -229,8 +237,8 @@ def main() -> None:
     parser.add_argument(
         "--system-type",
         type=str,
-        default="magentic-ui",
-        choices=["magentic-ui", "magentic-ui-sim-user"],
+        default="MagenticUI",
+        choices=["MagenticUI", "magentic-ui-sim-user", "LLM"],
         help="Type of system to run",
     )
     parser.add_argument(
@@ -250,7 +258,8 @@ def main() -> None:
 
     # Determine system name based on arguments
 
-    system_name = "MagenticUI"
+    system_name = args.system_type
+
     if args.simulated_user_type != "none":
         system_name += f"_{args.simulated_user_type}_{args.how_helpful_user_proxy}"
     if args.web_surfer_only:

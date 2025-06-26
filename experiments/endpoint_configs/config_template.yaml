@@ -12,3 +12,4 @@ web_surfer_client: *client_4o_openai
 file_surfer_client: *client_4o_openai
 action_guard_client: *client_4o_openai
 user_proxy_client: *client_4o_openai
+model_client: *client_4o_openai
