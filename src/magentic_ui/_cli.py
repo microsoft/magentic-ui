@@ -1,9 +1,3 @@
-# This file is used by the Magentic-UI Console integration
-# You can run this with `magentic-ui --work-dir <path_to_workspace>`
-
-# To see the entry point for the Magentic-UI UI (the application that runs in the browser)
-# Check out the `magentic-ui` command in `magentic-ui/src/magentic_ui/backend/cli.py`
-
 import argparse
 import asyncio
 import json
@@ -227,24 +221,14 @@ async def get_team(
     mcp_agents = mcp_agents or []
     log_debug("Model client configs created for agents", debug)
 
-    # TODO: Allow all configurable options to be passed in from the CLI
-    # TODO: Update the CLI Help to reflect the new options
     magentic_ui_config = MagenticUIConfig(
         model_client_configs=model_client_configs,
         mcp_agent_configs=mcp_agents,
         cooperative_planning=cooperative_planning,
         autonomous_execution=autonomous_execution,
-        # allowed_websites=...,  # Not passed from CLI
-        # max_actions_per_step=...,  # Not passed from CLI
-        # multiple_tools_per_call=...,  # Not passed from CLI
-        # max_turns=...,  # Not passed from CLI
-        # plan=...,  # Not passed from CLI
         approval_policy=action_policy,
         allow_for_replans=True,
         do_bing_search=False,
-        # websurfer_loop=...,  # Not passed from CLI
-        # retrieve_relevant_plans=...,  # Not passed from CLI
-        # memory_controller_key=...,  # Not passed from CLI
         model_context_token_limit=model_context_token_limit,
         allow_follow_up_input=False,
         final_answer_prompt=final_answer_prompt,
@@ -255,8 +239,6 @@ async def get_team(
         hints=hints,
         answer=answer,
         inside_docker=inside_docker,
-        # browser_headless=...,  # Not passed from CLI
-        # browser_local=...,  # Not passed from CLI
         sentinel_tasks=sentinel_tasks,
     )
     log_debug(
