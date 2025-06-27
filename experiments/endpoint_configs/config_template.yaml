@@ -4,10 +4,23 @@ model_config_4o_openai: &client_4o_openai
   provider: OpenAIChatCompletionClient
   config:
     model: gpt-4o-2024-08-06
+    # api_key: "sk-YOUR_OPENAI_API_KEY" # Uncomment and replace if not using environment variables
+  max_retries: 5
+
+# Example for a custom OpenAI-compatible provider (e.g., local LLM, other cloud provider)
+model_config_custom_compatible: &client_custom_compatible
+  provider: OpenAIChatCompletionClient # Usually, the standard OpenAI client from Autogen works
+  config:
+    model: "your-custom-model-name" # Replace with the model name your provider uses
+    api_key: "YOUR_CUSTOM_PROVIDER_API_KEY" # Replace with your actual API key or "NULL" if not needed
+    api_base: "http://localhost:8080/v1" # IMPORTANT: Replace with your provider's API base URL
+    # For Azure OpenAI, you might also need:
+    # api_type: "azure"
+    # api_version: "2023-07-01-preview"
   max_retries: 5
 
 orchestrator_client: *client_4o_openai
-coder_client: *client_4o_openai
+coder_client: *client_4o_openai # You can change this to *client_custom_compatible to use your custom provider for the coder
 web_surfer_client: *client_4o_openai
 file_surfer_client: *client_4o_openai
 action_guard_client: *client_4o_openai
