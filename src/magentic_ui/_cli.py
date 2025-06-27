@@ -128,6 +128,7 @@ async def get_team(
     use_pretty_ui: bool = True,
     run_without_docker: bool = False,
     browser_headless: bool = False,
+    sentinel_tasks: bool = False,
 ) -> None:
     log_debug("=== Starting get_team function ===", debug)
     log_debug(
@@ -231,9 +232,10 @@ async def get_team(
 
     magentic_ui_config = MagenticUIConfig(
         model_client_configs=model_client_configs,
-        approval_policy=action_policy,
+        mcp_agent_configs=mcp_agents,
         cooperative_planning=cooperative_planning,
         autonomous_execution=autonomous_execution,
+        approval_policy=action_policy,
         allow_for_replans=True,
         do_bing_search=False,
         model_context_token_limit=model_context_token_limit,
@@ -246,7 +248,7 @@ async def get_team(
         hints=hints,
         answer=answer,
         inside_docker=inside_docker,
-        mcp_agent_configs=mcp_agents,
+        sentinel_tasks=sentinel_tasks,
         run_without_docker=run_without_docker,
         browser_headless=browser_headless,
     )
@@ -281,7 +283,7 @@ async def get_team(
             with open(state_file, "r") as f:
                 state = json.load(f)
                 log_debug("State loaded successfully", debug)
-                # print("State: ", state)
+
             log_debug("Calling team.load_state with loaded state", debug)
             await team.load_state(state)
             log_debug("State loading completed", debug)
@@ -535,6 +537,13 @@ def main() -> None:
         default=True,
         help="Use the old console without fancy formatting (default: use pretty terminal)",
     )
+    advanced.add_argument(
+        "--sentinel-tasks",
+        dest="sentinel_tasks",
+        action="store_true",
+        default=False,
+        help="Use sentinel tasks to guide the agent's behavior (default: False)",
+    )
     args = parser.parse_args()
     log_debug(f"Command line arguments parsed: debug={args.debug}", args.debug)
 
@@ -551,6 +560,7 @@ def main() -> None:
         log_debug(f"Config file: {args.config}", args.debug)
         log_debug(f"User proxy type: {args.user_proxy_type}", args.debug)
         log_debug(f"LLM log directory: {args.llmlog_dir}", args.debug)
+        log_debug(f"Sentinel tasks: {args.sentinel_tasks}", args.debug)
         log_debug(
             f"Console mode: {'Pretty' if args.use_pretty_ui else 'Old'}", args.debug
         )
@@ -754,6 +764,7 @@ def main() -> None:
             mcp_agents=mcp_agents,
             run_without_docker=args.run_without_docker,
             browser_headless=args.browser_headless,
+            sentinel_tasks=args.sentinel_tasks,
         )
     )
     log_debug("Asyncio event loop and get_team function completed", args.debug)

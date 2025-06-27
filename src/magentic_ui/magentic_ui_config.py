@@ -54,8 +54,8 @@ class MagenticUIConfig(BaseModel):
 
     Attributes:
         model_client_configs (ModelClientConfigs): Configurations for the model client.
-        mcp_servers: (List[McpAgentConfig], optional): Configs for AssistantAgents with access to MCP Servers
-        cooperative_planning (bool): Disable co-planning mode (default: enabled), user will not be involved in the planning process. Default: True.
+        mcp_agent_configs (List[McpAgentConfig], optional): Configs for AssistantAgents with access to MCP Servers.
+        cooperative_planning (bool): Enable co-planning mode (default: enabled), user will be involved in the planning process. Default: True.
         autonomous_execution (bool): Enable autonomous execution mode (default: disabled), user will not be involved in the execution. Default: False.
         allowed_websites (List[str], optional): List of websites that are permitted.
         max_actions_per_step (int): Maximum number of actions allowed per step. Default: 5.
@@ -69,7 +69,7 @@ class MagenticUIConfig(BaseModel):
         retrieve_relevant_plans (Literal["never", "hint", "reuse"]): Determines if the orchestrator should retrieve relevant plans from memory. Default: `never`.
         memory_controller_key (str, optional): The key to retrieve the memory_controller for a particular user. Default: None.
         model_context_token_limit (int, optional): The maximum number of tokens the model can use. Default: 110000.
-        allow_follow_up_input (bool): Flag to determine if new input should be requested after a final answer is given. Default: False.
+        allow_follow_up_input (bool): Flag to determine if new input should be requested after a final answer is given. Default: True.
         final_answer_prompt (str, optional): Prompt for the final answer. Should be a string that can be formatted with the {task} variable. Default: None.
         playwright_port (int, optional): Port for the Playwright browser. Default: -1 (auto-assign).
         novnc_port (int, optional): Port for the noVNC server. Default: -1 (auto-assign).
@@ -80,6 +80,7 @@ class MagenticUIConfig(BaseModel):
         inside_docker (bool, optional): Whether to run inside a docker container. Default: True.
         browser_headless (bool, optional): Whether to run a headless browser or not. Default: False.
         browser_local (bool, optional): Whether to run a local browser (as opposed to dockerized browser). Default: False.
+        sentinel_tasks (bool, optional): Whether to enable SentinelPlanStep functionality. Default: False.
         run_without_docker (bool, optional): If docker is not available, run without docker for browser, remove coder and filesurfer agents. Default: False.
     """
 
@@ -111,5 +112,6 @@ class MagenticUIConfig(BaseModel):
     answer: Optional[str] = None
     inside_docker: bool = True
     browser_local: bool = False
+    sentinel_tasks: bool = False
     run_without_docker: bool = False
     browser_headless: bool = False
