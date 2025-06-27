@@ -12,7 +12,6 @@ ORCHESTRATOR_SYSTEM_MESSAGE_EXECUTION = """
 
 ORCHESTRATOR_FINAL_ANSWER_PROMPT = """
     We are working on the following task:
-
     {task}
 
     The above messages contain the steps that took place to complete the task.
@@ -61,7 +60,7 @@ def get_orchestrator_system_message_planning(
     You can complete actions on the web, complete actions on behalf of the user, execute code, and more.
     You have access to a team of agents who can help you answer questions and complete tasks.
     The browser the web_surfer accesses is also controlled by the user.
-    You are primarly a planner, and so you can devise a plan to do anything. 
+    You are primarily a planner, and so you can devise a plan to do anything. 
 
 
     The date today is: {date_today}
@@ -521,17 +520,23 @@ def get_orchestrator_system_message_planning_autonomous(
 
             Example 3:
 
-            User request: "Constantly check the internet for resources describing Ayrton Senna and add these to a local txt file"
+            User request: "On which social media platform does Autogen have the most followers?"
 
             Step 1:
-            - title: "Periodically search the internet for new resources about Ayrton Senna"
-            - details: "Periodically search the internet for new resources about Ayrton Senna. \\n Repeatedly search the web for new articles, posts, or mentions, monitoring for new information over time and identifying resources that haven't been previously collected."
+            - title: "Find all social media platforms that Autogen is on"
+            - details: "Find all social media platforms that Autogen is on. \\n Search for AutoGen's official presence across major platforms like GitHub, Twitter, LinkedIn, and others, then compile a comprehensive list of their verified accounts."
             - agent_name: "web_surfer"
 
             Step 2:
-            - title: "Append new resources to a local txt file"
-            - details: "Append new resources to a local txt file. \\n Each time a new resource is found, add its details to a local txt file, ensuring a cumulative and organized record of relevant resources."
-            - agent_name: "coder_agent\""""
+            - title: "Find the number of followers for each social media platform"
+            - details: "Find the number of followers for each social media platform. \\n For each platform identified, visit AutoGen's official profile and record their current follower count, ensuring to note the date of collection for accuracy."
+            - agent_name: "web_surfer"
+
+            Step 3:
+            - title: "Find the number of followers for the remaining social media platform that Autogen is on"
+            - details: "Find the number of followers for the remaining social media platforms. \\n Visit the remaining platforms and record their follower counts."
+            - agent_name: "web_surfer"
+            """
 
         helpful_tips = """
         
