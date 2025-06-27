@@ -75,7 +75,7 @@ export const OpenAIModelConfigForm: React.FC<ModelConfigFormProps> = ({ onChange
             <Form.Item label="API Key" name={["config", "api_key"]} rules={[{ required: false, message: "Please enter your OpenAI API key" }]}>
               <Input />
             </Form.Item>
-            <Form.Item label="Base URL" name={["config", "base_url"]} rules={[{ required: false, message: "Please enter your OpenAI API key" }]}>
+            <Form.Item label="Base URL" name={["config", "base_url"]} rules={[{ required: false, message: "Please enter your Base URL" }]}>
               <Input />
             </Form.Item>
             <Form.Item label="Max Retries" name={["config", "max_retries"]} rules={[{ type: "number", min: 1, max: 20, message: "Enter a value between 1 and 20" }]}>
