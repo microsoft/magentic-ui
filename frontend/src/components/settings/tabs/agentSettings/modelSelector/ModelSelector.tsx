@@ -4,6 +4,7 @@ import {
   OpenAIModelConfigForm,
   AzureModelConfigForm,
   OllamaModelConfigForm,
+  AnthropicModelConfigForm,
 } from "./modelConfigForms";
 import { ModelConfig, ModelConfigFormProps } from "./modelConfigForms/types";
 
@@ -11,6 +12,7 @@ import { ModelConfig, ModelConfigFormProps } from "./modelConfigForms/types";
 import { DEFAULT_OPENAI } from "./modelConfigForms/OpenAIModelConfigForm";
 import { DEFAULT_AZURE } from "./modelConfigForms/AzureModelConfigForm";
 import { DEFAULT_OLLAMA } from "./modelConfigForms/OllamaModelConfigForm";
+import { DEFAULT_ANTHROPIC } from "./modelConfigForms/AnthropicModelConfigForm";
 
 interface ModelSelectorProps {
   onChange: (m: ModelConfig) => void;
@@ -20,7 +22,8 @@ interface ModelSelectorProps {
 export const PROVIDERS = {
   openai: DEFAULT_OPENAI.provider,
   azure: DEFAULT_AZURE.provider,
-  ollama: DEFAULT_OLLAMA.provider
+  ollama: DEFAULT_OLLAMA.provider,
+  anthropic: DEFAULT_ANTHROPIC.provider
 }
 
 // Map each model value to its config form, label, and initial config value
@@ -106,6 +109,41 @@ export const PROVIDER_FORM_MAP: Record<string, { label: string, defaultValue: Mo
     defaultValue: { ...DEFAULT_OLLAMA },
     form: OllamaModelConfigForm,
     presets: { [DEFAULT_OLLAMA.config.model]: { ...DEFAULT_OLLAMA } }
+  },
+  [DEFAULT_ANTHROPIC.provider]: {
+    label: "Anthropic",
+    defaultValue: { ...DEFAULT_ANTHROPIC },
+    form: AnthropicModelConfigForm,
+    presets: {
+      "claude-4-sonnet-20251114": {
+        ...DEFAULT_ANTHROPIC,
+        config: {
+          ...DEFAULT_ANTHROPIC.config,
+          model: "claude-4-sonnet-20251114"
+        }
+      },
+      "claude-3-5-sonnet-20241022": {
+        ...DEFAULT_ANTHROPIC,
+        config: {
+          ...DEFAULT_ANTHROPIC.config,
+          model: "claude-3-5-sonnet-20241022"
+        }
+      },
+      "claude-3-5-haiku-20241022": {
+        ...DEFAULT_ANTHROPIC,
+        config: {
+          ...DEFAULT_ANTHROPIC.config,
+          model: "claude-3-5-haiku-20241022"
+        }
+      },
+      "claude-3-opus-20240229": {
+        ...DEFAULT_ANTHROPIC,
+        config: {
+          ...DEFAULT_ANTHROPIC.config,
+          model: "claude-3-opus-20240229"
+        }
+      }
+    }
   },
 };
 

@@ -6,6 +6,14 @@ model_config_4o_openai: &client_4o_openai
     model: gpt-4o-2024-08-06
   max_retries: 5
 
+# Anthropic Claude configuration example
+model_config_claude_anthropic: &client_claude_anthropic
+  provider: autogen_ext.models.anthropic.AnthropicChatCompletionClient
+  config:
+    model: claude-4-sonnet-20251114
+    # api_key: <YOUR ANTHROPIC API KEY>  # Uncomment and add your API key
+  max_retries: 5
+
 orchestrator_client: *client_4o_openai
 coder_client: *client_4o_openai
 web_surfer_client: *client_4o_openai
@@ -13,3 +21,6 @@ file_surfer_client: *client_4o_openai
 action_guard_client: *client_4o_openai
 user_proxy_client: *client_4o_openai
 model_client: *client_4o_openai
+
+# To use Anthropic, uncomment and replace one or more of the above with:
+# orchestrator_client: *client_claude_anthropic
