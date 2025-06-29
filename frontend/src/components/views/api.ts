@@ -315,6 +315,7 @@ export class PlanAPI {
       console.error("Missing or invalid steps in planData:", planData);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { created_at, ...dataWithoutCreatedAt } = planData;
 
     const plan = {
@@ -366,6 +367,7 @@ export class PlanAPI {
         throw new Error(data.message || "Failed to delete plan");
       }
     } catch (error) {
+      console.error("Error deleting plan:", error);
       throw error;
     }
   }
