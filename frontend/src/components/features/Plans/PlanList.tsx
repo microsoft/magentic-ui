@@ -362,7 +362,7 @@ const PlanList: React.FC<PlanListProps> = ({
             <SearchOutlined
               style={{ fontSize: "48px", marginBottom: "16px" }}
             />
-            <p>No plans found matching "{searchTerm}"</p>
+            <p>No plans found matching &quot;{searchTerm}&quot;</p>
             <Button
               type="link"
               onClick={() => setSearchTerm("")}
