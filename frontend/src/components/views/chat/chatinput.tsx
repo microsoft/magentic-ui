@@ -63,13 +63,13 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       onSubmit,
       error,
       disabled = false,
-      _onCancel,
+      onCancel: _onCancel,
       runStatus,
       inputRequest,
       isPlanMessage = false,
       onPause,
       enable_upload = false,
-      _onExecutePlan,
+      onExecutePlan: _onExecutePlan,
     },
     ref
   ) => {
