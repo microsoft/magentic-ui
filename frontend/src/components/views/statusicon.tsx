@@ -27,7 +27,7 @@ export const getStatusIcon = (
           <span className="inline-block mr-2 ml-1 ">Processing</span>
         </div>
       );
-    case "awaiting_input":
+    case "awaiting_input": {
       const Icon =
         inputRequest?.input_type === "approval" ? HelpCircle : MessageSquare;
       return (
@@ -73,6 +73,7 @@ export const getStatusIcon = (
           Task was stopped: {stopReason}
         </div>
       );
+    }
     case "pausing":
       return (
         <div className="text-sm mb-2">
