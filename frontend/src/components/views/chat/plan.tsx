@@ -225,7 +225,7 @@ const PlanView: React.FC<PlanProps> = ({
                                     onChange={(
                                       e: React.ChangeEvent<HTMLTextAreaElement>
                                     ) => updateDetails(index, e.target.value)}
-                                    onBlur={() => setFocusedIndex(null)}
+                                    onBlur={() => {}}
                                     className={`flex-1 p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded ${
                                       !item.details.trim()
                                         ? "border border-orange-300"
