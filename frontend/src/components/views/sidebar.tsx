@@ -6,7 +6,6 @@ import {
   Trash2,
   InfoIcon,
   RefreshCcw,
-  Loader2,
   FileText,
   Archive,
   MoreVertical,
@@ -37,7 +36,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   sessions,
   currentSession,
-  onToggle,
   onSelectSession,
   onEditSession,
   onDeleteSession,
@@ -113,16 +111,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         return (
           <div key={s.id} className="relative">
             <div
-              className={`group flex items-center justify-between p-2 py-1 text-sm ${
-                isLoading
+              className={`group flex items-center justify-between p-2 py-1 text-sm ${isLoading
                   ? "pointer-events-none opacity-50"
                   : "cursor-pointer hover:bg-tertiary"
-              } ${
-                currentSession?.id === s.id
+                } ${currentSession?.id === s.id
                   ? " border-l-2 border-magenta-800 bg-secondary"
                   : ""
-              }`}
+                }`}
               onClick={() => !isLoading && onSelectSession(s)}
+              onKeyDown={(e) => !isLoading && (e.key === 'Enter' || e.key === ' ') && onSelectSession(s)}
+              role="button"
+              tabIndex={0}
+              aria-label={`Select session ${s.name}`}
             >
               <div className="flex items-center gap-2 flex-1">
                 <span className="truncate text-sm">
