@@ -115,6 +115,14 @@ const BrowserIframe: React.FC<BrowserIframeProps> = ({
           <div
             className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center cursor-pointer transition-opacity duration-300 ease-in-out"
             onClick={handleOverlayClick}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                handleOverlayClick();
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Take control of browser"
           >
             <div className="text-white text-xl font-semibold">Take Control</div>
           </div>
