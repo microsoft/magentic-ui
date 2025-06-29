@@ -3,10 +3,9 @@ import React, {
   Dispatch,
   SetStateAction,
   useEffect,
-  useContext,
   useCallback,
 } from "react";
-import { ChevronDownIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { PlusIcon } from "@heroicons/react/24/outline";
 import { ClipboardList } from "lucide-react";
 import {
   DragDropContext,
@@ -15,12 +14,11 @@ import {
   DropResult,
 } from "@hello-pangea/dnd";
 import { Trash2 } from "lucide-react";
-import { appContext } from "../../../hooks/provider";
 import { IPlanStep } from "../../types/plan";
 import AutoResizeTextarea from "../../common/AutoResizeTextarea";
 
 // Debounce hook
-const useDebounce = (callback: Function, delay: number) => {
+const useDebounce = (callback: (...args: any[]) => void, delay: number) => {
   const timeoutRef = React.useRef<NodeJS.Timeout>();
 
   useEffect(() => {
@@ -72,9 +70,7 @@ const PlanView: React.FC<PlanProps> = ({
   const [isCollapsed, setIsCollapsed] = useState(
     viewOnly && (initialIsCollapsed || forceCollapsed)
   );
-  const { user } = useContext(appContext);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">(
     "saved"
   );
@@ -172,7 +168,6 @@ const PlanView: React.FC<PlanProps> = ({
           <>
             {onRegeneratePlan && !viewOnly ? (
               <div className="flex justify-between items-center mb-2">
-                <h2 className="font-semibold"></h2>
               </div>
             ) : (
               <div className="flex justify-between items-center">
@@ -231,7 +226,6 @@ const PlanView: React.FC<PlanProps> = ({
                                       e: React.ChangeEvent<HTMLTextAreaElement>
                                     ) => updateDetails(index, e.target.value)}
                                     onBlur={() => setFocusedIndex(null)}
-                                    autoFocus
                                     className={`flex-1 p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded ${
                                       !item.details.trim()
                                         ? "border border-orange-300"
@@ -279,13 +273,14 @@ const PlanView: React.FC<PlanProps> = ({
                     {saveStatus === "saved" && ""}
                     {saveStatus === "error" && "Error saving changes"}
                   </span>
-                  <div
+                  <button
+                    type="button"
                     onClick={addLocalPlan}
-                    className="mt-2 flex items-center text-[var(--color-text-secondary)] px-4 rounded hover:text-[var(--color-text-primary)] cursor-pointer"
+                    className="mt-2 flex items-center text-[var(--color-text-secondary)] px-4 rounded hover:text-[var(--color-text-primary)] cursor-pointer border-0 bg-transparent"
                   >
                     <PlusIcon className="h-5 w-5 mr-2" />
                     Add Step
-                  </div>
+                  </button>
                 </div>
               </div>
             )}
