@@ -96,7 +96,7 @@ const FileModal: React.FC<FileModalProps> = ({
   file,
   content,
 }) => {
-  const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
+  const [, setIsFullScreen] = useState<boolean>(false);
   const modalRef = React.useRef<HTMLDivElement>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -255,7 +255,6 @@ const FileModal: React.FC<FileModalProps> = ({
       onKeyDown={(e) => e.key === 'Escape' && onClose()}
       role="dialog"
       aria-modal="true"
-      tabIndex={0}
     >
       <div
         ref={modalRef}
