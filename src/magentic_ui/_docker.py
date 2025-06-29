@@ -2,6 +2,7 @@ import docker
 import os
 import sys
 from docker.errors import DockerException, ImageNotFound
+import logging
 
 _PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 VNC_BROWSER_IMAGE = "magentic-ui-vnc-browser"
@@ -68,7 +69,21 @@ def build_python_image(client: docker.DockerClient | None = None) -> None:
     )
 
 
+def check_docker_access():
+    try:
+        client = docker.from_env()
+        client.ping()  # type: ignore
+        return True
+    except DockerException as e:
+        logging.error(
+            f"Error {e}: Cannot access Docker. Please refer to the TROUBLESHOOTING.md document for possible solutions."
+        )
+        return False
+
+
 def check_browser_image(client: docker.DockerClient | None = None) -> bool:
+    if not check_docker_access():
+        return False
     if client is None:
         client = docker.from_env()
     client = docker.from_env()
@@ -76,6 +91,8 @@ def check_browser_image(client: docker.DockerClient | None = None) -> bool:
 
 
 def check_python_image(client: docker.DockerClient | None = None) -> bool:
+    if not check_docker_access():
+        return False
     if client is None:
         client = docker.from_env()
     client = docker.from_env()

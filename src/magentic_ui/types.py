@@ -93,7 +93,7 @@ class Plan(BaseModel):
         steps: List[PlanStep] = []
         for raw_step in plan_dict:
             if isinstance(raw_step, dict):
-                step: dict[str, Any] = raw_step
+                step: dict[str, Any] = raw_step  # type: ignore
                 steps.append(
                     PlanStep(
                         title=step.get("title", "Untitled Step"),

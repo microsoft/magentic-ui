@@ -14,6 +14,7 @@ interface BrowserIframeProps {
   showTakeControlOverlay?: boolean;
   onTakeControl?: () => void;
   isControlMode?: boolean;
+  serverUrl?: string;
 }
 
 const BrowserIframe: React.FC<BrowserIframeProps> = ({
@@ -29,6 +30,7 @@ const BrowserIframe: React.FC<BrowserIframeProps> = ({
   showTakeControlOverlay = true,
   onTakeControl,
   isControlMode = false,
+  serverUrl = "localhost",
 }) => {
   const [iframeDimensions, setIframeDimensions] = useState({
     width: 0,
@@ -66,7 +68,7 @@ const BrowserIframe: React.FC<BrowserIframeProps> = ({
   }
 
   // Build VNC URL with parameters
-  const vncUrl = `http://localhost:${novncPort}/vnc.html?autoconnect=true&resize=${
+  const vncUrl = `http://${serverUrl}:${novncPort}/vnc.html?autoconnect=true&resize=${
     scaling === "remote" ? "remote" : "scale"
   }&show_dot=true&scaling=${scaling}&quality=${quality}&compression=0&view_only=${
     viewOnly ? 1 : 0

@@ -18,7 +18,7 @@ classifiers = [
 dependencies = [
     "autogen-agentchat==0.5.7",
     "autogen-core==0.5.7",
-    "autogen-ext[openai,docker,file-surfer,web-surfer,magentic-one,task-centric-memory]==0.5.7",
+    "autogen-ext[openai,docker,file-surfer,web-surfer,magentic-one,task-centric-memory,mcp]==0.5.7",
     "aioconsole",
     "nest_asyncio",
     "docker",
@@ -58,11 +58,13 @@ ollama = [
 
 [project.scripts]
 magentic = "magentic_ui.backend.cli:run"
+magentic-ui = "magentic_ui.backend.cli:run"
+magentic-cli = "magentic_ui._cli:main"
 
 [tool.uv]
 dev-dependencies = [
     "poethepoet",
-    "pyright==1.1.389",
+    "pyright==1.1.401",
     "mypy==1.13.0",
     "ruff==0.4.8",
     "pytest_asyncio",
@@ -73,7 +75,7 @@ dev-dependencies = [
     "sphinx_rtd_theme",
     "types-aiofiles",
     "types-docker",
-    "types-PyYaml"
+    "types-PyYaml",
 ]
 
 [tool.ruff]
@@ -83,7 +85,7 @@ exclude = ["src/benchmarks/assistantbench"]
 allow-direct-references = true
 
 [tool.poe.tasks]
-fmt = "ruff format src"
+fmt = "ruff format src tests samples"
 format.ref = "fmt src"
 lint = "ruff check src"
 mypy = "mypy src"
@@ -91,7 +93,7 @@ pyright = "pyright src"
 test.env = { PYTHONPATH = "src" }
 test.sequence = [
     "playwright install",
-    "pytest tests --cov=src --cov-report=xml --cov-report=term-missing",
+    "pytest -m \"not npx\" tests --cov=src --cov-report=xml --cov-report=term-missing",
 ]
 test.default_item_type = "cmd"
 check = ["fmt", "lint", "pyright", "test"]

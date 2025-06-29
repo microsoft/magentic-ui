@@ -27,7 +27,7 @@ from autogen_core.logging import LLMCallEvent
 from ...task_team import get_task_team
 from ...teams import GroupChat
 from ...types import RunPaths
-from ...magentic_ui_config import MagenticUIConfig, ModelClientConfigs
+from ...magentic_ui_config import MagenticUIConfig
 from ...input_func import InputFuncType
 from ...agents import WebSurfer
 
@@ -56,6 +56,7 @@ class TeamManager:
         self,
         internal_workspace_root: Path,
         external_workspace_root: Path,
+        run_without_docker: bool,
         inside_docker: bool = True,
         config: dict[str, Any] = {},
     ) -> None:
@@ -64,6 +65,7 @@ class TeamManager:
         self.internal_workspace_root = internal_workspace_root
         self.external_workspace_root = external_workspace_root
         self.inside_docker = inside_docker
+        self.run_without_docker = run_without_docker
         self.config = config
 
     @staticmethod
@@ -73,7 +75,7 @@ class TeamManager:
         if not path.exists():
             raise FileNotFoundError(f"Config file not found: {path}")
 
-        async with aiofiles.open(path) as f:
+        async with aiofiles.open(path) as f:  # type: ignore
             content = await f.read()
             if path.suffix == ".json":
                 return json.loads(content)
@@ -147,51 +149,74 @@ class TeamManager:
         paths: RunPaths,
     ) -> tuple[Team, int, int]:
         """Create team instance from config"""
+        if not self.run_without_docker:
+            _, novnc_port, playwright_port = get_browser_resource_config(
+                paths.external_run_dir, -1, -1, self.inside_docker
+            )
+        else:
+            novnc_port = -1
+            playwright_port = -1
 
-        _, novnc_port, playwright_port = get_browser_resource_config(
-            paths.external_run_dir, -1, -1, self.inside_docker
-        )
         try:
             if not self.load_from_config:
-                # Load model configurations from settings if provided
-                model_configs: Dict[str, Any] = {}
-                if settings_config.get("model_configs"):
-                    try:
-                        model_configs = yaml.safe_load(settings_config["model_configs"])
-                    except Exception as e:
-                        logger.error(f"Error loading model configs: {e}")
-                        raise e
+                # The settings_config dictionary provides the Model configs in a key `model_configs`
+                # But MagenticUIConfig expects `model_client_configs` so we need to update that here
+                # settings_model_configs: Dict[str, Any] = {}
+                # if "model_configs" in settings_config:
+                #     try:
+                #         settings_model_configs = yaml.safe_load(
+                #             settings_config["model_configs"]
+                #         )
+                #     except Exception as e:
+                #         logger.warning(
+                #             f"Error loading model configs from UI. Using defaults. Inner exception: {e}"
+                #         )
 
-                # Use model configs from settings if available, otherwise fall back to config
-                model_client_configs = ModelClientConfigs(
-                    orchestrator=model_configs.get(
-                        "orchestrator_client",
-                        self.config.get("orchestrator_client", None),
-                    ),
-                    web_surfer=model_configs.get(
-                        "web_surfer_client",
-                        self.config.get("web_surfer_client", None),
-                    ),
-                    coder=model_configs.get(
-                        "coder_client", self.config.get("coder_client", None)
-                    ),
-                    file_surfer=model_configs.get(
-                        "file_surfer_client",
-                        self.config.get("file_surfer_client", None),
-                    ),
-                    action_guard=model_configs.get(
-                        "action_guard_client",
-                        self.config.get("action_guard_client", None),
-                    ),
-                )
+                # # Use settings_config values if available, otherwise fall back to instance defaults (self.config)
+                # model_client_configs = ModelClientConfigs(
+                #     orchestrator=settings_model_configs.get(
+                #         "orchestrator_client",
+                #         self.config.get("orchestrator_client", None),
+                #     ),
+                #     web_surfer=settings_model_configs.get(
+                #         "web_surfer_client",
+                #         self.config.get("web_surfer_client", None),
+                #     ),
+                #     coder=settings_model_configs.get(
+                #         "coder_client", self.config.get("coder_client", None)
+                #     ),
+                #     file_surfer=settings_model_configs.get(
+                #         "file_surfer_client",
+                #         self.config.get("file_surfer_client", None),
+                #     ),
+                #     action_guard=settings_model_configs.get(
+                #         "action_guard_client",
+                #         self.config.get("action_guard_client", None),
+                #     ),
+                # )
 
-                magentic_ui_config = MagenticUIConfig(
-                    **(settings_config or {}),
-                    model_client_configs=model_client_configs,
-                    playwright_port=playwright_port,
-                    novnc_port=novnc_port,
-                    inside_docker=self.inside_docker,
-                )
+                config_params = {
+                    # Lowest priority defaults
+                    **self.config,  # type: ignore
+                    # Provided settings override defaults
+                    **settings_config,  # type: ignore,
+                    # "model_client_configs": model_client_configs,
+                    # These must always be set to the values computed above
+                    "playwright_port": playwright_port,
+                    "novnc_port": novnc_port,
+                    # Defer to self for inside_docker
+                    "inside_docker": self.inside_docker,
+                }
+                if self.run_without_docker:
+                    config_params["run_without_docker"] = True
+                    # Allow browser_headless to be set by settings_config
+                else:
+                    if settings_config.get("run_without_docker", False):
+                        # Allow settings_config to set browser_headless
+                        pass
+                    else:
+                        config_params["browser_headless"] = False
+                magentic_ui_config = MagenticUIConfig(**config_params)  # type: ignore
 
                 self.team = cast(
                     Team,

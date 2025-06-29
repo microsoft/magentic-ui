@@ -111,7 +111,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         return (
           <div key={s.id} className="relative">
             <div
-              className={`group flex items-center justify-between p-2 py-1 text-sm ${isLoading
+              className={`group flex items-center p-2 py-1 text-sm ${
+                isLoading
                   ? "pointer-events-none opacity-50"
                   : "cursor-pointer hover:bg-tertiary"
                 } ${currentSession?.id === s.id
@@ -124,10 +125,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               tabIndex={0}
               aria-label={`Select session ${s.name}`}
             >
-              <div className="flex items-center gap-2 flex-1">
-                <span className="truncate text-sm">
-                  {s.name.slice(0, 20)}
-                  {s.name.length > 20 ? "..." : ""}
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="truncate text-sm max-w-[140px]">
+                  {s.name}
                 </span>
                 {s.id && (
                   <SessionRunStatusIndicator
@@ -135,7 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   />
                 )}
               </div>
-              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity w-8 justify-end flex-shrink-0">
                 <Dropdown
                   trigger={["click"]}
                   overlay={

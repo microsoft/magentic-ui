@@ -13,6 +13,7 @@ from autogen_core.models import (
 from autogen_agentchat.utils import remove_images
 from autogen_agentchat.messages import (
     BaseChatMessage,
+    BaseTextChatMessage,
     HandoffMessage,
     MultiModalMessage,
     StopMessage,
@@ -132,10 +133,10 @@ def thread_to_context(
         elif isinstance(m, StopMessage | HandoffMessage):
             context.append(UserMessage(content=m.content, source=m.source))
         elif m.source == agent_name:
-            assert isinstance(m, TextMessage)
+            assert isinstance(m, TextMessage), f"{type(m)}"
             context.append(AssistantMessage(content=m.content, source=m.source))
         elif m.source == "user_proxy" or m.source == "user":
-            assert isinstance(m, TextMessage | MultiModalMessage)
+            assert isinstance(m, TextMessage | MultiModalMessage), f"{type(m)}"
             if isinstance(m.content, str):
                 human_input = HumanInputFormat.from_str(m.content)
                 content = f"{human_input.content}"
@@ -157,7 +158,9 @@ def thread_to_context(
                             )
                 context.append(UserMessage(content=content_list, source=m.source))  # type: ignore
         else:
-            assert isinstance(m, TextMessage) or isinstance(m, MultiModalMessage)
+            assert isinstance(m, BaseTextChatMessage) or isinstance(
+                m, MultiModalMessage
+            ), f"{type(m)}"
             context.append(UserMessage(content=m.content, source=m.source))
     if is_multimodal:
         return context

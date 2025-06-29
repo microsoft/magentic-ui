@@ -802,21 +802,22 @@ class PlaywrightController:
                 }
             """)
         try:
+            end_x, end_y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
             if self.animate_actions:
                 await self.add_cursor_box(page, identifier)
                 # Move cursor to the box slowly
                 start_x, start_y = self.last_cursor_position
-                end_x, end_y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
                 await self.gradual_cursor_animation(
                     page, start_x, start_y, end_x, end_y
                 )
                 await asyncio.sleep(0.1)
 
             # Focus on the element
-            await target.focus()
+            await page.mouse.click(end_x, end_y)
 
             if delete_existing_text:
-                await target.fill("")
+                await page.keyboard.press("ControlOrMeta+A")
+                await page.keyboard.press("Backspace")
 
             if self.animate_actions:
                 # Type slower for short text, faster for long text
@@ -824,19 +825,19 @@ class PlaywrightController:
                     50 + 100 * random.random() if len(value) < 100 else 10
                 )
                 try:
-                    await target.press_sequentially(value, delay=delay_typing_speed)
+                    await page.keyboard.type(value, delay=delay_typing_speed)
                 except PlaywrightError:
                     await target.fill(value)
 
             else:
                 try:
-                    await target.fill(value)
+                    await page.keyboard.type(value)
                 except PlaywrightError:
-                    await target.press_sequentially(value)
+                    await target.fill(value)
 
             if press_enter:
                 # if it's a combobox, wait a bit before pressing enter to allow suggestions to appear
-                await target.press("Enter")
+                await page.keyboard.press("Enter")
 
         finally:
             if self.animate_actions:

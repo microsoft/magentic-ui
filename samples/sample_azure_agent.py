@@ -121,6 +121,8 @@ async def get_task_team_with_azure_agent(
             magentic_ui_config.novnc_port,
             magentic_ui_config.playwright_port,
             magentic_ui_config.inside_docker,
+            headless=magentic_ui_config.browser_headless,
+            local=magentic_ui_config.browser_local,
         )
     )
 

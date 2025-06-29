@@ -10,6 +10,7 @@ from typing import Optional, Union, List, Tuple, Callable
 from .benchmark import load_benchmark_class, Benchmark
 from .basesystem import load_system_class, BaseSystem
 from .models import AllCandidateTypes, AllEvalResultTypes
+import traceback
 
 
 # ----------------------------------------------------------------------
@@ -50,13 +51,15 @@ def _setup_file_logging(
     # Create file handler
     file_handler = logging.FileHandler(log_file)
     file_handler.setFormatter(
-        logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
+        logging.Formatter(
+            "%(asctime)s {%(pathname)s:%(lineno)d} [%(levelname)s] %(name)s - %(message)s"
+        )
     )
 
     # Setup basic config for console output
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+        format="%(asctime)s {%(pathname)s:%(lineno)d} [%(levelname)s] %(name)s - %(message)s",
         handlers=[
             logging.StreamHandler(),  # Console handler
             file_handler,  # File handler
@@ -159,8 +162,10 @@ def _run_single_task(
                             )
                     else:
                         raise FileNotFoundError(f"Times file not found for {task_id}")
-            except Exception as e:
-                logger.info(f"Error loading existing answer for {task_id}: {e}")
+            except Exception:
+                logger.error(
+                    f"Error running task {task_id}: {traceback.format_exc()}.\n Clearing question directory {question_dir}"
+                )
                 # Clear question directory
                 for file in os.listdir(question_dir):
                     file_path = os.path.join(question_dir, file)
@@ -203,8 +208,9 @@ def _run_single_task(
 
         logger.info(f"Completed task for task_id={task_id}")
         return task_id, answer, end_time - start_time
-    except Exception as e:
-        logger.info(f"Error running task for {task_id}: {e}")
+    except Exception:
+        # Log the error with traceback
+        logger.error(f"Error running task {task_id}: {traceback.format_exc()}")
         return task_id, None, 0
 
 
@@ -454,8 +460,11 @@ def _evaluate_single_task(
     if task is None:
         logger.info(f"Task {task_id} not found")
         return (task_id, None, duration)
-
-    candidate = system.load_answer_from_disk(task_id, question_dir)
+    try:
+        candidate = system.load_answer_from_disk(task_id, question_dir)
+    except Exception as e:
+        logger.info(f"Error loading candidate for {task_id}: {e}")
+        return (task_id, None, duration)
     if candidate is None:
         logger.info(f"No candidate found for {task_id}")
         return (task_id, None, duration)
@@ -585,7 +594,7 @@ def evaluate_benchmark_func(
         else:
             avg_time = -1
 
-        metrics = benchmark.compute_aggregate_metrics(scores)
+        metrics = benchmark.compute_aggregate_metrics(scores, quids)
         logger.info(f"Evaluation metrics: {metrics}")
 
         # Add average time and scores to metrics
@@ -608,7 +617,7 @@ def evaluate_benchmark_func(
             benchmark_name, benchmark_dir, benchmark_constructor
         )
         aggregate_metrics = benchmark.compute_aggregate_metrics_multiple_runs(
-            all_scores, all_durations
+            all_scores, all_durations, all_quids
         )
 
         # Save aggregate metrics to a file

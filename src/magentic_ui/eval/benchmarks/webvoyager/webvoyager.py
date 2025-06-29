@@ -1,7 +1,7 @@
 import os
 import base64
 import asyncio
-from typing import List, Union, Tuple, Dict
+from typing import List, Union, Tuple, Dict, Any
 from autogen_core.models import UserMessage, ChatCompletionClient
 from autogen_core import Image as AGImage
 from pathlib import Path
@@ -256,3 +256,29 @@ class WebVoyagerBenchmark(Benchmark):
             verdict = 0.0  # Could not decide
 
         return verdict, gpt_response_text
+
+    def compute_aggregate_metrics(
+        self, scores: List[AllEvalResultTypes], task_ids: List[str]
+    ) -> Dict[str, Any]:
+        float_scores = [s.score for s in scores if isinstance(s.score, float)]
+        assert len(float_scores) == len(task_ids)
+        metrics: Dict[str, Any] = {}
+        metrics["mean_score"] = (
+            sum(float_scores) / len(float_scores) if float_scores else 0.0
+        )
+        metrics["max_score"] = max(float_scores) if float_scores else 0.0
+        metrics["num_tasks"] = len(float_scores)
+        # Group scores by web_name
+
+        web_name_to_scores: Dict[str, List[float]] = {}
+        for i, score in enumerate(float_scores):
+            web_name: str = self.tasks[task_ids[i]].web_name  # type: ignore
+            assert isinstance(web_name, str)
+            web_name_to_scores.setdefault(web_name, []).append(score)
+        # Compute mean score (accuracy) for each web_name
+        accuracy_by_web_name = {
+            k: (sum(v) / len(v), len(v)) for k, v in web_name_to_scores.items()
+        }
+        # Compute global metrics as before
+        metrics["accuracy_by_web_name"] = accuracy_by_web_name
+        return metrics

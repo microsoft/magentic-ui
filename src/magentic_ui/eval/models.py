@@ -89,8 +89,50 @@ class CustomEvalResult(BaseEvalResult):
     pass
 
 
+class BaseQATask(BaseTask):
+    system_instruction: str
+
+    def format_to_user_message(self) -> str:
+        raise NotImplementedError("Subclasses must implement format_question method.")
+
+
+class SimpleQATask(BaseQATask):
+    def format_to_user_message(self) -> str:
+        """Format to Question: {question}"""
+        return f"Question: {self.question}"
+
+
+class SimpleQACandidate(BaseCandidate):
+    pass
+
+
+class SimpleQAEvalResult(BaseEvalResult):
+    pass
+
+
+class GPQATask(BaseQATask):
+    options: List[str] = Field(default_factory=list)
+
+    def format_to_user_message(self) -> str:
+        """Format to Question: {question} and Options: A. ..."""
+        options_str = "\n".join(
+            f"{chr(65 + i)}: {option}" for i, option in enumerate(self.options)
+        )
+        return f"Question: {self.question}\nOptions:\n{options_str}"
+
+
+class GPQACandidate(BaseCandidate):
+    pass  # Uses base answer field only
+
+
+class GPQAEvalResult(BaseEvalResult):
+    pass  # Uses base score field only
+
+
 # Union types for all tasks, candidates, and eval results
-AllTaskTypes = Union[BaseTask, AssistantBenchTask, GaiaTask, WebVoyagerTask, CustomTask]
+AllTaskTypes = Union[
+    BaseTask, AssistantBenchTask, GaiaTask, WebVoyagerTask, CustomTask, SimpleQATask
+]
 
 AllCandidateTypes = Union[
     BaseCandidate,
@@ -98,6 +140,7 @@ AllCandidateTypes = Union[
     GaiaCandidate,
     WebVoyagerCandidate,
     CustomCandidate,
+    SimpleQACandidate,
 ]
 
 AllEvalResultTypes = Union[
@@ -106,4 +149,5 @@ AllEvalResultTypes = Union[
     GaiaEvalResult,
     WebVoyagerEvalResult,
     CustomEvalResult,
+    SimpleQAEvalResult,
 ]
