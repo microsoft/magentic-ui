@@ -52,6 +52,7 @@ export const getStatusIcon = (
           )}
         </div>
       );
+    }
     case "complete":
       return (
         <div className="text-sm mb-2">
