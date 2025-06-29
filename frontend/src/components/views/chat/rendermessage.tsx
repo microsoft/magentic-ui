@@ -575,7 +575,7 @@ export const messageUtils = {
 const RenderUserMessage: React.FC<{
   parsedContent: ParsedContent;
   isUserProxy: boolean;
-}> = memo(({ parsedContent, _isUserProxy }) => {
+}> = memo(({ parsedContent, isUserProxy }) => {
   // Parse attached files from metadata if present
   const attachedFiles: AttachedFile[] = React.useMemo(() => {
     if (parsedContent.metadata?.attached_files) {
@@ -656,7 +656,7 @@ export const RenderMessage: React.FC<MessageProps> = memo(
     sessionId,
     messageIdx,
     runStatus,
-    _isLast = false,
+    isLast = false,
     className = "",
     isEditable = false,
     hidden = false,
