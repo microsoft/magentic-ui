@@ -317,7 +317,7 @@ export default function ChatView({
             activeSocketRef.current = null;
           }
           console.log("Error: ", message.error);
-          break;
+          return current;
 
         case "message": {
           if (!message.data) return current;
