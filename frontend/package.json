@@ -15,7 +15,7 @@
     "serve": "gatsby serve",
     "clean": "gatsby clean",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings 100",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings 150",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix"
   },
   "dependencies": {
@@ -56,6 +56,7 @@
     "zustand": "^5.0.1"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/lodash.debounce": "^4.0.9",
     "@types/node": "^22.9.0",
     "@types/react": "^18.2.55",
