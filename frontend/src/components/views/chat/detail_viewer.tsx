@@ -44,6 +44,7 @@ interface DetailViewerProps {
     accepted?: boolean,
     plan?: IPlan
   ) => void;
+  viewMode?: "iframe" | "vnc";
 }
 
 type TabType = "screenshots" | "live";
@@ -61,6 +62,7 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
   onTabChange,
   detailViewerContainerId,
   onInputResponse,
+  viewMode = "iframe",
 }) => {
   const [internalActiveTab, setInternalActiveTab] = useState<TabType>("live");
   const activeTab = controlledActiveTab ?? internalActiveTab;
@@ -72,6 +74,7 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
   const [isControlMode, setIsControlMode] = useState(false);
 
   // State for tracking if control was handed back from modal
+  const [showControlHandoverForm, setShowControlHandoverForm] = useState(false);
 
   // Handle take control action
   const handleTakeControl = () => {
