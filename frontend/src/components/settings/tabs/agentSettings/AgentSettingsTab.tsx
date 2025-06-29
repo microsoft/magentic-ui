@@ -5,7 +5,6 @@ import { DEFAULT_OPENAI } from "./modelSelector/modelConfigForms/OpenAIModelConf
 import { SettingsTabProps } from "../../types";
 import { ModelConfig } from "./modelSelector/modelConfigForms/types";
 import MCPAgentsSettings from "./mcpAgentsSettings/MCPAgentsSettings";
-import { SwitchChangeEventHandler } from "antd/es/switch";
 
 export const MODEL_CLIENT_CONFIGS = {
   "orchestrator": { value: "orchestrator", label: "Orchestrator", defaultValue: DEFAULT_OPENAI },

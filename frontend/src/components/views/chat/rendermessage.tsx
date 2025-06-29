@@ -312,6 +312,14 @@ const RenderToolResult: React.FC<{ content: FunctionExecutionResult[] }> = memo(
               <div 
                 className="cursor-pointer hover:bg-secondary/50 rounded p-1"
                 onClick={() => toggleExpand(result.call_id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleExpand(result.call_id);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
               >
                 <MarkdownRenderer content={displayContent} indented={true} />
                 {result.content.length > 100 && (

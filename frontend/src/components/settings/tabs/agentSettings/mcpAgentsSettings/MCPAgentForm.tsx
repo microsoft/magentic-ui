@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Input, Form, Divider, Space, Tooltip, Collapse, Typography, List, Row, Flex, Button } from "antd";
+import { Input, Form, Divider, Tooltip, Collapse, List, Flex, Button } from "antd";
 import MCPServerForm, { DEFAULT_STDIO_PARAMS } from "./mcpServerForms/MCPServerForm";
 import ModelSelector from "../modelSelector/ModelSelector";
 import { validateModelConfig } from '../../../validation';

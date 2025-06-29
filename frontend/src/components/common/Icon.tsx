@@ -8,8 +8,6 @@ interface IconProps {
 }
 
 const IconWrapper: React.FC<IconProps & { children: React.ReactNode }> = ({
-  className = "",
-  size = 16,
   tooltip,
   children
 }) => {

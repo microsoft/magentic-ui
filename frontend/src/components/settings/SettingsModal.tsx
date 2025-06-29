@@ -12,13 +12,11 @@ import {
   Flex,
   message,
   Modal,
-  Select,
   Tabs,
   Typography,
 } from "antd";
 import { validateAll } from "./validation";
 
-const { Option } = Select;
 
 interface SettingsMenuProps {
   isOpen: boolean;
@@ -149,7 +147,7 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
         width={800}
         height={800}
         footer={[
-          <Flex gap="large" justify="start" align="center">
+          <Flex key="footer-actions" gap="large" justify="start" align="center">
             <Button key="reset" onClick={handleResetDefaults}>
               Reset to Defaults
             </Button>

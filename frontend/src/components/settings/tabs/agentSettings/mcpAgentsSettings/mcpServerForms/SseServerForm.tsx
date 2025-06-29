@@ -35,7 +35,9 @@ const SseServerForm: React.FC<{
                                 let val = {};
                                 try {
                                     val = JSON.parse(e.target.value);
-                                } catch { }
+                                } catch {
+                                    // Invalid JSON, keep default empty object
+                                }
                                 onValueChanged(idx, {
                                     ...value,
                                     headers: val,
