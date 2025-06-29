@@ -96,7 +96,7 @@ const FileModal: React.FC<FileModalProps> = ({
   file,
   content,
 }) => {
-  const [, setIsFullScreen] = useState<boolean>(false);
+  const [isFullScreen] = useState<boolean>(false);
   const modalRef = React.useRef<HTMLDivElement>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -252,15 +252,22 @@ const FileModal: React.FC<FileModalProps> = ({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
       onClick={handleBackdropClick}
-      onKeyDown={(e) => e.key === 'Escape' && onClose()}
-      role="dialog"
-      aria-modal="true"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          handleBackdropClick(e);
+        }
+      }}
+      role="presentation"
+      aria-label="File modal"
+      tabIndex={-1}
     >
       <div
         ref={modalRef}
         className={`bg-white rounded-lg shadow-lg overflow-hidden ${
           isFullScreen ? "fixed inset-0" : "max-w-4xl w-full max-h-[85vh]"
         }`}
+        role="dialog"
+        aria-modal="true"
       >
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b">
