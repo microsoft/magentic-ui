@@ -5,6 +5,7 @@ import SignInModal from "./signin";
 import { useSettingsStore, generateOpenAIModelConfig } from "./store";
 import MonacoEditor from "@monaco-editor/react";
 import { settingsAPI } from "./views/api";
+import * as yaml from 'js-yaml';
 import {
   Input,
   Switch,
@@ -604,11 +605,16 @@ action_guard_client: *client
                           Advanced Configuration (YAML)
                         </div>
                         <MonacoEditor
-                          value={config.model_configs}
+                          value={yaml.dump(config.model_client_configs)}
                           onChange={(value) => {
-                            handleUpdateConfig({
-                              model_configs: value,
-                            });
+                            try {
+                              const parsed = yaml.load(value || '');
+                              handleUpdateConfig({
+                                model_client_configs: parsed,
+                              });
+                            } catch (e) {
+                              // Invalid YAML, don't update
+                            }
                           }}
                           language="yaml"
                           height="300px"
