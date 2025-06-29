@@ -254,7 +254,7 @@ const FileModal: React.FC<FileModalProps> = ({
       onClick={handleBackdropClick}
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
-          handleBackdropClick(e);
+          onClose();
         }
       }}
       role="presentation"
