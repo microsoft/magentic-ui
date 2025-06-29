@@ -19,7 +19,7 @@ export const LearnPlanButton: React.FC<LearnPlanButtonProps> = ({
 }) => {
   const [isLearning, setIsLearning] = useState(false);
   const [isLearned, setIsLearned] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const { user, darkMode } = useContext(appContext);
   const planAPI = new PlanAPI();
 
