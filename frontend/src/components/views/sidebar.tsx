@@ -103,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const renderSessionGroup = (sessions: Session[]) => (
     <>
       {sessions.map((s) => {
-        const status = sessionRunStatuses[s.id];
+        const status = sessionRunStatuses[s.id as keyof typeof sessionRunStatuses];
         const isActive = [
           "active",
           "awaiting_input",
