@@ -52,7 +52,7 @@ const SignInModal = ({ isVisible, onClose }: SignInModalProps) => {
       </div>
       <div className="flex justify-center">
         <Button
-          type="primary"
+          type="submit"
           onClick={handleSignIn}
         >
           Sign In
