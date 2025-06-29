@@ -18,8 +18,8 @@ export const SessionEditor: React.FC<SessionEditorProps> = ({
   isOpen,
 }) => {
   const [form] = Form.useForm();
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [, setTeams] = useState<Team[]>([]);
+  const [, setLoading] = useState(false);
   const { user } = useContext(appContext);
   const [messageApi, contextHolder] = message.useMessage();
 

@@ -188,7 +188,9 @@ const parseorchestratorContent = (
     if (messageUtils.isStepExecution(metadata)) {
       return { type: "step-execution" as const, content: parsedContent };
     }
-  } catch {}
+  } catch {
+    // Ignore JSON parsing errors and fall back to default type
+  }
 
   return { type: "default" as const, content };
 };
@@ -225,18 +227,21 @@ const RenderMultiModalBrowserStep: React.FC<{
             )}
 
             {/* Text content */}
-            <div
-              className="flex-1 cursor-pointer mt-2"
+            <button
+              type="button"
+              className="flex-1 cursor-pointer mt-2 text-left border-0 bg-transparent p-0"
               onClick={() => onImageClick?.(index)}
             >
               <MarkdownRenderer content={item} indented={true} />
-            </div>
+            </button>
           </div>
         </div>
       );
     })}
   </div>
 ));
+
+RenderMultiModalBrowserStep.displayName = 'RenderMultiModalBrowserStep';
 
 const RenderMultiModal: React.FC<{
   content: (string | ImageContent)[];
@@ -258,6 +263,8 @@ const RenderMultiModal: React.FC<{
   </div>
 ));
 
+RenderMultiModal.displayName = 'RenderMultiModal';
+
 const RenderToolCall: React.FC<{ content: FunctionCall[] }> = memo(
   ({ content }) => (
     <div className="space-y-2 text-sm">
@@ -273,6 +280,8 @@ const RenderToolCall: React.FC<{ content: FunctionCall[] }> = memo(
     </div>
   )
 );
+
+RenderToolCall.displayName = 'RenderToolCall';
 
 const RenderToolResult: React.FC<{ content: FunctionExecutionResult[] }> = memo(
   ({ content }) => {
@@ -313,6 +322,8 @@ const RenderToolResult: React.FC<{ content: FunctionExecutionResult[] }> = memo(
   }
 );
 
+RenderToolResult.displayName = 'RenderToolResult';
+
 const RenderPlan: React.FC<RenderPlanProps> = memo(
   ({ content, isEditable, onSavePlan, onRegeneratePlan, forceCollapsed }) => {
     // Make sure content.steps is an array before using it
@@ -345,6 +356,8 @@ const RenderPlan: React.FC<RenderPlanProps> = memo(
     );
   }
 );
+
+RenderPlan.displayName = 'RenderPlan';
 
 const RenderStepExecution: React.FC<RenderStepExecutionProps> = memo(
   ({
@@ -411,6 +424,14 @@ const RenderStepExecution: React.FC<RenderStepExecutionProps> = memo(
         <div
           className={`relative border-2 border-transparent hover:border-gray-300 rounded-lg p-2 cursor-pointer overflow-hidden bg-secondary`}
           onClick={handleToggle}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleToggle();
+            }
+          }}
+          role="button"
+          tabIndex={0}
         >
           <div className="flex items-center w-full">
             <button
@@ -457,6 +478,8 @@ const RenderStepExecution: React.FC<RenderStepExecutionProps> = memo(
     );
   }
 );
+
+RenderStepExecution.displayName = 'RenderStepExecution';
 
 interface RenderFinalAnswerProps {
   content: string;

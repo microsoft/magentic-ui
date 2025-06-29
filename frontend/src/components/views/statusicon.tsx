@@ -5,7 +5,6 @@ import {
   Loader2,
   AlertTriangle,
   PauseCircle,
-  HelpCircle,
   CheckCircle,
 } from "lucide-react";
 import { Run, InputRequest } from "../types/datamodel";
@@ -27,9 +26,7 @@ export const getStatusIcon = (
           <span className="inline-block mr-2 ml-1 ">Processing</span>
         </div>
       );
-    case "awaiting_input":
-      const Icon =
-        inputRequest?.input_type === "approval" ? HelpCircle : MessageSquare;
+    case "awaiting_input": {
       return (
         <div className="flex items-center text-sm mb-2">
           {inputRequest?.input_type === "approval" ? (
@@ -52,6 +49,7 @@ export const getStatusIcon = (
           )}
         </div>
       );
+    }
     case "complete":
       return (
         <div className="text-sm mb-2">

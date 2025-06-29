@@ -9,6 +9,7 @@ fs.access(envFile, fs.constants.F_OK, (err) => {
   }
 });
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 require("dotenv").config({
   path: envFile,
 });

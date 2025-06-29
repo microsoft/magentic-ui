@@ -22,7 +22,7 @@ interface VncScreenProps {
 }
 // Lazy load the VNC component
 const VncScreen = lazy<React.ComponentType<VncScreenProps>>(() =>
-  // @ts-ignore
+  // @ts-expect-error - react-vnc module types are not available
   import("react-vnc").then((module) => ({ default: module.VncScreen }))
 );
 
@@ -45,6 +45,7 @@ interface DetailViewerProps {
     accepted?: boolean,
     plan?: IPlan
   ) => void;
+  viewMode?: "iframe" | "vnc";
 }
 
 type TabType = "screenshots" | "live";
@@ -62,17 +63,16 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
   onTabChange,
   detailViewerContainerId,
   onInputResponse,
+  viewMode = "iframe",
 }) => {
   const [internalActiveTab, setInternalActiveTab] = useState<TabType>("live");
   const activeTab = controlledActiveTab ?? internalActiveTab;
-  const [viewMode, setViewMode] = useState<"iframe" | "novnc">("iframe");
   const vncRef = useRef();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Add state for fullscreen control mode
   const [isControlMode, setIsControlMode] = useState(false);
-  const browserIframeId = "browser-iframe-container";
 
   // State for tracking if control was handed back from modal
   const [showControlHandoverForm, setShowControlHandoverForm] = useState(false);

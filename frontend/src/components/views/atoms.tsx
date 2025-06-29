@@ -113,6 +113,8 @@ export const TruncatableText = memo(
   }
 );
 
+TruncatableText.displayName = 'TruncatableText';
+
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -146,9 +148,14 @@ const Modal: React.FC<ModalProps> = ({
   return createPortal(
     <div
       className="fixed inset-0 z-50"
-      aria-modal="true"
-      role="dialog"
+      role="presentation"
       onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          onClose();
+        }
+      }}
+      tabIndex={-1}
     >
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
       <div
@@ -158,6 +165,8 @@ const Modal: React.FC<ModalProps> = ({
         flex items-center justify-center
         ${className}
       `}
+        role="dialog"
+        aria-modal="true"
       >
         {children}
       </div>
@@ -184,7 +193,17 @@ const FullScreenImage: React.FC<{
       >
         <X size={24} />
       </button>
-      <div className="relative" onClick={(e) => e.stopPropagation()}>
+      <div 
+        className="relative" 
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.stopPropagation();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+      >
         <img
           src={src}
           alt={alt}
@@ -210,17 +229,23 @@ export const ClickableImage: React.FC<{
 
   return (
     <>
-      <img
-        src={src}
-        alt={alt}
-        className={`
-          ${className} 
-          cursor-zoom-in 
-          transition-all duration-300 
-          hover:brightness-110
-        `}
+      <button
+        type="button"
         onClick={() => setIsFullScreen(true)}
-      />
+        className="block border-0 bg-transparent p-0 cursor-zoom-in"
+        aria-label="Click to view fullscreen"
+      >
+        <img
+          src={src}
+          alt={alt}
+          className={`
+            ${className} 
+            cursor-zoom-in 
+            transition-all duration-300 
+            hover:brightness-110
+          `}
+        />
+      </button>
       {isFullScreen && (
         <FullScreenImage
           src={src}
