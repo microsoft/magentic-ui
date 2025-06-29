@@ -16,14 +16,11 @@ import {
   Tooltip,
   Select,
   Tabs,
-  Input as AntInput,
   Upload,
   message,
 } from "antd";
 import { InfoCircleOutlined, UploadOutlined } from "@ant-design/icons";
 import { Plus } from "lucide-react";
-
-const { TextArea } = AntInput;
 
 interface SettingsMenuProps {
   isOpen: boolean;
@@ -229,7 +226,7 @@ action_guard_client: *client
     if (!hasAllClients) {
       message.error(
         "YAML must include all required model clients: " +
-          requiredClients.join(", ")
+        requiredClients.join(", ")
       );
       return false;
     }
