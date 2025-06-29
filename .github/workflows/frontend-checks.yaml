@@ -39,7 +39,7 @@ jobs:
           echo "🧹 Running ESLint - checking for 0 errors..."
 
           # Run lint and capture output
-          LINT_OUTPUT=$(yarn lint --max-warnings 100 2>&1)
+          LINT_OUTPUT=$(yarn lint 2>&1)
           LINT_EXIT_CODE=$?
 
           echo "$LINT_OUTPUT"
@@ -64,4 +64,3 @@ jobs:
             echo "❌ TypeScript check failed"
             exit 1
           fi
-
