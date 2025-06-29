@@ -1,6 +1,6 @@
 import * as React from "react";
 import { message } from "antd";
-import { convertFilesToBase64, getServerUrl } from "../../utils";
+import { convertFilesToBase64 } from "../../utils";
 import { IStatus } from "../../types/app";
 import {
   Run,
@@ -76,7 +76,6 @@ export default function ChatView({
   visible = true,
   onRunStatusChange,
 }: ChatViewProps) {
-  const serverUrl = getServerUrl();
   const [error, setError] = React.useState<IStatus | null>({
     status: true,
     message: "All good",
@@ -103,7 +102,7 @@ export default function ChatView({
   const [activeSocket, setActiveSocket] = React.useState<WebSocket | null>(
     null
   );
-  const [teamConfig, setTeamConfig] = React.useState<TeamConfig | null>(
+  const [teamConfig] = React.useState<TeamConfig | null>(
     defaultTeamConfig
   );
 
@@ -318,8 +317,9 @@ export default function ChatView({
             activeSocketRef.current = null;
           }
           console.log("Error: ", message.error);
+          break;
 
-        case "message":
+        case "message": {
           if (!message.data) return current;
 
           // Create new Message object from websocket data
@@ -333,24 +333,26 @@ export default function ChatView({
             ...current,
             messages: [...current.messages, newMessage],
           };
+        }
 
-        case "input_request":
+        case "input_request": {
           //console.log("InputRequest: " + JSON.stringify(message))
 
-          var input_request: InputRequest;
+          let input_request: InputRequest;
           switch (message.input_type) {
             case "text_input":
             case null:
             default:
               input_request = { input_type: "text_input" };
               break;
-            case "approval":
-              var input_request_message = message as InputRequestMessage;
+            case "approval": {
+              const input_request_message = message as InputRequestMessage;
               input_request = {
                 input_type: "approval",
                 prompt: input_request_message.prompt,
               } as InputRequest;
               break;
+            }
           }
 
           // reset Updated Plan
@@ -368,6 +370,8 @@ export default function ChatView({
             status: "awaiting_input",
             input_request: input_request,
           };
+        }
+
         case "system":
           // update run status
           return {
@@ -376,7 +380,7 @@ export default function ChatView({
           };
 
         case "result":
-        case "completion":
+        case "completion": {
           const status: BaseRunStatus =
             message.status === "complete"
               ? "complete"
@@ -406,6 +410,7 @@ export default function ChatView({
             team_result:
               message.data && isTeamResult(message.data) ? message.data : null,
           };
+        }
 
         default:
           return current;
@@ -442,7 +447,7 @@ export default function ChatView({
     try {
       // Check if the last message is a plan
       const lastMessage = currentRun.messages.slice(-1)[0];
-      var planString = "";
+      let planString = "";
       if (plan) {
         planString = convertPlanStepsToJsonString(plan.steps);
       } else if (
@@ -493,7 +498,7 @@ export default function ChatView({
     try {
       // Check if the last message is a plan
       const lastMessage = currentRun.messages.slice(-1)[0];
-      var planString = "";
+      let planString = "";
       if (
         lastMessage &&
         messageUtils.isPlanMessage(lastMessage.config.metadata)
@@ -643,7 +648,7 @@ export default function ChatView({
       const processedFiles = await convertFilesToBase64(files);
       // Send start message
 
-      var planString = plan ? convertPlanStepsToJsonString(plan.steps) : "";
+      const planString = plan ? convertPlanStepsToJsonString(plan.steps) : "";
 
       const taskJson = {
         content: query,
