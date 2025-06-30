@@ -275,16 +275,42 @@ const RenderToolCall: React.FC<{ content: FunctionCall[] }> = memo(
 );
 
 const RenderToolResult: React.FC<{ content: FunctionExecutionResult[] }> = memo(
-  ({ content }) => (
-    <div className="space-y-2 text-sm">
-      {content.map((result) => (
-        <div key={result.call_id} className="rounded p-2">
-          <div className="font-medium">Result ID: {result.call_id}</div>
-          <MarkdownRenderer content={result.content} indented={true} />
-        </div>
-      ))}
-    </div>
-  )
+  ({ content }) => {
+    const [expandedResults, setExpandedResults] = useState<{ [key: string]: boolean }>({});
+
+    const toggleExpand = (callId: string) => {
+      setExpandedResults(prev => ({
+        ...prev,
+        [callId]: !prev[callId]
+      }));
+    };
+
+    return (
+      <div className="space-y-2 text-sm">
+        {content.map((result) => {
+          const isExpanded = expandedResults[result.call_id];
+          const displayContent = isExpanded ? result.content : result.content.slice(0, 100) + (result.content.length > 100 ? "..." : "");
+
+          return (
+            <div key={result.call_id} className="rounded p-2">
+              <div className="font-medium">Result ID: {result.call_id}</div>
+              <div 
+                className="cursor-pointer hover:bg-secondary/50 rounded p-1"
+                onClick={() => toggleExpand(result.call_id)}
+              >
+                <MarkdownRenderer content={displayContent} indented={true} />
+                {result.content.length > 100 && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    {isExpanded ? "Click to minimize" : "Click to expand"}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 );
 
 const RenderPlan: React.FC<RenderPlanProps> = memo(
@@ -656,6 +682,8 @@ export const RenderMessage: React.FC<MessageProps> = memo(
       isUser || isUserProxy
         ? parseUserContent(message)
         : { text: message.content, metadata: message.metadata };
+
+      console.log(message.metadata)
 
     // Use new plan message check
     const isPlanMsg = messageUtils.isPlanMessage(message.metadata);

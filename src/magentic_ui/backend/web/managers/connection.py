@@ -8,6 +8,7 @@ import json
 from autogen_agentchat.base._task import TaskResult
 from autogen_agentchat.messages import (
     AgentEvent,
+    BaseTextChatMessage,
     ChatMessage,
     HandoffMessage,
     ModelClientStreamingChunkEvent,
@@ -48,6 +49,7 @@ class WebSocketManager:
         internal_workspace_root (Path): Path to the internal root directory
         external_workspace_root (Path): Path to the external root directory
         inside_docker (bool): Flag indicating if the application is running inside Docker
+        run_without_docker (bool): Flag indicating if the application is running without docker
         config (dict): Configuration for Magentic-UI
     """
 
@@ -58,12 +60,14 @@ class WebSocketManager:
         external_workspace_root: Path,
         inside_docker: bool,
         config: Dict[str, Any],
+        run_without_docker: bool,
     ):
         self.db_manager = db_manager
         self.internal_workspace_root = internal_workspace_root
         self.external_workspace_root = external_workspace_root
         self.inside_docker = inside_docker
         self.config = config
+        self.run_without_docker = run_without_docker
         self._connections: Dict[int, WebSocket] = {}
         self._cancellation_tokens: Dict[int, CancellationToken] = {}
         # Track explicitly closed connections
@@ -139,6 +143,7 @@ class WebSocketManager:
                 external_workspace_root=self.external_workspace_root,
                 inside_docker=self.inside_docker,
                 config=self.config,
+                run_without_docker=self.run_without_docker,
             )
             self._team_managers[run_id] = team_manager
 
@@ -596,7 +601,11 @@ class WebSocketManager:
 
             elif isinstance(
                 message,
-                (TextMessage,),
+                (
+                    BaseTextChatMessage,
+                    ToolCallRequestEvent,
+                    ToolCallExecutionEvent,
+                ),
             ):
                 return {"type": "message", "data": message.model_dump()}
             elif isinstance(message, str):
@@ -604,6 +613,10 @@ class WebSocketManager:
                     "type": "message",
                     "data": {"source": "user", "content": message},
                 }
+            else:
+                logger.warning(
+                    f"Cannot format unrecognized message type: {type(message)}"
+                )
 
             return None
 

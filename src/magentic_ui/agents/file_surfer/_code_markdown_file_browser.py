@@ -7,7 +7,6 @@ from typing import List, Optional, Tuple, Union
 from autogen_core.code_executor import CodeExecutor, CodeBlock
 from autogen_core import CancellationToken
 
-from markitdown import FileConversionException, MarkItDown, UnsupportedFormatException
 from ._browser_code_helpers import (
     get_path_validation_code,
     get_is_dir_check_code,
@@ -47,7 +46,7 @@ class CodeExecutorMarkdownFileBrowser:
         self.viewport_current_page = 0
         self.viewport_pages: List[Tuple[int, int]] = list()
         self.image_path: Optional[str] = None
-        self._markdown_converter = MarkItDown()
+        self._markdown_converter = None  # Lazy init
         self._page_content: str = ""
         self._find_on_page_query: Union[str, None] = None
         self._find_on_page_last_result: Union[int, None] = (
@@ -290,6 +289,10 @@ class CodeExecutorMarkdownFileBrowser:
 
                 if is_dir:
                     dir_content = await self._fetch_local_dir(path)
+                    if self._markdown_converter is None:
+                        from markitdown import MarkItDown
+
+                        self._markdown_converter = MarkItDown()
                     res = self._markdown_converter.convert_stream(
                         io.BytesIO(dir_content.encode("utf-8")),
                         file_extension=".txt",
@@ -340,19 +343,27 @@ class CodeExecutorMarkdownFileBrowser:
                             print(
                                 f"Warning: Failed to save markdown file for {path}: {e}"
                             )
-            except UnsupportedFormatException:
-                self.page_title = "UnsupportedFormatException"
-                self._set_page_content(
-                    f"# UnsupportedFormatException\n\nCannot preview '{path}' as Markdown."
+            except Exception as e:
+                UnsupportedFormatException, FileConversionException = (
+                    _get_markitdown_exceptions()
                 )
-            except FileConversionException:
-                self.page_title = "FileConversionException."
-                self._set_page_content(
-                    f"# FileConversionException\n\nError converting '{path}' to Markdown."
-                )
-            except FileNotFoundError:
-                self.page_title = "FileNotFoundError"
-                self._set_page_content(f"# FileNotFoundError\n\nFile not found: {path}")
+                if isinstance(e, UnsupportedFormatException):
+                    self.page_title = "UnsupportedFormatException"
+                    self._set_page_content(
+                        f"# UnsupportedFormatException\n\nCannot preview '{path}' as Markdown."
+                    )
+                elif isinstance(e, FileConversionException):
+                    self.page_title = "FileConversionException."
+                    self._set_page_content(
+                        f"# FileConversionException\n\nError converting '{path}' to Markdown."
+                    )
+                elif isinstance(e, FileNotFoundError):
+                    self.page_title = "FileNotFoundError"
+                    self._set_page_content(
+                        f"# FileNotFoundError\n\nFile not found: {path}"
+                    )
+                else:
+                    raise
 
     async def _fetch_local_dir(self, local_path: str) -> str:
         """
@@ -388,3 +399,16 @@ class CodeExecutorMarkdownFileBrowser:
             cancellation_token=CancellationToken(),
         )
         return result.output
+
+
+def _get_markitdown_exceptions():
+    try:
+        from markitdown import UnsupportedFormatException, FileConversionException
+
+        return UnsupportedFormatException, FileConversionException
+    except ImportError:
+
+        class _Dummy(Exception):
+            pass
+
+        return _Dummy, _Dummy

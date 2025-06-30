@@ -38,6 +38,7 @@
     "gatsby-source-filesystem": "^5.14.0",
     "gatsby-transformer-sharp": "^5.14.0",
     "install": "^0.13.0",
+    "js-yaml": "^4.1.0",
     "lucide-react": "^0.460.0",
     "postcss": "^8.4.49",
     "react": "^18.2.0",
@@ -49,6 +50,7 @@
     "remark-gfm": "^4.0.0",
     "tailwindcss": "^3.4.14",
     "yarn": "^1.22.22",
+    "zod": "^3.25.63",
     "zustand": "^5.0.1"
   },
   "devDependencies": {

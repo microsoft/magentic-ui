@@ -18,6 +18,13 @@ import { Trash2 } from "lucide-react";
 import { appContext } from "../../../hooks/provider";
 import { IPlanStep } from "../../types/plan";
 import AutoResizeTextarea from "../../common/AutoResizeTextarea";
+import {
+  CoderIcon,
+  FileSurferIcon,
+  WebSurferIcon,
+  UserIcon,
+  AgentIcon,
+} from "../../common/Icon";
 
 // Debounce hook
 const useDebounce = (callback: Function, delay: number) => {
@@ -114,6 +121,7 @@ const PlanView: React.FC<PlanProps> = ({
       ...newPlan[index],
       details: value,
       title: value, // Update title to match details
+      agent_name: "", // Reset agent_name when step is edited
     };
     handlePlanChange(newPlan);
   };
@@ -146,8 +154,29 @@ const PlanView: React.FC<PlanProps> = ({
     handlePlanChange(items);
   };
 
+  const getAgentIcon = (agentName: string | undefined): JSX.Element | null => {
+    const lowerCaseName = (agentName || "").toLowerCase();
+    if (lowerCaseName === "coder_agent") return <CoderIcon tooltip="Coder" />;
+    if (lowerCaseName === "web_surfer") return <WebSurferIcon tooltip="WebSurfer" />;
+    if (lowerCaseName === "file_surfer") return <FileSurferIcon tooltip="FileSurfer" />;
+    if (lowerCaseName === "user_proxy") return <UserIcon tooltip="User" />;
+    if (lowerCaseName === "no_action_agent") return <AgentIcon tooltip="Self-Reflection" />;
+    return <AgentIcon tooltip="Agent" />;
+  };
+
+  const getAgentName = (agentName: string | undefined): string => {
+    const lowerCaseName = (agentName || "").toLowerCase();
+    if (lowerCaseName === "coder_agent") return "Coder";
+    if (lowerCaseName === "web_surfer") return "WebSurfer";
+    if (lowerCaseName === "file_surfer") return "FileSurfer";
+    if (lowerCaseName === "user_proxy") return "User";
+    if (lowerCaseName === "no_action_agent") return "Self-Reflection";
+    return agentName || "Agent";
+  };
+
   const noop = () => {};
 
+  console.log("PlanView rendered with plan:", localPlan);
   return (
     <>
       {!viewOnly && onRegeneratePlan && (
@@ -220,6 +249,13 @@ const PlanView: React.FC<PlanProps> = ({
                               >
                                 Step {index + 1}
                               </span>
+                              <div className="flex items-center ml-2">
+                                <div className="text-gray-600 dark:text-gray-300">
+                                  {React.cloneElement(getAgentIcon(item.agent_name) || <AgentIcon />, {
+                                    tooltip: getAgentName(item.agent_name)
+                                  })}
+                                </div>
+                              </div>
                             </div>
                             <div className="border-transparent p-1  px-2 mt-2.5 flex-1 rounded">
                               <div className="flex items-center">
