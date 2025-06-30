@@ -71,7 +71,7 @@ export const AzureModelConfigForm: React.FC<ModelConfigFormProps> = ({ onChange,
           <Form.Item required label="Model" name={["config", "model"]}>
             <Input />
           </Form.Item>
-          <Form.Item required label="Azure Endpoint" name={["config", "api_key"]}>
+          <Form.Item required label="Azure API Key" name={["config", "api_key"]}>
             <Input />
           </Form.Item>
           <Form.Item required label="Azure Endpoint" name={["config", "azure_endpoint"]}>

@@ -20,7 +20,7 @@ Magentic-UI is a **research prototype** of a human-centered interface powered by
 
 Here's how you can get started with Magentic-UI:
 
-> **Note**: Before installing, please read the [pre-requisites](#pre-requisites) carefully. Magentic-UI requires Docker to run, and if you are on Windows, you will need WSL2. We recommend using [uv](https://docs.astral.sh/uv/getting-started/installation/) for a quicker installation. If you are using Mac or Linux, you can skip the WSL2 step.
+> **Note**: Before installing, please read the [pre-requisites](#-pre-requisites) carefully. Magentic-UI requires Docker to run, and if you are on Windows, you will need WSL2. We recommend using [uv](https://docs.astral.sh/uv/getting-started/installation/) for a quicker installation. If you are using Mac or Linux, you can skip the WSL2 step.
 
 ```bash
 python3 -m venv .venv
@@ -51,16 +51,16 @@ pip install magentic-ui[azure]
 pip install magentic-ui[ollama]
 ```
 
-For further details on installation please read the   <a href="#installation">🛠️ Installation</a> section. For common installation issues and their solutions, please refer to the [troubleshooting document](TROUBLESHOOTING.md).
+For further details on installation please read the   <a href="#%EF%B8%8F-installation">🛠️ Installation</a> section. For common installation issues and their solutions, please refer to the [troubleshooting document](TROUBLESHOOTING.md).
 
 
 ## Quick Navigation:
 <p align="center">
-  <a href="#how-it-works">🟪 How it Works</a> &nbsp;|&nbsp;
-  <a href="#installation">🛠️ Installation</a> &nbsp;|&nbsp;
-  <a href="#troubleshooting">⚠️ Troubleshooting</a> &nbsp;|&nbsp; 
-  <a href="#contributing">🤝 Contributing</a> &nbsp;|&nbsp;
-  <a href="#license">📄 License</a>
+  <a href="#-how-it-works">🟪 How it Works</a> &nbsp;|&nbsp;
+  <a href="#%EF%B8%8F-installation">🛠️ Installation</a> &nbsp;|&nbsp;
+  <a href="#%EF%B8%8F-troubleshooting">⚠️ Troubleshooting</a> &nbsp;|&nbsp; 
+  <a href="#-contributing">🤝 Contributing</a> &nbsp;|&nbsp;
+  <a href="#-license">📄 License</a>
 </p>
 
 ---
@@ -154,7 +154,7 @@ If using Docker Desktop, make sure it is set up to use WSL2:
 
 
 
-2. During the Installation step, you will need to set up your `OPENAI_API_KEY`. To use other models, review the [Custom Client Configuration](#custom-client-configuration) section below.
+2. During the Installation step, you will need to set up your `OPENAI_API_KEY`. To use other models, review the [Custom Client Configuration](#Configuration) section below.
 
 3. You need at least [Python 3.10](https://www.python.org/downloads/) installed.
 
@@ -397,7 +397,7 @@ The frontend from source will be available at <http://localhost:8000>, and the c
 
 ## ⚠️ Troubleshooting
 
-If you were unable to get Magentic-UI running, do not worry! The first step is to make sure you have followed the steps outlined above, particularly with the [pre-requisites](#pre-requisites).
+If you were unable to get Magentic-UI running, do not worry! The first step is to make sure you have followed the steps outlined above, particularly with the [pre-requisites](#-pre-requisites).
 
 For common issues and their solutions, please refer to the [TROUBLESHOOTING.md](TROUBLESHOOTING.md) file in this repository. If you do not see your problem there, please open a `GitHub Issue`. 
 
