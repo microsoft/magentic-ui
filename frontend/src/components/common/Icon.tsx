@@ -8,14 +8,12 @@ interface IconProps {
 }
 
 const IconWrapper: React.FC<IconProps & { children: React.ReactNode }> = ({
-  className = "",
-  size = 16,
   tooltip,
   children
 }) => {
   const uniqueId = useId();
   const groupClass = `tooltip-group-${uniqueId.replace(/:/g, '')}`;
-  
+
   return (
     <div className={`relative ${groupClass} inline-flex`}>
       {children}

@@ -303,9 +303,14 @@ const RenderToolResult: React.FC<{ content: FunctionExecutionResult[] }> = memo(
           return (
             <div key={result.call_id} className="rounded p-2">
               <div className="font-medium">Result ID: {result.call_id}</div>
-              <div 
+              <div
+                role="button"
+                tabIndex={0}
                 className="cursor-pointer hover:bg-secondary/50 rounded p-1"
                 onClick={() => toggleExpand(result.call_id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') toggleExpand(result.call_id);
+                }}
               >
                 <MarkdownRenderer content={displayContent} indented={true} />
                 {result.content.length > 100 && (
@@ -705,7 +710,7 @@ export const RenderMessage: React.FC<MessageProps> = memo(
         ? parseUserContent(message)
         : { text: message.content, metadata: message.metadata };
 
-      console.log(message.metadata)
+    console.log(message.metadata)
 
     // Use new plan message check
     const isPlanMsg = messageUtils.isPlanMessage(message.metadata);

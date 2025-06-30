@@ -1,6 +1,7 @@
 import { ModelConfigSchema } from "./tabs/agentSettings/modelSelector/modelConfigForms/types";
 import { MCPAgentConfigSchema } from "./tabs/agentSettings/mcpAgentsSettings/types";
 import { GeneralSettingsSchema } from "./types";
+import yaml from 'js-yaml';
 
 function extractZodErrors(error: any): string[] {
   if (!error.errors) return [error.message || String(error)];
@@ -37,7 +38,6 @@ export function validateMCPAgentsSettings(agents: any[]): string[] {
 export function validateAdvancedConfigEditor(editorValue: string, isValidany: (obj: any) => boolean): string[] {
   const errors: string[] = [];
   try {
-    const yaml = require('js-yaml');
     const parsed = yaml.load(editorValue || "");
     if (!parsed || typeof parsed !== "object") {
       errors.push("Config is empty or not an object.");
