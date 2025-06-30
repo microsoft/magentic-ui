@@ -69,10 +69,10 @@ interface RenderStepExecutionProps {
 
 interface ParsedContent {
   text:
-    | string
-    | FunctionCall[]
-    | (string | ImageContent)[]
-    | FunctionExecutionResult[];
+  | string
+  | FunctionCall[]
+  | (string | ImageContent)[]
+  | FunctionExecutionResult[];
   metadata?: Record<string, string>;
   plan?: IPlanStep[];
 }
@@ -601,7 +601,7 @@ export const messageUtils = {
 const RenderUserMessage: React.FC<{
   parsedContent: ParsedContent;
   isUserProxy: boolean;
-}> = memo(({ parsedContent, isUserProxy }) => {
+}> = memo(({ parsedContent }) => {
   // Parse attached files from metadata if present
   const attachedFiles: AttachedFile[] = React.useMemo(() => {
     if (parsedContent.metadata?.attached_files) {
@@ -664,9 +664,9 @@ const RenderUserMessage: React.FC<{
           <PlanView
             task={""}
             plan={parsedContent.plan}
-            setPlan={() => {}} // No-op since it's read-only
+            setPlan={() => { }} // No-op since it's read-only
             viewOnly={true}
-            onSavePlan={() => {}} // No-op since it's read-only
+            onSavePlan={() => { }} // No-op since it's read-only
           />
         )}
     </div>
@@ -682,7 +682,6 @@ export const RenderMessage: React.FC<MessageProps> = memo(
     sessionId,
     messageIdx,
     runStatus,
-    isLast = false,
     className = "",
     isEditable = false,
     hidden = false,
@@ -726,29 +725,25 @@ export const RenderMessage: React.FC<MessageProps> = memo(
 
     return (
       <div
-        className={`relative group mb-3 ${className} w-full break-words ${
-          hidden &&
+        className={`relative group mb-3 ${className} w-full break-words ${hidden &&
           (!orchestratorContent ||
             orchestratorContent.type !== "step-execution")
-            ? "hidden"
-            : ""
-        }`}
+          ? "hidden"
+          : ""
+          }`}
       >
         <div
-          className={`flex ${
-            isUser || isUserProxy ? "justify-end" : "justify-start"
-          } items-start w-full transition-all duration-200`}
+          className={`flex ${isUser || isUserProxy ? "justify-end" : "justify-start"
+            } items-start w-full transition-all duration-200`}
         >
           <div
-            className={`${
-              isUser || isUserProxy
-                ? `text-primary rounded-2xl bg-tertiary rounded-tr-sm px-4 py-2 ${
-                    parsedContent.plan && parsedContent.plan.length > 0
-                      ? "w-[80%]"
-                      : "max-w-[80%]"
-                  }`
-                : "w-full text-primary"
-            } break-words overflow-hidden`}
+            className={`${isUser || isUserProxy
+              ? `text-primary rounded-2xl bg-tertiary rounded-tr-sm px-4 py-2 ${parsedContent.plan && parsedContent.plan.length > 0
+                ? "w-[80%]"
+                : "max-w-[80%]"
+              }`
+              : "w-full text-primary"
+              } break-words overflow-hidden`}
           >
             {/* Show user message content first */}
             {(isUser || isUserProxy) && (
