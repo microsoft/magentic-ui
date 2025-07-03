@@ -98,7 +98,7 @@ const FileModal: React.FC<FileModalProps> = ({
   file,
   content,
 }) => {
-  const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
+  const [isFullScreen] = useState<boolean>(false);
   const modalRef = React.useRef<HTMLDivElement>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -171,9 +171,9 @@ const FileModal: React.FC<FileModalProps> = ({
 
   if (!isOpen || !file) return null;
 
-  const toggleFullScreen = (): void => {
-    setIsFullScreen(!isFullScreen);
-  };
+  // const toggleFullScreen = (): void => {
+  //   setIsFullScreen(!isFullScreen);
+  // };
 
   // Handle click outside the modal content
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -254,12 +254,22 @@ const FileModal: React.FC<FileModalProps> = ({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
       onClick={handleBackdropClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          onClose();
+        }
+      }}
+      role="presentation"
+      aria-label="File modal"
+      tabIndex={-1}
     >
       <div
         ref={modalRef}
         className={`bg-white rounded-lg shadow-lg overflow-hidden ${
           isFullScreen ? "fixed inset-0" : "max-w-4xl w-full max-h-[85vh]"
         }`}
+        role="dialog"
+        aria-modal="true"
       >
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b">
@@ -406,6 +416,10 @@ const FileCard = memo<FileCardProps>(({ file, onFileClick }) => {
       <div
         className="group relative flex flex-col overflow-hidden rounded-lg border border-gray-200 hover:border-blue-500 shadow-sm hover:shadow-md cursor-pointer transition-all"
         onClick={() => onFileClick(file)}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onFileClick(file)}
+        role="button"
+        tabIndex={0}
+        aria-label={`View ${file.name}`}
       >
         <ImageThumbnail file={file} />
         <div className="p-2 bg-white border-t w-full">
@@ -422,6 +436,10 @@ const FileCard = memo<FileCardProps>(({ file, onFileClick }) => {
     <div
       className="group relative flex flex-col items-center p-3 rounded-lg border border-gray-200 hover:border-blue-500 cursor-pointer transition-colors shadow-sm hover:shadow-md"
       onClick={() => onFileClick(file)}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onFileClick(file)}
+      role="button" 
+      tabIndex={0}
+      aria-label={`View ${file.name}`}
     >
       <IconComponent className="w-8 h-8 mb-2 text-blue-500" />
       <span className="text-xs text-center truncate w-full" title={file.name}>

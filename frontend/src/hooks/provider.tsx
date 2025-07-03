@@ -85,4 +85,7 @@ const Provider = ({ children }: any) => {
   );
 };
 
-export default ({ element }: any) => <Provider>{element}</Provider>;
+const ProviderWrapper = ({ element }: any) => <Provider>{element}</Provider>;
+ProviderWrapper.displayName = 'ProviderWrapper';
+
+export default ProviderWrapper;

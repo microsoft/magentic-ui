@@ -43,7 +43,7 @@ const MCPAgentsSettings: React.FC<MCPAgentsSettingsProps> = ({ config, handleUpd
   return (
     <Flex vertical gap="small">
       <Typography.Text>
-        Extend Magentic-UI's capabilities by adding custom agents that connect to local or remote Model Context Protocol (MCP) Servers!
+        Extend Magentic-UI&apos;s capabilities by adding custom agents that connect to local or remote Model Context Protocol (MCP) Servers!
       </Typography.Text>
       <Typography.Text>
         Any number of agents are supported, and each agent requires at least one MCP Server.

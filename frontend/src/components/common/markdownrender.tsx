@@ -222,7 +222,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               {children}
             </a>
           ),
-          code: ({ node, className, children, ...props }) => {
+          code: ({ className, children, ...props }) => {
             const match = /language-(\w+)/.exec(className || "");
             const language = match ? match[1] : "";
             const inline = !language;

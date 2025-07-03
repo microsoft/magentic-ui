@@ -1,4 +1,4 @@
-import { AgentMessageConfig, Message, TaskResult } from "../../types/datamodel";
+import { AgentMessageConfig, Message } from "../../types/datamodel";
 
 export interface ThreadState {
   messages: AgentMessageConfig[];

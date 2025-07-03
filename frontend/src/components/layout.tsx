@@ -21,18 +21,13 @@ type Props = {
 };
 
 const MagenticUILayout = ({
-  meta,
-  title,
   link,
-  showHeader = true,
   restricted = false,
-  activeTab,
-  onTabChange,
 }: Props) => {
   const { darkMode, user, setUser } = React.useContext(appContext);
   const { sidebar } = useConfigStore();
   const { isExpanded } = sidebar;
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [, setIsMobileMenuOpen] = React.useState(false);
 
   // Mimic sign-in: if no user or user.email, set default user and localStorage
   React.useEffect(() => {
@@ -51,9 +46,8 @@ const MagenticUILayout = ({
   }, [link]);
 
   React.useEffect(() => {
-    document.getElementsByTagName("html")[0].className = `${
-      darkMode === "dark" ? "dark bg-primary" : "light bg-primary"
-    }`;
+    document.getElementsByTagName("html")[0].className = `${darkMode === "dark" ? "dark bg-primary" : "light bg-primary"
+      }`;
   }, [darkMode]);
 
   const layoutContent = (

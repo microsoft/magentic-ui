@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Input, Form, Divider, Space, Tooltip, Collapse, Typography, List, Row, Flex, Button } from "antd";
+import { Input, Form, Divider, Tooltip, Collapse, List, Flex, Button } from "antd";
 import MCPServerForm, { DEFAULT_STDIO_PARAMS } from "./mcpServerForms/MCPServerForm";
 import ModelSelector from "../modelSelector/ModelSelector";
 import { validateModelConfig } from '../../../validation';
@@ -48,7 +48,7 @@ const MCPAgentForm: React.FC<MCPAgentFormProps> = ({ agent, defaultModel, advanc
 
   useEffect(() => {
     if (advanced) {
-      handleAgentChange(idx, {...agent, model_client: defaultModel ?? DEFAULT_OPENAI})
+      handleAgentChange(idx, { ...agent, model_client: defaultModel ?? DEFAULT_OPENAI })
     }
 
   }, [defaultModel, advanced])
@@ -108,7 +108,7 @@ const MCPAgentForm: React.FC<MCPAgentFormProps> = ({ agent, defaultModel, advanc
               />
             </Form.Item>
           </Tooltip>
-{/*           <Collapse>
+          {/*           <Collapse>
             <Collapse.Panel key="1" header={<Typography>Optional Properties</Typography>}>
               <Form.Item label="System Message">
                 <Input.TextArea

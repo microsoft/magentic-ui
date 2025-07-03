@@ -1,0 +1,66 @@
+name: Frontend Checks
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "frontend/**"
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "yarn"
+          cache-dependency-path: "frontend/yarn.lock"
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+
+      - name: Run ESLint (must have 0 errors)
+        working-directory: frontend
+        run: |
+          echo "🧹 Running ESLint - checking for 0 errors..."
+
+          # Run lint and capture output
+          LINT_OUTPUT=$(yarn lint 2>&1)
+          LINT_EXIT_CODE=$?
+
+          echo "$LINT_OUTPUT"
+
+          # Parse the output to check for errors (but not warnings)
+          if [ $LINT_EXIT_CODE -ne 0 ]; then
+            echo "❌ ESLint failed with exit code $LINT_EXIT_CODE"
+            exit 1
+          else
+            echo "✅ ESLint passed with 0 errors!"
+          fi
+
+      - name: Run TypeScript check
+        working-directory: frontend
+        run: |
+          echo "🔍 Running TypeScript check..."
+          yarn typecheck
+
+          if [ $? -eq 0 ]; then
+            echo "✅ TypeScript check passed!"
+          else
+            echo "❌ TypeScript check failed"
+            exit 1
+          fi
