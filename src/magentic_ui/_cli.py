@@ -225,6 +225,7 @@ async def get_team(
         web_surfer=client_config_dict.get("web_surfer_client", None),
         coder=client_config_dict.get("coder_client", None),
         file_surfer=client_config_dict.get("file_surfer_client", None),
+        action_guard=client_config_dict.get("action_guard_client", None),
     )
 
     mcp_agents = mcp_agents or []

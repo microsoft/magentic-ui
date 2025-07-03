@@ -29,49 +29,6 @@ BLACK_TEXT = "\033[30m"
 UNDERLINE = "\033[4m"
 
 # ╭────────────────────────────────────────────────────────────────────────────╮
-# │  Common INFO patterns pre‑compiled for speed                               │
-# ╰────────────────────────────────────────────────────────────────────────────╯
-INFO_REGEX = re.compile(
-    r"|".join(
-        [
-            r"Task received:",
-            r"Analyzing",
-            r"Submitting",
-            r"Reviewing",
-            r"checks passed",
-            r"Deciding which agent",
-            r"Received task:",
-            r"Searching for",
-            r"Processing",
-            r"Executing",
-            r"Reading file",
-            r"Writing to",
-            r"Running",
-            r"Starting",
-            r"Completed",
-            r"Looking up",
-            r"Loading",
-            r"Generating",
-            r"Creating",
-            r"Downloading",
-            r"Installing",
-            r"Checking",
-            r"Fetching",
-            r"Exploring",
-            r"Building",
-            r"Setting up",
-            r"Finding",
-            r"Identifying",
-            r"Testing",
-            r"Compiling",
-            r"Validating",
-            r"Cloning",
-        ]
-    )
-)
-
-
-# ╭────────────────────────────────────────────────────────────────────────────╮
 # │  Helper utilities                                                          │
 # ╰────────────────────────────────────────────────────────────────────────────╯
 def _terminal_width(fallback: int = 100) -> int:
@@ -95,23 +52,6 @@ def try_parse_json(raw: str) -> tuple[bool, Any]:
         return True, json.loads(raw)
     except (ValueError, TypeError):
         return False, None
-
-
-# ╭────────────────────────────────────────────────────────────────────────────╮
-# │  Pretty‑printers                                                           │
-# ╰────────────────────────────────────────────────────────────────────────────╯
-
-
-def format_info_line(msg: str) -> str:
-    return f"{BOLD}{GREEN}[INFO]{RESET} {UNDERLINE}{msg}{RESET}"
-
-
-def is_info_message(msg: str) -> bool:
-    if INFO_REGEX.search(msg):
-        return True
-    # Verb in present‑participle at start ("Loading models…")
-    return bool(re.match(r"^\s*[A-Z][a-z]+ing\b", msg))
-
 
 # ╭────────────────────────────────────────────────────────────────────────────╮
 # │  Agent‑specific colour selection (deterministic but cheap)                 │
@@ -219,7 +159,7 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
 
     # Summary
     if obj.get("plan_summary"):
-        print()  # tail spacer
+        print(left)  # tail spacer
         print(f"{left}{BOLD}Plan Summary:{RESET}")
         _wrap(obj["plan_summary"])
 
@@ -271,9 +211,9 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
                     )
                     print(f"{left}{' ' * 5}{BOLD}Type:{RESET} {type_name}")
                     if step_type == "SentinelPlanStep":
-                        if step.get("counter"):
+                        if step.get("condition"):
                             print(
-                                f"{left}{' ' * 5}{BOLD}Counter:{RESET} {step['counter']}"
+                                f"{left}{' ' * 5}{BOLD}Condition:{RESET} {step['condition']}"
                             )
                         if step.get("sleep_duration"):
                             print(
@@ -311,8 +251,8 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
             type_name = "Regular Step" if step_type == "PlanStep" else "Sentinel Step"
             print(f"{left}{BOLD}Type:{RESET} {type_name}")
             if step_type == "SentinelPlanStep":
-                if obj.get("counter"):
-                    print(f"{left}    {BOLD}Counter:{RESET} {obj['counter']}")
+                if obj.get("condition"):
+                    print(f"{left}    {BOLD}Condition:{RESET} {obj['condition']}")
                 if obj.get("sleep_duration"):
                     print(
                         f"{left}    {BOLD}Sleep Duration:{RESET} {obj['sleep_duration']}s"
@@ -425,9 +365,8 @@ async def _PrettyConsole(
                 colour = agent_color(src)
                 content = str(getattr(msg, "content", ""))
 
-                if is_info_message(content):
-                    print(format_info_line(content))
-                elif pretty_print_plan(content, colour):
+               
+                if pretty_print_plan(content, colour):
                     pass
                 elif pretty_print_json(content, colour):
                     pass
@@ -437,14 +376,31 @@ async def _PrettyConsole(
                     width = _terminal_width()
                     left = f"{colour}┃{RESET} "
                     body_w = width - len(left)
-                    for line in content.splitlines():
-                        if not line.strip():
+                    
+                    # Process all lines, preserving paragraph structure but ensuring consistent spacing
+                    lines = content.splitlines()
+                    i = 0
+                    while i < len(lines):
+                        # Skip multiple consecutive empty lines, but preserve paragraph breaks
+                        if not lines[i].strip():
+                            if i > 0 and i < len(lines) - 1:  # Only print paragraph breaks (not leading/trailing empty lines)
+                                print(f"{left}")
+                            i += 1
+                            # Skip additional empty lines
+                            while i < len(lines) and not lines[i].strip():
+                                i += 1
                             continue
+                        
+                        # Process non-empty line
+                        line = lines[i]
                         if len(line) <= body_w:
                             print(f"{left}{line}")
                         else:
-                            for chunk in textwrap.wrap(line, body_w):
+                            # Wrap long lines
+                            wrapped_chunks = textwrap.wrap(line, body_w)
+                            for chunk in wrapped_chunks:
                                 print(f"{left}{chunk}")
+                        i += 1
 
             # Event message (non‑chat)
             elif isinstance(msg, BaseAgentEvent):
@@ -453,6 +409,15 @@ async def _PrettyConsole(
                         f"{BOLD}{YELLOW}[EVENT]{RESET} "
                         f"{msg.__class__.__name__} from {getattr(msg, 'source', 'unknown')}"
                     )
+                
+                # Special handling for user input requests - always show this regardless of debug mode
+                if msg.__class__.__name__ == "UserInputRequestedEvent":
+                    print(f"\n{BOLD}{GREEN}╭───────────────────────────────────────╮{RESET}")
+                    print(f"{BOLD}{GREEN}│  Input requested - please type below  │{RESET}")
+                    print(f"{BOLD}{GREEN}╰───────────────────────────────────────╯{RESET}")
+                    print(f"{BOLD}{GREEN}> {RESET}", end="")
+                    if sys.__stdout__ is not None:
+                        sys.__stdout__.flush()  # Ensure prompt is displayed immediately
 
             # TaskResult / Response (final outputs)
             elif isinstance(msg, (TaskResult, Response)):
