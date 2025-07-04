@@ -232,7 +232,25 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
     if steps:
         print(f"{left}\n{left}{BOLD}Steps:{RESET}")
         for i, step in enumerate(steps, 1):
-            print(f"{left}\n{left}{BOLD}{i}. {step.get('title', step)}{RESET}")
+            # Get step type and create indicator
+            step_type = step.get("step_type", "") if isinstance(step, dict) else ""
+
+            # Placeholder: if no step_type, default to PlanStep
+            if not step_type and isinstance(step, dict):
+                step_type = "PlanStep"
+
+            # Shows the step type icon to Console
+            type_indicator = ""
+            if step_type == "PlanStep":
+                type_indicator = f"{BOLD}{GREEN}[R]{RESET} "
+            elif step_type == "SentinelPlanStep":
+                type_indicator = f"{BOLD}{YELLOW}[S]{RESET} "
+
+            # Shows the step title name to Console
+            step_title = (
+                step.get("title", step) if isinstance(step, dict) else str(step)
+            )
+            print(f"{left}\n{left}{BOLD}{i}. {type_indicator}{step_title}{RESET}")
             if isinstance(step, dict):
                 if step.get("details"):
                     _wrap(step["details"], 5)
@@ -246,6 +264,21 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
                     print(
                         f"{left}{' ' * 5}{BOLD}Agent:{RESET} {step['agent_name'].upper()}"
                     )
+                # Show step type information if available
+                if step_type:
+                    type_name = (
+                        "Regular Step" if step_type == "PlanStep" else "Sentinel Step"
+                    )
+                    print(f"{left}{' ' * 5}{BOLD}Type:{RESET} {type_name}")
+                    if step_type == "SentinelPlanStep":
+                        if step.get("counter"):
+                            print(
+                                f"{left}{' ' * 5}{BOLD}Counter:{RESET} {step['counter']}"
+                            )
+                        if step.get("sleep_duration"):
+                            print(
+                                f"{left}{' ' * 5}{BOLD}Sleep Duration:{RESET} {step['sleep_duration']}s"
+                            )
 
         # Always show acceptance prompt for full plans
         print()  # tail spacer
@@ -254,8 +287,37 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
     # Single‑step orchestrator JSON (title/index style)
     elif {"title", "index", "agent_name"}.issubset(obj):
         idx = obj["index"] + 1 if isinstance(obj.get("index"), int) else obj["index"]
-        print(f"{left}{BOLD}Step:{RESET} {idx}/{obj.get('plan_length', '?')}")
+
+        # Get step type and create indicator
+        step_type = obj.get("step_type", "")
+
+        # If no step_type, default to PlanStep
+        if not step_type:
+            step_type = "PlanStep"
+
+        type_indicator = ""
+        if step_type == "PlanStep":
+            type_indicator = f"{BOLD}{GREEN}[R]{RESET} "
+        elif step_type == "SentinelPlanStep":
+            type_indicator = f"{BOLD}{YELLOW}[S]{RESET} "
+
+        print(
+            f"{left}{BOLD}Step:{RESET} {type_indicator}{idx}/{obj.get('plan_length', '?')}"
+        )
         print(f"{left}{BOLD}Agent:{RESET} {obj['agent_name'].upper()}")
+
+        # Show step type information if available
+        if step_type:
+            type_name = "Regular Step" if step_type == "PlanStep" else "Sentinel Step"
+            print(f"{left}{BOLD}Type:{RESET} {type_name}")
+            if step_type == "SentinelPlanStep":
+                if obj.get("counter"):
+                    print(f"{left}    {BOLD}Counter:{RESET} {obj['counter']}")
+                if obj.get("sleep_duration"):
+                    print(
+                        f"{left}    {BOLD}Sleep Duration:{RESET} {obj['sleep_duration']}s"
+                    )
+
         if obj.get("details"):
             print(f"{left}{BOLD}Details:{RESET}")
             _wrap(obj["details"])

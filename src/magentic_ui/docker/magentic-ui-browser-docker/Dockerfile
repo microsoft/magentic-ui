@@ -64,6 +64,10 @@ WORKDIR /workspace
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+LABEL org.opencontainers.image.source=https://github.com/microsoft/magentic-ui
+LABEL org.opencontainers.image.description="Magentic UI Browser Docker container with Playwright and noVNC"
+LABEL org.opencontainers.image.licenses=MIT
+
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # Start services

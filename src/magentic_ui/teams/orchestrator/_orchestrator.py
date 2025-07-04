@@ -47,14 +47,14 @@ from ...utils import dict_to_str, thread_to_context
 from ...tools.bing_search import get_bing_search_results
 from ...teams.orchestrator.orchestrator_config import OrchestratorConfig
 from ._prompts import (
-    ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING,
-    ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING_AUTONOMOUS,
+    get_orchestrator_system_message_planning,
+    get_orchestrator_system_message_planning_autonomous,
+    get_orchestrator_plan_prompt_json,
+    get_orchestrator_plan_replan_json,
+    get_orchestrator_progress_ledger_prompt,
     ORCHESTRATOR_SYSTEM_MESSAGE_EXECUTION,
     ORCHESTRATOR_FINAL_ANSWER_PROMPT,
-    ORCHESTRATOR_PROGRESS_LEDGER_PROMPT,
     ORCHESTRATOR_TASK_LEDGER_FULL_FORMAT,
-    ORCHESTRATOR_PLAN_PROMPT_JSON,
-    ORCHESTRATOR_PLAN_REPLAN_JSON,
     INSTRUCTION_AGENT_FORMAT,
     validate_ledger_json,
     validate_plan_json,
@@ -226,12 +226,16 @@ class Orchestrator(BaseGroupChatManager):
     ) -> str:
         date_today = datetime.now().strftime("%Y-%m-%d")
         if self._config.autonomous_execution:
-            return ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING_AUTONOMOUS.format(
+            return get_orchestrator_system_message_planning_autonomous(
+                self._config.sentinel_tasks
+            ).format(
                 date_today=date_today,
                 team=self._team_description,
             )
         else:
-            return ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING.format(
+            return get_orchestrator_system_message_planning(
+                self._config.sentinel_tasks
+            ).format(
                 date_today=date_today,
                 team=self._team_description,
             )
@@ -244,7 +248,7 @@ class Orchestrator(BaseGroupChatManager):
                 + ", ".join(self._config.allowed_websites)
             )
 
-        return ORCHESTRATOR_PLAN_PROMPT_JSON.format(
+        return get_orchestrator_plan_prompt_json(self._config.sentinel_tasks).format(
             team=team, additional_instructions=additional_instructions
         )
 
@@ -257,7 +261,7 @@ class Orchestrator(BaseGroupChatManager):
                 "Only use the following websites if possible: "
                 + ", ".join(self._config.allowed_websites)
             )
-        return ORCHESTRATOR_PLAN_REPLAN_JSON.format(
+        return get_orchestrator_plan_replan_json(self._config.sentinel_tasks).format(
             task=task,
             team=team,
             plan=plan,
@@ -276,7 +280,9 @@ class Orchestrator(BaseGroupChatManager):
         additional_instructions = ""
         if self._config.autonomous_execution:
             additional_instructions = "VERY IMPORTANT: The next agent name cannot be the user or user_proxy, use any other agent."
-        return ORCHESTRATOR_PROGRESS_LEDGER_PROMPT.format(
+        return get_orchestrator_progress_ledger_prompt(
+            self._config.sentinel_tasks
+        ).format(
             task=task,
             plan=plan,
             step_index=step_index,
@@ -308,7 +314,7 @@ class Orchestrator(BaseGroupChatManager):
         return validate_ledger_json(json_response, self._agent_execution_names)
 
     def _validate_plan_json(self, json_response: Dict[str, Any]) -> bool:
-        return validate_plan_json(json_response)
+        return validate_plan_json(json_response, self._config.sentinel_tasks)
 
     async def validate_group_state(
         self, messages: List[BaseChatMessage] | None
