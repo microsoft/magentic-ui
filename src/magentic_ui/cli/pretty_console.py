@@ -29,51 +29,13 @@ BLACK_TEXT = "\033[30m"
 UNDERLINE = "\033[4m"
 
 # ╭────────────────────────────────────────────────────────────────────────────╮
-# │  Common INFO patterns pre‑compiled for speed                               │
+# │  Helper utilities                                                          │
 # ╰────────────────────────────────────────────────────────────────────────────╯
-INFO_REGEX = re.compile(
-    r"|".join(
-        [
-            r"Task received:",
-            r"Analyzing",
-            r"Submitting",
-            r"Reviewing",
-            r"checks passed",
-            r"Deciding which agent",
-            r"Received task:",
-            r"Searching for",
-            r"Processing",
-            r"Executing",
-            r"Reading file",
-            r"Writing to",
-            r"Running",
-            r"Starting",
-            r"Completed",
-            r"Looking up",
-            r"Loading",
-            r"Generating",
-            r"Creating",
-            r"Downloading",
-            r"Installing",
-            r"Checking",
-            r"Fetching",
-            r"Exploring",
-            r"Building",
-            r"Setting up",
-            r"Finding",
-            r"Identifying",
-            r"Testing",
-            r"Compiling",
-            r"Validating",
-            r"Cloning",
-        ]
-    )
+DEBUG_PRINT = (
+    False  # Set to True to enable additional debug prints, hardcoded on purpose
 )
 
 
-# ╭────────────────────────────────────────────────────────────────────────────╮
-# │  Helper utilities                                                          │
-# ╰────────────────────────────────────────────────────────────────────────────╯
 def _terminal_width(fallback: int = 100) -> int:
     """Return terminal width minus a 10‑column safety margin."""
     try:
@@ -93,24 +55,14 @@ def try_parse_json(raw: str) -> tuple[bool, Any]:
         return False, None
     try:
         return True, json.loads(raw)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError) as e:
+        # Print detailed error information to help with debugging
+        if sys.__stdout__ is not None and DEBUG_PRINT:
+            print(f"\n{RED}[JSON PARSE ERROR]{RESET} {type(e).__name__}: {str(e)}")
+            # Show a truncated version of the problematic content
+            preview = raw[:200] + "..." if len(raw) > 200 else raw
+            print(f"{RED}Problem content:{RESET}\n{preview}\n")
         return False, None
-
-
-# ╭────────────────────────────────────────────────────────────────────────────╮
-# │  Pretty‑printers                                                           │
-# ╰────────────────────────────────────────────────────────────────────────────╯
-
-
-def format_info_line(msg: str) -> str:
-    return f"{BOLD}{GREEN}[INFO]{RESET} {UNDERLINE}{msg}{RESET}"
-
-
-def is_info_message(msg: str) -> bool:
-    if INFO_REGEX.search(msg):
-        return True
-    # Verb in present‑participle at start ("Loading models…")
-    return bool(re.match(r"^\s*[A-Z][a-z]+ing\b", msg))
 
 
 # ╭────────────────────────────────────────────────────────────────────────────╮
@@ -153,7 +105,7 @@ def header_box(agent: str) -> str:
     mid = f"║{' ' * left}{text}{RESET}{colour}{' ' * right}║"
     bot = f"╚{'═' * INNER}╝{RESET}"
 
-    return f"\n{top}\n{mid}\n{bot}\n"
+    return f"\n{top}\n{mid}\n{bot}"
 
 
 def transition_line(prev: str, curr: str) -> str:
@@ -178,6 +130,11 @@ def pretty_print_json(raw: str, colour: str) -> bool:
     left = f"{colour}┃{RESET} "
     indent_json = json.dumps(obj, indent=2, ensure_ascii=False)
     indent_json = re.sub(r'"([^"\\]+)":', rf'"{BOLD}\1{RESET}":', indent_json)
+
+    if DEBUG_PRINT:
+        print("*_________________________________*")
+        print(obj)
+        print("*_________________________________*")
 
     print()  # top spacer
     for line in indent_json.splitlines():
@@ -211,32 +168,117 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
         for ln in textwrap.wrap(text, body_w - indent):
             print(f"{left}{' ' * indent}{ln}")
 
-    # Task / title
-    if "task" in obj:
-        print(f"{left}{BOLD}Task:{RESET} {obj['task']}")
-    elif "title" in obj:
-        print(f"{left}{BOLD}Plan:{RESET} {obj['title']}")
+    if DEBUG_PRINT:
+        print("---------x---------x---------x---------")  # top spacer
+        print(obj)
+        print("---------x---------x---------x---------")  # bottom spacer
+
+    # printing the ledger (step status and progress info)
+    if (
+        "is_current_step_complete" in obj
+        and "need_to_replan" in obj
+        and "instruction_or_question" in obj
+        and "progress_summary" in obj
+    ):
+        print(f"{left}{BOLD}━━━━━━━━━━ STATUS UPDATE ━━━━━━━━━━{RESET}")
+
+        # Current step completion status
+        step_complete = obj["is_current_step_complete"]
+        if isinstance(step_complete, dict) and "answer" in step_complete:
+            status = (
+                f"{GREEN}Yes{RESET}"
+                if step_complete["answer"]
+                else f"{YELLOW}No{RESET}"
+            )
+            print(f"{left}{BOLD}Current Step Complete:{RESET} {status}")
+
+            # Print reason if available
+            if "reason" in step_complete:
+                print(f"{left}{' ' * 3}{BOLD}Reason:{RESET}")
+                _wrap(step_complete["reason"], 5)
+        else:
+            # Simple boolean display if not in detailed format
+            status = f"{GREEN}Yes{RESET}" if step_complete else f"{YELLOW}No{RESET}"
+            print(f"{left}{BOLD}Current Step Complete:{RESET} {status}")
+
+        print(left)  # Add spacing between sections
+
+        # Need to replan status
+        replan = obj["need_to_replan"]
+        if isinstance(replan, dict) and "answer" in replan:
+            status = f"{YELLOW}Yes{RESET}" if replan["answer"] else f"{GREEN}No{RESET}"
+            print(f"{left}{BOLD}Need to Replan:{RESET} {status}")
+
+            # Print reason if available
+            if "reason" in replan:
+                print(f"{left}{' ' * 3}{BOLD}Reason:{RESET}")
+                _wrap(replan["reason"], 5)
+        else:
+            # Simple boolean display if not in detailed format
+            status = f"{YELLOW}Yes{RESET}" if replan else f"{GREEN}No{RESET}"
+            print(f"{left}{BOLD}Need to Replan:{RESET} {status}")
+
+        print(left)  # Add spacing between sections
+
+        # Instruction or question
+        instruction = obj["instruction_or_question"]
+        if isinstance(instruction, dict):
+            if "answer" in instruction:
+                print(f"{left}{BOLD}Next Action:{RESET}")
+                _wrap(instruction["answer"], 3)
+
+            # Show which agent will handle this instruction
+            if "agent_name" in instruction:
+                agent = instruction["agent_name"].upper()
+                print(f"{left}{' ' * 3}{BOLD}Agent:{RESET} {agent}")
+        else:
+            # Simple string display if not in detailed format
+            print(f"{left}{BOLD}Next Action:{RESET}")
+            _wrap(str(instruction), 3)
+
+        print(left)  # Add spacing between sections
+
+        # Progress summary
+        print(f"{left}{BOLD}Progress Summary:{RESET}")
+        _wrap(obj["progress_summary"], 3)
+        print(left)  # Add spacing between sections
+
+        print(f"{left}{BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}")
+
+    # Response
+    if obj.get("response"):
+        print(left)
+        print(f"{left}{BOLD}Response:{RESET}")
+        _wrap(obj["response"])
+
+    # Task
+    if obj.get("task"):
+        print(left)
+        print(f"{left}{BOLD}Task:{RESET}")
+        _wrap(obj["task"])
 
     # Summary
     if obj.get("plan_summary"):
-        print()  # tail spacer
+        print(left)
         print(f"{left}{BOLD}Plan Summary:{RESET}")
         _wrap(obj["plan_summary"])
 
-    # Is this a user proxy interaction? (Check agent name)
-    agent_name = obj.get("agent_name", "").lower()
-    is_user_proxy = "user" in agent_name and "proxy" in agent_name
+    # Needs Replan
+    if obj.get("needs_plan"):
+        print(left)  # new line using the bar "┃" icon
+        print(f"{left}{BOLD}Needs Plan:{RESET} {str(obj['needs_plan'])}")
 
     # Steps
     steps: list[dict[str, Any]] = obj.get("steps", []) or []
     if steps:
         print(f"{left}\n{left}{BOLD}Steps:{RESET}")
         for i, step in enumerate(steps, 1):
-            # Get step type and create indicator
-            step_type = step.get("step_type", "") if isinstance(step, dict) else ""
+            # print("-----STEP------", step, " NUMBER: ", i)
 
-            # Placeholder: if no step_type, default to PlanStep
-            if not step_type and isinstance(step, dict):
+            # Get step type and create indicator
+            if isinstance(step, dict) and step.get("step_type") == "SentinelPlanStep":
+                step_type = "SentinelPlanStep"
+            else:
                 step_type = "PlanStep"
 
             # Shows the step type icon to Console
@@ -250,89 +292,122 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
             step_title = (
                 step.get("title", step) if isinstance(step, dict) else str(step)
             )
-            print(f"{left}\n{left}{BOLD}{i}. {type_indicator}{step_title}{RESET}")
+            print(f"{left}{BOLD}{i}. {type_indicator}{step_title}{RESET}")
+
             if isinstance(step, dict):
+                # shows the details for a specific step
                 if step.get("details"):
+                    print(f"{left}{' ' * 3}{BOLD}Details:{RESET}")
                     _wrap(step["details"], 5)
+
+                # ---
                 if step.get("instruction"):
-                    print(f"{left}{' ' * 5}{BOLD}Instruction:{RESET}")
+                    print(f"{left}{' ' * 3}{BOLD}Instruction:{RESET}")
                     _wrap(step["instruction"], 7)
+
+                # ---
                 if step.get("progress_summary"):
-                    print(f"{left}{' ' * 5}{BOLD}Progress:{RESET}")
+                    print(f"{left}{' ' * 3}{BOLD}Progress Summary:{RESET}")
                     _wrap(step["progress_summary"], 7)
+
+                # shows which agent should perform the action for this step
                 if step.get("agent_name"):
                     print(
-                        f"{left}{' ' * 5}{BOLD}Agent:{RESET} {step['agent_name'].upper()}"
+                        f"{left}{' ' * 3}{BOLD}Agent:{RESET} {step['agent_name'].upper()}"
                     )
+
                 # Show step type information if available
                 if step_type:
                     type_name = (
                         "Regular Step" if step_type == "PlanStep" else "Sentinel Step"
                     )
-                    print(f"{left}{' ' * 5}{BOLD}Type:{RESET} {type_name}")
+                    print(f"{left}{' ' * 3}{BOLD}Type:{RESET} {type_name}")
                     if step_type == "SentinelPlanStep":
-                        if step.get("counter"):
+                        if step.get("condition"):
                             print(
-                                f"{left}{' ' * 5}{BOLD}Counter:{RESET} {step['counter']}"
+                                f"{left}{' ' * 5}{BOLD}Condition:{RESET} {step['condition']}"
                             )
                         if step.get("sleep_duration"):
                             print(
                                 f"{left}{' ' * 5}{BOLD}Sleep Duration:{RESET} {step['sleep_duration']}s"
                             )
 
+                print(left)  # new line using the bar "┃" icon
+
         # Always show acceptance prompt for full plans
         print()  # tail spacer
         print(f"{BOLD}{YELLOW}Type 'accept' to proceed or describe changes:{RESET}")
 
     # Single‑step orchestrator JSON (title/index style)
+    # Prints the information of the current step being processed
+    # --- need to find where to print the progress ledger
     elif {"title", "index", "agent_name"}.issubset(obj):
         idx = obj["index"] + 1 if isinstance(obj.get("index"), int) else obj["index"]
 
-        # Get step type and create indicator
-        step_type = obj.get("step_type", "")
+        if DEBUG_PRINT:
+            print("---------------------")
+            print(obj)
+            print("---------------------")
 
-        # If no step_type, default to PlanStep
-        if not step_type:
-            step_type = "PlanStep"
+        if "title" in obj:
+            print(left)
+            print(f"{left}{BOLD}Title:{RESET}")
+            _wrap(obj["title"])
 
-        type_indicator = ""
-        if step_type == "PlanStep":
-            type_indicator = f"{BOLD}{GREEN}[R]{RESET} "
-        elif step_type == "SentinelPlanStep":
-            type_indicator = f"{BOLD}{YELLOW}[S]{RESET} "
+        if "index" in obj:
+            print(left)
+            print(f"{left}{BOLD}Index:{RESET} {idx}")
 
-        print(
-            f"{left}{BOLD}Step:{RESET} {type_indicator}{idx}/{obj.get('plan_length', '?')}"
-        )
-        print(f"{left}{BOLD}Agent:{RESET} {obj['agent_name'].upper()}")
-
-        # Show step type information if available
-        if step_type:
-            type_name = "Regular Step" if step_type == "PlanStep" else "Sentinel Step"
-            print(f"{left}{BOLD}Type:{RESET} {type_name}")
-            if step_type == "SentinelPlanStep":
-                if obj.get("counter"):
-                    print(f"{left}    {BOLD}Counter:{RESET} {obj['counter']}")
-                if obj.get("sleep_duration"):
-                    print(
-                        f"{left}    {BOLD}Sleep Duration:{RESET} {obj['sleep_duration']}s"
-                    )
-
-        if obj.get("details"):
+        if "details" in obj:
+            print(left)
             print(f"{left}{BOLD}Details:{RESET}")
             _wrap(obj["details"])
-        if obj.get("instruction"):
+
+        if "agent_name" in obj:
+            print(left)
+            print(f"{left}{BOLD}Agent:{RESET} {obj['agent_name'].upper()}")
+
+        if "instruction" in obj:
+            print(left)
             print(f"{left}{BOLD}Instruction:{RESET}")
             _wrap(obj["instruction"])
-        if obj.get("progress_summary"):
+
+        if "progress_summary" in obj:
+            print(left)
             print(f"{left}{BOLD}Progress:{RESET}")
             _wrap(obj["progress_summary"])
 
+        if "plan_length" in obj:
+            print(left)
+            print(f"{left}{BOLD}Plan Length:{RESET} {obj['plan_length']} steps")
+
+        if "step_type" in obj:
+            step_type = (
+                "Sentinel Step"
+                if obj["step_type"] == "SentinelPlanStep"
+                else "Regular Step"
+            )
+            print(left)
+            print(f"{left}{BOLD}Type:{RESET} {step_type}")
+
+        if "condition" in obj:
+            print(left)
+            print(f"{left}{BOLD}Condition:{RESET} {obj['condition']}")
+
+        if "sleep_duration" in obj:
+            print(left)
+            print(f"{left}{BOLD}Sleep Duration:{RESET} {obj['sleep_duration']}s")
+
         print()  # tail spacer
+
+        # Is this a user proxy interaction? (Check agent name)
+        agent_name = obj.get("agent_name", "").lower()
+        is_user_proxy = "user" in agent_name and "proxy" in agent_name
 
         # Only show the prompt if this is a user proxy agent interaction
         if is_user_proxy:
             print(f"{BOLD}{YELLOW}Type 'accept' to proceed or describe changes:{RESET}")
+
     # If it's a full plan without steps, always show acceptance prompt
     elif "task" in obj or "plan_summary" in obj:
         print()  # tail spacer
@@ -340,12 +415,28 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
 
 
 def pretty_print_plan(raw: str, colour: str) -> bool:
+    if DEBUG_PRINT:
+        print("------------- RAW OUTPUT -------------")
+        print(raw)
+        print("--------------------------------------")
+
     ok, obj = try_parse_json(raw)
     if not ok:
         return False
-    if any(k in obj for k in ("task", "plan_summary", "steps", "title")):
+    if any(
+        k in obj
+        for k in (
+            "task",
+            "plan_summary",
+            "steps",
+            "title",
+            "is_current_step_complete",
+            "agent_name",
+        )
+    ):
         format_plan(obj, colour)
         return True
+
     return False
 
 
@@ -362,6 +453,121 @@ def try_format_step(raw: str, colour: str) -> bool:
         f"╚{'═' * (width - 4)}╝{RESET}\n"
     )
     print(f"{BOLD}{colour}┃{RESET} {obj['content']}\n")
+    return True
+
+
+# ╭────────────────────────────────────────────────────────────────────────────╮
+# │  Function to print Web_Surfer's Formatted Actions                          │
+# ╰────────────────────────────────────────────────────────────────────────────╯
+
+
+def format_web_surfer_actions(raw: str, colour: str) -> bool:
+    """Format and display Web Surfer actions and observations in a structured way."""
+    # Check if this is a Web Surfer action log
+    if (
+        not isinstance(raw, str)
+        or "The actions the websurfer performed are the following" not in raw
+    ):
+        return False
+
+    width = _terminal_width()
+    left = f"{colour}┃{RESET} "
+    body_w = width - len(left)
+
+    # Function to wrap text with proper indentation
+    def _wrap_text(text: str, indent: int = 0):
+        for line in text.splitlines():
+            if not line.strip():
+                print(f"{left}")  # Empty line
+                continue
+
+            if len(line) + indent <= body_w:
+                print(f"{left}{' ' * indent}{line}")
+            else:
+                for chunk in textwrap.wrap(line, width=body_w - indent):
+                    print(f"{left}{' ' * indent}{chunk}")
+
+    print(f"\n{BOLD}{colour}╔{'═' * (width - 4)}╗")
+    print(f"{colour}║ {BOLD}WEB SURFER ACTIONS{RESET}{colour}{' ' * (width - 20)}║")
+    print(f"{colour}╚{'═' * (width - 4)}╝{RESET}\n")
+
+    # Split the content into sections
+    content = raw.strip()
+    parts = content.split("Action: ")
+
+    # Handle the intro text
+    if parts[0]:
+        intro = parts[0].strip()
+        _wrap_text(intro)
+        print(f"{left}")  # Add spacing
+
+    # Process each action and observation pair
+    for i, part in enumerate(parts[1:], 1):
+        if not part.strip():
+            continue
+
+        # Split into action and observation
+        action_obs = part.split("Observation:", 1)
+
+        if len(action_obs) != 2:
+            # Malformed action/observation pair, just print it
+            print(f"{left}{BOLD}{YELLOW}Malformed action/observation:{RESET}")
+            _wrap_text(part, 2)
+            continue
+
+        action, observation = action_obs
+
+        # Extract action details
+        action = action.strip()
+
+        # Format and print the action
+        print(f"{left}{BOLD}Action #{i}:{RESET}")
+
+        # Check if this is a formatted action with JSON
+        if "(" in action and ")" in action:
+            action_name, action_params = action.split("(", 1)
+            action_params = action_params.rsplit(")", 1)[0]
+
+            print(f"{left}{' ' * 2}{BOLD}{BLUE}{action_name}{RESET}(")
+
+            # Try to parse the JSON parameters
+            try:
+                # Clean up the parameter string
+                action_params = action_params.strip()
+                if action_params.startswith("{") and action_params.endswith("}"):
+                    params_obj = json.loads(action_params)
+                    # Pretty print the parameters
+                    params_json = json.dumps(params_obj, indent=2)
+                    for line in params_json.splitlines():
+                        print(f"{left}{' ' * 4}{line}")
+                    print(f"{left}{' ' * 2})")
+                else:
+                    # Not JSON, just print the params
+                    _wrap_text(action_params, 4)
+                    print(f"{left}{' ' * 2})")
+            except json.JSONDecodeError:
+                # If JSON parsing fails, just print the params as text
+                _wrap_text(action_params, 4)
+                print(f"{left}{' ' * 2})")
+        else:
+            # Simple text action
+            _wrap_text(action, 2)
+
+        # Format and print the observation
+        observation = observation.strip()
+        print(f"{left}{' ' * 2}{BOLD}Observation:{RESET}")
+        _wrap_text(observation, 4)
+
+        # Add spacing between action/observation pairs
+        print(f"{left}")
+
+    # Check for webpage information at the end
+    if "We are at the following webpage" in content:
+        webpage_info = content.split("We are at the following webpage", 1)[1].strip()
+        print(f"{left}{BOLD}Current Webpage:{RESET}")
+        _wrap_text(webpage_info, 2)
+
+    print()  # Final spacing
     return True
 
 
@@ -425,9 +631,12 @@ async def _PrettyConsole(
                 colour = agent_color(src)
                 content = str(getattr(msg, "content", ""))
 
-                if is_info_message(content):
-                    print(format_info_line(content))
-                elif pretty_print_plan(content, colour):
+                # prints the web surfer output message
+                if src.lower() == "web_surfer" and format_web_surfer_actions(
+                    content, colour
+                ):
+                    pass
+                if pretty_print_plan(content, colour):
                     pass
                 elif pretty_print_json(content, colour):
                     pass
@@ -437,14 +646,33 @@ async def _PrettyConsole(
                     width = _terminal_width()
                     left = f"{colour}┃{RESET} "
                     body_w = width - len(left)
-                    for line in content.splitlines():
-                        if not line.strip():
+
+                    # Process all lines, preserving paragraph structure but ensuring consistent spacing
+                    lines = content.splitlines()
+                    i = 0
+                    while i < len(lines):
+                        # Skip multiple consecutive empty lines, but preserve paragraph breaks
+                        if not lines[i].strip():
+                            if (
+                                i > 0 and i < len(lines) - 1
+                            ):  # Only print paragraph breaks (not leading/trailing empty lines)
+                                print(f"{left}")
+                            i += 1
+                            # Skip additional empty lines
+                            while i < len(lines) and not lines[i].strip():
+                                i += 1
                             continue
+
+                        # Process non-empty line
+                        line = lines[i]
                         if len(line) <= body_w:
                             print(f"{left}{line}")
                         else:
-                            for chunk in textwrap.wrap(line, body_w):
+                            # Wrap long lines
+                            wrapped_chunks = textwrap.wrap(line, body_w)
+                            for chunk in wrapped_chunks:
                                 print(f"{left}{chunk}")
+                        i += 1
 
             # Event message (non‑chat)
             elif isinstance(msg, BaseAgentEvent):
@@ -453,6 +681,21 @@ async def _PrettyConsole(
                         f"{BOLD}{YELLOW}[EVENT]{RESET} "
                         f"{msg.__class__.__name__} from {getattr(msg, 'source', 'unknown')}"
                     )
+
+                # Special handling for user input requests - always show this regardless of debug mode
+                if msg.__class__.__name__ == "UserInputRequestedEvent":
+                    print(
+                        f"\n{BOLD}{GREEN}╭───────────────────────────────────────╮{RESET}"
+                    )
+                    print(
+                        f"{BOLD}{GREEN}│  Input requested - please type below  │{RESET}"
+                    )
+                    print(
+                        f"{BOLD}{GREEN}╰───────────────────────────────────────╯{RESET}"
+                    )
+                    print(f"{BOLD}{GREEN}> {RESET}", end="")
+                    if sys.__stdout__ is not None:
+                        sys.__stdout__.flush()  # Ensure prompt is displayed immediately
 
             # TaskResult / Response (final outputs)
             elif isinstance(msg, (TaskResult, Response)):
