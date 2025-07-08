@@ -349,7 +349,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             # TOOL_CLICK_FULL,
         ]
         self.did_lazy_init = False  # flag to check if we have initialized the browser
-        self._browser_just_initialized = False  # flag to track if browser was just initialized
+        self._browser_just_initialized = False
         self.is_paused = False
         self._pause_event = asyncio.Event()
         self.action_guard: BaseApprovalGuard | None = (
@@ -565,7 +565,11 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 )
 
                 # Send browser address message if this is the first time the browser is being used
-                if self._browser_just_initialized and isinstance(self._browser, VncDockerPlaywrightBrowser) and self._browser.novnc_port > 0:
+                if (
+                    self._browser_just_initialized
+                    and isinstance(self._browser, VncDockerPlaywrightBrowser)
+                    and self._browser.novnc_port > 0
+                ):
                     # Send browser address message after browser is initialized
                     yield TextMessage(
                         source="system",
