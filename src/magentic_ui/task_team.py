@@ -195,7 +195,6 @@ async def get_task_team(
             participants=[web_surfer, user_proxy],
             max_turns=10000,
         )
-        await team.lazy_init()
         return team
     coder_agent: CoderAgent | None = None
     file_surfer: FileSurfer | None = None
@@ -254,5 +253,4 @@ async def get_task_team(
         memory_provider=memory_provider,
     )
 
-    await team.lazy_init()
     return team

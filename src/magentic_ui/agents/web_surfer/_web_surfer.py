@@ -349,6 +349,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             # TOOL_CLICK_FULL,
         ]
         self.did_lazy_init = False  # flag to check if we have initialized the browser
+        self._browser_just_initialized = False  # flag to track if browser was just initialized
         self.is_paused = False
         self._pause_event = asyncio.Event()
         self.action_guard: BaseApprovalGuard | None = (
@@ -415,6 +416,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         # Prepare the debug directory -- which stores the screenshots generated throughout the process
         await self._set_debug_dir()
         self.did_lazy_init = True
+        self._browser_just_initialized = True
 
     async def pause(self) -> None:
         """Pause the WebSurfer agent."""
@@ -535,9 +537,6 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 )
             )
         non_action_tools = ["stop_action", "answer_question"]
-        # first make sure the page is accessible
-
-        assert self._page is not None
 
         # Set up the cancellation token for the code execution.
         llm_cancellation_token = CancellationToken()
@@ -564,6 +563,22 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 ) = await self._get_llm_response(
                     cancellation_token=llm_cancellation_token
                 )
+
+                # Send browser address message if this is the first time the browser is being used
+                if self._browser_just_initialized and isinstance(self._browser, VncDockerPlaywrightBrowser) and self._browser.novnc_port > 0:
+                    # Send browser address message after browser is initialized
+                    yield TextMessage(
+                        source="system",
+                        content=f"Browser noVNC address can be found at http://localhost:{self._browser.novnc_port}/vnc.html",
+                        metadata={
+                            "internal": "no",
+                            "type": "browser_address",
+                            "novnc_port": str(self._browser.novnc_port),
+                            "playwright_port": str(self._browser.playwright_port),
+                        },
+                    )
+                    # Reset the flag so we don't send the message again
+                    self._browser_just_initialized = False
                 final_usage = RequestUsage(
                     prompt_tokens=sum([u.prompt_tokens for u in self.model_usage]),
                     completion_tokens=sum(
@@ -2008,6 +2023,14 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         Returns:
             A dictionary containing the chat history and browser state
         """
+
+        if not self.did_lazy_init:
+            state = WebSurferState(
+                chat_history=self._chat_history,
+                browser_state=None,  # No browser state when not initialized
+            )
+            return state.model_dump()
+
         assert self._context is not None
         # Get the browser state and convert it to a dict
         browser_state = await save_browser_state(self._context, self._page)

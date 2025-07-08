@@ -324,17 +324,6 @@ class TeamManager:
                 )
                 known_files = {file["name"] for file in initial_files}
 
-                yield TextMessage(
-                    source="system",
-                    content=f"Browser noVNC address can be found at http://localhost:{_novnc_port}/vnc.html",
-                    metadata={
-                        "internal": "no",
-                        "type": "browser_address",
-                        "novnc_port": str(_novnc_port),
-                        "playwright_port": str(_playwright_port),
-                    },
-                )
-
                 async for message in self.team.run_stream(  # type: ignore
                     task=task, cancellation_token=cancellation_token
                 ):
