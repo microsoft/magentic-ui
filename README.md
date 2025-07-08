@@ -1,5 +1,5 @@
 <div align="center">
-<img src="docs/img/magui-readme-logo.png" alt="Magentic-UI Logo">
+<img src="docs/img/magui-readme-logo.svg" alt="Magentic-UI Logo">
 
 
 _Automate your web tasks while you stay in control_

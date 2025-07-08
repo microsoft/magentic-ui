@@ -6,14 +6,23 @@ build-backend = "hatchling.build"
 name = "magentic_ui"
 license = "MIT"
 dynamic = ["version"]
-description = ''
+description = "A research prototype of a human-centered interface powered by a multi-agent system"
 readme = "README.md"
 requires-python = ">=3.10"
-keywords = []
+keywords = ["agents", "browser-use", "multi-agent", "ai-assistant", "playwright", "web-automation"]
+authors = [
+    {name = "Microsoft Corporation", email = "magui@service.microsoft.com"}
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
     "autogen-agentchat==0.5.7",
@@ -40,6 +49,11 @@ dependencies = [
     "html2text",
     "psutil",
 ]
+
+[project.urls]
+Homepage = "https://github.com/microsoft/magentic-ui"
+Repository = "https://github.com/microsoft/magentic-ui"
+Issues = "https://github.com/microsoft/magentic-ui/issues"
 
 [project.optional-dependencies]
 eval = [
