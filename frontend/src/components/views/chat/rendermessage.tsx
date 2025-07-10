@@ -474,7 +474,6 @@ const RenderFinalAnswer: React.FC<RenderFinalAnswerProps> = memo(
             sessionId={sessionId}
             messageId={messageIdx}
             onSuccess={(planId: string) => {
-              console.log("Plan created with ID:", planId);
             }}
           />
         </div>
@@ -565,7 +564,6 @@ export const messageUtils = {
 
       return "";
     } catch (error) {
-      console.error("Failed to update plan:", error);
       return "";
     }
   },
@@ -585,7 +583,6 @@ const RenderUserMessage: React.FC<{
       try {
         return JSON.parse(parsedContent.metadata.attached_files);
       } catch (e) {
-        console.error("Failed to parse attached_files:", e);
         return [];
       }
     }
@@ -683,7 +680,6 @@ export const RenderMessage: React.FC<MessageProps> = memo(
         ? parseUserContent(message)
         : { text: message.content, metadata: message.metadata };
 
-      console.log(message.metadata)
 
     // Use new plan message check
     const isPlanMsg = messageUtils.isPlanMessage(message.metadata);

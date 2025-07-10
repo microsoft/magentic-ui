@@ -93,9 +93,23 @@ const RunView: React.FC<RunViewProps> = ({
   // Add this with other refs near the top of the component
   const buttonsContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Combine scroll behavior when messages or status change
+  // Track if user was at bottom before new messages
+  const wasAtBottomRef = useRef(true);
+  
+  // Check if user is at bottom before messages change
   useEffect(() => {
-    if (run.messages.length > 0 && threadContainerRef.current) {
+    if (threadContainerRef.current) {
+      const container = threadContainerRef.current;
+      const scrollTop = container.scrollTop;
+      const clientHeight = container.clientHeight;
+      const scrollHeight = container.scrollHeight;
+      wasAtBottomRef.current = scrollTop + clientHeight >= scrollHeight - 100 || run.messages.length === 0;
+    }
+  });
+
+  // Smart scrolling: only scroll to bottom if user was at the bottom before new content
+  useEffect(() => {
+    if (run.messages.length > 0 && threadContainerRef.current && wasAtBottomRef.current) {
       // Use a small delay to ensure the DOM has updated
       setTimeout(() => {
         const container = threadContainerRef.current;
@@ -113,7 +127,6 @@ const RunView: React.FC<RunViewProps> = ({
     );
     const lastBrowserAddressMsg =
       browserAddressMessages[browserAddressMessages.length - 1];
-    console.log("Last browserAddressMsg", lastBrowserAddressMsg);
     // only update if novncPort is it is different from the current novncPort
     if (
       lastBrowserAddressMsg &&
@@ -219,9 +232,6 @@ const RunView: React.FC<RunViewProps> = ({
   const handleToggleHide = async (messageIndex: number, expanded: boolean) => {
     // If a toggle operation is already in progress, ignore this request
     if (isTogglingRef.current) {
-      console.log(
-        "Something bad: Toggle operation already in progress, ignoring request"
-      );
       return;
     }
 
@@ -534,15 +544,23 @@ const RunView: React.FC<RunViewProps> = ({
   const isPlanMsg =
     lastMessage && messageUtils.isPlanMessage(lastMessage.config.metadata);
 
-  // Add this effect to handle scrolling when status changes
+  // Smart scrolling for approval buttons: only scroll if user is near the bottom
   useEffect(() => {
-    if (run.status === "awaiting_input" && buttonsContainerRef.current) {
+    if (run.status === "awaiting_input" && buttonsContainerRef.current && threadContainerRef.current) {
       // Use a small delay to ensure the DOM has updated
       setTimeout(() => {
-        buttonsContainerRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-        });
+        const container = threadContainerRef.current;
+        if (container) {
+          const isNearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 100; // 100px threshold
+          
+          // Only scroll to approval buttons if user is near the bottom
+          if (isNearBottom) {
+            buttonsContainerRef.current?.scrollIntoView({
+              behavior: "smooth",
+              block: "nearest",
+            });
+          }
+        }
       }, 100);
     }
   }, [run.status]);
