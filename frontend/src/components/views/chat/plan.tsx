@@ -179,7 +179,6 @@ const PlanView: React.FC<PlanProps> = ({
 
   const noop = () => {};
 
-  console.log("PlanView rendered with plan:", localPlan);
   return (
     <>
       {!viewOnly && onRegeneratePlan && (
