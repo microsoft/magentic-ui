@@ -564,6 +564,9 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                     cancellation_token=llm_cancellation_token
                 )
 
+                # Ensure page is ready after lazy initialization
+                assert self._page is not None, "Page should be initialized"
+
                 # Send browser address message if this is the first time the browser is being used
                 if (
                     self._browser_just_initialized
@@ -896,6 +899,8 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             )
         )
         try:
+            # Ensure page is ready for final response
+            assert self._page is not None, "Page should be initialized"
             (
                 message_content,
                 maybe_new_screenshot,
