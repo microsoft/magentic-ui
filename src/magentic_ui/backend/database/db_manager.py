@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import Any, List, Optional, Union, Dict
 
 from loguru import logger
-from sqlalchemy import exc, inspect, text
+from sqlalchemy import exc, inspect, text, event
+from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, and_, create_engine, select
 
 from ..datamodel import DatabaseModel, Response, Team
@@ -24,9 +25,70 @@ class DatabaseManager:
             engine_uri (str): Database connection URI (e.g. sqlite:///db.sqlite3)
             base_dir (Path, optional): Base directory for migration files. If None, uses current directory. Default: None.
         """
-        connection_args = {"check_same_thread": True} if "sqlite" in engine_uri else {}
+        connection_args: Dict[str, Any] = (
+            {"check_same_thread": False} if "sqlite" in engine_uri else {}
+        )
 
-        self.engine = create_engine(engine_uri, connect_args=connection_args)
+        # Configure database-specific connection pooling
+        pool_kwargs: Dict[str, Any] = {}
+        if "sqlite" in engine_uri:
+            connection_args.update(
+                {
+                    "timeout": 15,  # 30 second timeout for lock waits
+                    "isolation_level": None,  # Disable SQLAlchemy's transaction management
+                }
+            )
+            # SQLite with StaticPool - simplified pool configuration
+            pool_kwargs = {
+                "poolclass": StaticPool,
+                "pool_pre_ping": True,
+                "pool_recycle": 3600,
+            }
+        else:
+            # PostgreSQL, MySQL, etc. - full pool configuration
+            pool_kwargs = {
+                "pool_size": 20,
+                "max_overflow": 0,
+                "pool_pre_ping": True,
+                "pool_recycle": 3600,
+                "pool_timeout": 15,
+            }
+
+        self.engine = create_engine(
+            engine_uri,
+            connect_args=connection_args,
+            **pool_kwargs,
+            echo=False,  # Disable SQL logging for performance
+        )
+
+        # Set up automatic SQLite optimization for all connections
+        if "sqlite" in engine_uri:
+
+            @event.listens_for(self.engine, "connect")
+            def set_sqlite_pragma(  # pyright: ignore[reportUnusedFunction]
+                dbapi_connection: Any, _connection_record: Any
+            ) -> None:
+                cursor = dbapi_connection.cursor()
+                # Critical performance and concurrency settings
+                cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA synchronous=NORMAL")
+                cursor.execute("PRAGMA cache_size=100000")
+                cursor.execute("PRAGMA temp_store=MEMORY")
+                cursor.execute("PRAGMA mmap_size=268435456")
+                cursor.execute("PRAGMA page_size=8192")
+                cursor.execute("PRAGMA wal_autocheckpoint=1000")
+
+                # Critical for concurrency
+                cursor.execute("PRAGMA busy_timeout=15000")  # 15 second timeout
+                cursor.execute(
+                    "PRAGMA read_uncommitted=ON"
+                )  # Allow dirty reads for better concurrency
+                cursor.execute("PRAGMA wal_checkpoint=TRUNCATE")  # Optimize WAL file
+
+                cursor.execute("PRAGMA optimize")
+                cursor.close()
+
         self.schema_manager = SchemaManager(
             engine=self.engine,
             base_dir=base_dir,
@@ -55,10 +117,6 @@ class DatabaseManager:
             )
 
         try:
-            # Enable foreign key constraints for SQLite
-            if "sqlite" in str(self.engine.url):
-                with self.engine.connect() as conn:
-                    conn.execute(text("PRAGMA foreign_keys=ON"))
             inspector = inspect(self.engine)
             tables_exist = inspector.get_table_names()
             if not tables_exist:
@@ -205,7 +263,18 @@ class DatabaseManager:
         return_json: bool = False,
         order: str = "desc",
     ) -> Response:
-        """List entities"""
+        """
+        Retrieve entities from the database with optional filtering and ordering.
+
+        Args:
+            model_class: The SQLModel class to query
+            filters: Optional dictionary of column-value pairs to filter by
+            return_json: Whether to return data as JSON dict or SQLModel instances
+            order: Sort order ('asc' or 'desc') for created_at field
+
+        Returns:
+            Response: Contains retrieved entities in the data field
+        """
         with Session(self.engine) as session:
             result = []
             status = True
@@ -254,8 +323,6 @@ class DatabaseManager:
 
         with Session(self.engine) as session:
             try:
-                if "sqlite" in str(self.engine.url):
-                    session.connection().execute(text("PRAGMA foreign_keys=ON"))
                 statement = select(model_class)
                 if filters:
                     conditions = [
