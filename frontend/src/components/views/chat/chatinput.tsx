@@ -63,13 +63,13 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       onSubmit,
       error,
       disabled = false,
-      onCancel,
+      onCancel: _onCancel,
       runStatus,
       inputRequest,
       isPlanMessage = false,
       onPause,
       enable_upload = false,
-      onExecutePlan,
+      onExecutePlan: _onExecutePlan,
     },
     ref
   ) => {
@@ -88,7 +88,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
     const [relevantPlans, setRelevantPlans] = React.useState<any[]>([]);
     const [allPlans, setAllPlans] = React.useState<any[]>([]);
     const [attachedPlan, setAttachedPlan] = React.useState<IPlan | null>(null);
-    const [isLoading, setIsLoading] = React.useState(false);
+    const [, setIsLoading] = React.useState(false);
     const userId = user?.email || "default_user";
     const [isRelevantPlansVisible, setIsRelevantPlansVisible] =
       React.useState(false);
@@ -604,12 +604,13 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
           >
             {/* Attached Plan */}
             {attachedPlan && (
-              <div
+              <button
+                type="button"
                 className={`flex items-center gap-1 ${
                   darkMode === "dark"
                     ? "bg-[#444444] text-white"
                     : "bg-white text-black"
-                } rounded px-2 py-1 text-xs cursor-pointer hover:opacity-80 transition-opacity`}
+                } rounded px-2 py-1 text-xs cursor-pointer hover:opacity-80 transition-opacity border-0`}
                 onClick={handlePlanClick}
               >
                 <span className="truncate max-w-[150px]">
@@ -625,7 +626,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                   }}
                   icon={<XIcon className="w-3 h-3" />}
                 />
-              </div>
+              </button>
             )}
 
             {/* Attached Files */}
@@ -822,5 +823,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
     );
   }
 );
+
+ChatInput.displayName = 'ChatInput';
 
 export default ChatInput;

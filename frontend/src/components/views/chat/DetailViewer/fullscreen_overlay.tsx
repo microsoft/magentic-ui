@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import FeedbackForm from "./FeedbackForm";
+import { IPlan } from "../../../types/plan";
 
 interface FullscreenOverlayProps {
   isVisible: boolean;

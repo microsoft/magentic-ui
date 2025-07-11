@@ -22,7 +22,7 @@ interface VncScreenProps {
 }
 // Lazy load the VNC component
 const VncScreen = lazy<React.ComponentType<VncScreenProps>>(() =>
-  // @ts-ignore
+  // @ts-expect-error - react-vnc module types are not available
   import("react-vnc").then((module) => ({ default: module.VncScreen }))
 );
 
@@ -45,6 +45,7 @@ interface DetailViewerProps {
     accepted?: boolean,
     plan?: IPlan
   ) => void;
+  viewMode?: "iframe" | "vnc";
 }
 
 type TabType = "screenshots" | "live";
@@ -62,20 +63,19 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
   onTabChange,
   detailViewerContainerId,
   onInputResponse,
+  viewMode = "iframe",
 }) => {
   const [internalActiveTab, setInternalActiveTab] = useState<TabType>("live");
   const activeTab = controlledActiveTab ?? internalActiveTab;
-  const [viewMode, setViewMode] = useState<"iframe" | "novnc">("iframe");
   const vncRef = useRef();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Add state for fullscreen control mode
   const [isControlMode, setIsControlMode] = useState(false);
-  const browserIframeId = "browser-iframe-container";
 
   // State for tracking if control was handed back from modal
-  const [showControlHandoverForm, setShowControlHandoverForm] = useState(false);
+  const [, setShowControlHandoverForm] = useState(false);
 
   const config = useSettingsStore((state) => state.config);
 
@@ -214,8 +214,8 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
         ) : (
           <div
             className="relative w-full h-full flex flex-col"
-            onMouseEnter={() => {}} // Moved overlay to BrowserIframe
-            onMouseLeave={() => {}} // Moved overlay to BrowserIframe
+            onMouseEnter={() => { }} // Moved overlay to BrowserIframe
+            onMouseLeave={() => { }} // Moved overlay to BrowserIframe
           >
             <Suspense fallback={<div>Loading VNC viewer...</div>}>
               <VncScreen
@@ -249,21 +249,19 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
         <div className="flex justify-between items-center mb-4 border-b flex-shrink-0">
           <div className="flex">
             <button
-              className={`px-6 py-2 font-medium rounded-t-lg transition-colors ${
-                activeTab === "screenshots"
+              className={`px-6 py-2 font-medium rounded-t-lg transition-colors ${activeTab === "screenshots"
                   ? "bg-secondary text-primary border-2 border-b-0 border-primary"
                   : "text-secondary hover:text-primary hover:bg-secondary/10"
-              }`}
+                }`}
               onClick={() => handleTabChange("screenshots")}
             >
               Screenshots
             </button>
             <button
-              className={`px-6 py-2 font-medium rounded-t-lg transition-colors ${
-                activeTab === "live"
+              className={`px-6 py-2 font-medium rounded-t-lg transition-colors ${activeTab === "live"
                   ? "bg-secondary text-primary border-2 border-b-0 border-primary"
                   : "text-secondary hover:text-primary hover:bg-secondary/10"
-              }`}
+                }`}
               onClick={() => handleTabChange("live")}
             >
               Live View

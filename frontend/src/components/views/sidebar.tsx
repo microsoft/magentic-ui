@@ -6,7 +6,6 @@ import {
   Trash2,
   InfoIcon,
   RefreshCcw,
-  Loader2,
   FileText,
   Archive,
   MoreVertical,
@@ -37,7 +36,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   sessions,
   currentSession,
-  onToggle,
   onSelectSession,
   onEditSession,
   onDeleteSession,
@@ -103,13 +101,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const renderSessionGroup = (sessions: Session[]) => (
     <>
       {sessions.map((s) => {
-        const status = s.id ? sessionRunStatuses[s.id] : undefined;
-        const isActive = status ? [
+        const status = sessionRunStatuses[s.id as keyof typeof sessionRunStatuses];
+        const isActive = [
           "active",
           "awaiting_input",
           "pausing",
           "paused",
-        ].includes(status) : false;
+        ].includes(status);
         return (
           <div key={s.id} className="relative">
             <div
@@ -117,12 +115,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 isLoading
                   ? "pointer-events-none opacity-50"
                   : "cursor-pointer hover:bg-tertiary"
-              } ${
-                currentSession?.id === s.id
+                } ${currentSession?.id === s.id
                   ? " border-l-2 border-magenta-800 bg-secondary"
                   : ""
-              }`}
+                }`}
               onClick={() => !isLoading && onSelectSession(s)}
+              onKeyDown={(e) => !isLoading && (e.key === 'Enter' || e.key === ' ') && onSelectSession(s)}
+              role="button"
+              tabIndex={0}
+              aria-label={`Select session ${s.name}`}
             >
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <span className="truncate text-sm max-w-[140px]">

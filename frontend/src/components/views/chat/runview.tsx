@@ -164,7 +164,7 @@ const RunView: React.FC<RunViewProps> = ({
         Array.isArray(msg.config.content) &&
         msg.config.metadata?.type === "browser_screenshot"
       ) {
-        msg.config.content.forEach((item: any, itemIndex: number) => {
+        msg.config.content.forEach((item: any, _itemIndex: number) => {
           if (typeof item === "object" && ("url" in item || "data" in item)) {
             const imageUrl =
               ("url" in item && item.url) ||
@@ -414,12 +414,13 @@ const RunView: React.FC<RunViewProps> = ({
                     // delay for 100ms
                     await new Promise((resolve) => setTimeout(resolve, 100));
                   }
-                } catch {}
+                } catch {
+                  // Ignore errors when waiting for additional messages
+                }
               }
             }
             continue;
           }
-          const content = JSON.parse(msg.config.content);
 
           // If this is a step execution that's not repeated
           if (
@@ -439,11 +440,15 @@ const RunView: React.FC<RunViewProps> = ({
                       await new Promise((resolve) => setTimeout(resolve, 100));
                     }
                   }
-                } catch {}
+                } catch {
+                  // Ignore errors when processing step execution
+                }
               }
             }
           }
-        } catch {}
+        } catch {
+          // Ignore errors when processing messages
+        }
       }
 
       if (

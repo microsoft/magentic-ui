@@ -12,13 +12,10 @@ import {
   Flex,
   message,
   Modal,
-  Select,
   Tabs,
   Typography,
 } from "antd";
 import { validateAll } from "./validation";
-
-const { Option } = Select;
 
 interface SettingsMenuProps {
   isOpen: boolean;
@@ -87,7 +84,7 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
           console.error("Failed to save settings:", error);
         }
       }
-      
+
       onClose();
     }
 
@@ -98,13 +95,13 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
       label: "General",
       children: (
         <>
-        <Typography.Text strong>General Settings</Typography.Text>
-        <Divider />
-        <GeneralSettings
-          darkMode={darkMode}
-          setDarkMode={setDarkMode}
-          config={config}
-          handleUpdateConfig={handleUpdateConfig}
+          <Typography.Text strong>General Settings</Typography.Text>
+          <Divider />
+          <GeneralSettings
+            darkMode={darkMode}
+            setDarkMode={setDarkMode}
+            config={config}
+            handleUpdateConfig={handleUpdateConfig}
           />
         </>
       ),
@@ -113,11 +110,11 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
       label: "Agent Settings",
       children: (
         <>
-        <Typography.Text strong>Agent Settings</Typography.Text>
-        <Divider />
-        <AgentSettingsTab
-          config={config}
-          handleUpdateConfig={handleUpdateConfig}
+          <Typography.Text strong>Agent Settings</Typography.Text>
+          <Divider />
+          <AgentSettingsTab
+            config={config}
+            handleUpdateConfig={handleUpdateConfig}
           />
         </>
       ),
@@ -126,12 +123,12 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
       label: "Advanced Settings",
       children: (
         <>
-        <Typography.Text strong>Advanced Settings</Typography.Text>
-        <Divider />
-        <AdvancedConfigEditor
-          config={config}
-          darkMode={darkMode}
-          handleUpdateConfig={handleUpdateConfig}
+          <Typography.Text strong>Advanced Settings</Typography.Text>
+          <Divider />
+          <AdvancedConfigEditor
+            config={config}
+            darkMode={darkMode}
+            handleUpdateConfig={handleUpdateConfig}
           />
         </>
       ),
@@ -142,28 +139,28 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
     <>
       <Modal
         open={isOpen}
-        style={{maxHeight: 800, overflow: 'auto' }}
+        style={{ maxHeight: 800, overflow: 'auto' }}
 
         onCancel={handleClose}
         closable={true}
         width={800}
         height={800}
         footer={[
-          <Flex gap="large" justify="start" align="center">
+          <Flex key="footer-flex" gap="large" justify="start" align="center">
             <Button key="reset" onClick={handleResetDefaults}>
               Reset to Defaults
             </Button>
             {hasChanges && (
-                <Typography.Text italic type="warning">
-                  Warning: Settings changes will only apply when you create a new session
-                </Typography.Text>
+              <Typography.Text italic type="warning">
+                Warning: Settings changes will only apply when you create a new session
+              </Typography.Text>
             )}
           </Flex>
         ]}
       >
         <Tabs
           tabPosition="left"
-          items={Object.entries(tabItems).map(([key, {label, children}]) => ({key, label, children}))}
+          items={Object.entries(tabItems).map(([key, { label, children }]) => ({ key, label, children }))}
         />
       </Modal>
       <SignInModal
