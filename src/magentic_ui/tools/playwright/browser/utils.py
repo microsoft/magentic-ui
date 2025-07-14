@@ -1,7 +1,7 @@
 import socket
+import os
 from pathlib import Path
-from typing import Tuple
-
+from typing import Optional, Tuple
 from autogen_core import ComponentModel
 
 from .base_playwright_browser import PlaywrightBrowser
@@ -19,13 +19,13 @@ def get_available_port() -> tuple[int, socket.socket]:
     port = s.getsockname()[1]
     return port, s
 
-
 def _get_docker_browser_resource_config(
     bind_dir: Path,
     novnc_port: int,
     playwright_port: int,
     inside_docker: bool,
     headless: bool,
+    network_name: str="my-network",
 ) -> Tuple[PlaywrightBrowser, int, int]:
     if playwright_port == -1:
         playwright_port, sock = get_available_port()
@@ -46,6 +46,7 @@ def _get_docker_browser_resource_config(
             playwright_port=playwright_port,
             novnc_port=novnc_port,
             inside_docker=inside_docker,
+            network_name=network_name
         )
 
     return browser, novnc_port, playwright_port
@@ -58,6 +59,7 @@ def get_browser_resource_config(
     inside_docker: bool = True,
     headless: bool = True,
     local: bool = False,
+    network_name: Optional[str] = None,
 ) -> Tuple[ComponentModel, int, int]:
     """
     Create a VNC Docker Playwright Browser Resource configuration. The requested ports for novnc and playwright may be overwritten. The final values for each port number will be in the return value.
@@ -83,6 +85,7 @@ def get_browser_resource_config(
             playwright_port=playwright_port,
             inside_docker=inside_docker,
             headless=headless,
+            network_name=network_name or os.getenv("NETWORK_NAME", "my-network"),
         )
 
     return browser.dump_component(), novnc_port, playwright_port

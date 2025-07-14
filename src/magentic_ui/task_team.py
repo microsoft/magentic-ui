@@ -89,6 +89,7 @@ async def get_task_team(
             headless=magentic_ui_config.browser_headless,
             local=magentic_ui_config.browser_local
             or magentic_ui_config.run_without_docker,
+            network_name=magentic_ui_config.network_name,
         )
     )
 

@@ -121,6 +121,8 @@ async def learn_plan(
                     "provider": "OpenAIChatCompletionClient",
                     "config": {
                         "model": "gpt-4o-2024-08-06",
+                        "base_url": os.environ.get("OPENAI_BASE_URL"),
+                        "api_key": os.environ.get("OPENAI_API_KEY"),
                     },
                     "max_retries": 5,
                 }
