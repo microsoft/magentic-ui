@@ -26,7 +26,7 @@ classifiers = [
 ]
 dependencies = [
     "autogen-agentchat==0.5.7",
-    "autogen-core==0.5.7",
+    "autogen-core==0.6.4",
     "autogen-ext[openai,docker,file-surfer,web-surfer,magentic-one,task-centric-memory,mcp]==0.5.7",
     "aioconsole",
     "nest_asyncio",
