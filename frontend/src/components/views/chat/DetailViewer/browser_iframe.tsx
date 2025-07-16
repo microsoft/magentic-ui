@@ -33,7 +33,7 @@ const BrowserIframe: React.FC<BrowserIframeProps> = ({
   serverUrl,
 }) => {
 
-  // 获取当前访问地址的 hostname
+  // Get the hostname of the current access address
   const currentHostname = window.location.hostname;
 
   // 如果 serverUrl 未提供，使用当前 hostname
