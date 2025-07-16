@@ -50,6 +50,7 @@ from ._prompts import (
     get_orchestrator_system_message_planning,
     get_orchestrator_system_message_planning_autonomous,
     get_orchestrator_plan_prompt_json,
+    get_orchestrator_enhanced_plan_prompt_json,
     get_orchestrator_plan_replan_json,
     get_orchestrator_progress_ledger_prompt,
     ORCHESTRATOR_SYSTEM_MESSAGE_EXECUTION,
@@ -58,6 +59,7 @@ from ._prompts import (
     INSTRUCTION_AGENT_FORMAT,
     validate_ledger_json,
     validate_plan_json,
+    validate_enhanced_plan_json,
 )
 from ._utils import is_accepted_str, extract_json_from_string
 from loguru import logger as trace_logger
@@ -182,6 +184,8 @@ class Orchestrator(BaseGroupChatManager):
         # Setup internal variables
         self._setup_internals()
 
+        self.enhanced_plan = True
+
     def _setup_internals(self) -> None:
         """
         Setup internal variables used in orchestrator
@@ -252,6 +256,18 @@ class Orchestrator(BaseGroupChatManager):
             team=team, additional_instructions=additional_instructions
         )
 
+    def _get_task_ledger_plan_prompt_enhanced(self, team: str, user_query: str) -> str:
+        additional_instructions = ""
+        if self._config.allowed_websites is not None:
+            additional_instructions = (
+                "Only use the following websites if possible: "
+                + ", ".join(self._config.allowed_websites)
+            )
+
+        return get_orchestrator_enhanced_plan_prompt_json().format(
+            team=team, additional_instructions=additional_instructions,user_query=user_query
+        )
+
     def _get_task_ledger_replan_plan_prompt(
         self, task: str, team: str, plan: str
     ) -> str:
@@ -315,6 +331,9 @@ class Orchestrator(BaseGroupChatManager):
 
     def _validate_plan_json(self, json_response: Dict[str, Any]) -> bool:
         return validate_plan_json(json_response, self._config.sentinel_tasks)
+    
+    def _validate_enhanced_plan_json(self, json_response: Dict[str, Any]) -> bool:
+        return validate_enhanced_plan_json(json_response)
 
     async def validate_group_state(
         self, messages: List[BaseChatMessage] | None
@@ -393,6 +412,25 @@ class Orchestrator(BaseGroupChatManager):
             topic_id=DefaultTopicId(type=next_speaker_topic_type),
             cancellation_token=cancellation_token,
         )
+
+    async def change_format(self,response):
+        output = {
+            "terms": response.get('terms', ''),
+            'response': response.get('response', ''),
+            'task': response.get('task', {}),
+            'plan_summary': response.get('plan_summary', ''),
+            'needs_plan': response.get('needs_plan', False),
+            'steps': []
+            }
+        for step in response.get('steps', {}).values():
+            agent_name = step.get('agent_name', '')
+            for substep in step.get('substeps', {}).values():
+                output['steps'].append({
+                    'title': substep['title'],
+                    'details': substep['details'],
+                    'agent_name': agent_name
+                })
+        return output
 
     async def _get_json_response(
         self,
@@ -757,15 +795,28 @@ class Orchestrator(BaseGroupChatManager):
                 await self._handle_relevant_plan_from_memory(context=context)
 
             # create a first plan
-            context.append(
+            if self.enhanced_plan:
+                user_query = context[1].content
+                context.append(
                 UserMessage(
-                    content=self._get_task_ledger_plan_prompt(self._team_description),
+                    content=self._get_task_ledger_plan_prompt_enhanced(self._team_description,user_query),
                     source=self._name,
+                ))
+                plan_response = await self._get_json_response(
+                context, self._validate_enhanced_plan_json, cancellation_token
                 )
-            )
-            plan_response = await self._get_json_response(
-                context, self._validate_plan_json, cancellation_token
-            )
+                plan_response = await self.change_format(plan_response)
+            else:
+                context.append(
+                    UserMessage(
+                        content=self._get_task_ledger_plan_prompt(self._team_description),
+                        source=self._name,
+                    )
+                )
+                plan_response = await self._get_json_response(
+                    context, self._validate_plan_json, cancellation_token
+                )
+
             if self._state.is_paused:
                 # let user speak next if paused
                 await self._request_next_speaker(
@@ -817,17 +868,30 @@ class Orchestrator(BaseGroupChatManager):
                         )
                 if self._config.retrieve_relevant_plans == "hint":
                     await self._handle_relevant_plan_from_memory(context=context)
-                context.append(
+
+                if self.enhanced_plan:
+                    user_query = context[1].content
+                    context.append(
                     UserMessage(
-                        content=self._get_task_ledger_plan_prompt(
-                            self._team_description
-                        ),
+                        content=self._get_task_ledger_plan_prompt_enhanced(self._team_description,user_query),
                         source=self._name,
+                    ))
+                    plan_response = await self._get_json_response(
+                    context, self._validate_enhanced_plan_json, cancellation_token
                     )
-                )
-                plan_response = await self._get_json_response(
-                    context, self._validate_plan_json, cancellation_token
-                )
+                    plan_response = await self.change_format(plan_response)
+                else:
+                    context.append(
+                        UserMessage(
+                            content=self._get_task_ledger_plan_prompt(
+                                self._team_description
+                            ),
+                            source=self._name,
+                        )
+                    )
+                    plan_response = await self._get_json_response(
+                        context, self._validate_plan_json, cancellation_token
+                    )
                 if self._state.is_paused:
                     # let user speak next if paused
                     await self._request_next_speaker(
