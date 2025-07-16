@@ -91,7 +91,7 @@ from ._tool_definitions import (
     TOOL_SELECT_OPTION,
     TOOL_CREATE_TAB,
     TOOL_SWITCH_TAB,
-    #TOOL_CLOSE_TAB,
+    # TOOL_CLOSE_TAB,
     TOOL_KEYPRESS,
     TOOL_REFRESH_PAGE,
     # TOOL_UPLOAD_FILE,
@@ -1049,7 +1049,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         # If there are multiple tabs, we can switch between them and close them
         if not self.single_tab_mode and num_tabs > 1:
             tools.append(TOOL_SWITCH_TAB)
-            #tools.append(TOOL_CLOSE_TAB)
+            # tools.append(TOOL_CLOSE_TAB)
 
         # We can scroll up
         if viewport["pageTop"] > 5:
