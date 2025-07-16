@@ -116,4 +116,4 @@ class MagenticUIConfig(BaseModel):
     sentinel_tasks: bool = False
     run_without_docker: bool = False
     browser_headless: bool = False
-    network_name: Optional[str] = None
+    network_name: str = "my-network"

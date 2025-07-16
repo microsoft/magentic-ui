@@ -1,7 +1,6 @@
 import socket
-import os
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Tuple
 from autogen_core import ComponentModel
 
 from .base_playwright_browser import PlaywrightBrowser
@@ -18,6 +17,7 @@ def get_available_port() -> tuple[int, socket.socket]:
     s.bind(("127.0.0.1", 0))
     port = s.getsockname()[1]
     return port, s
+
 
 def _get_docker_browser_resource_config(
     bind_dir: Path,
@@ -46,7 +46,7 @@ def _get_docker_browser_resource_config(
             playwright_port=playwright_port,
             novnc_port=novnc_port,
             inside_docker=inside_docker,
-            network_name=network_name
+            network_name=network_name,
         )
 
     return browser, novnc_port, playwright_port
@@ -59,7 +59,7 @@ def get_browser_resource_config(
     inside_docker: bool = True,
     headless: bool = True,
     local: bool = False,
-    network_name: Optional[str] = None,
+    network_name: str = "my-network",
 ) -> Tuple[ComponentModel, int, int]:
     """
     Create a VNC Docker Playwright Browser Resource configuration. The requested ports for novnc and playwright may be overwritten. The final values for each port number will be in the return value.
@@ -68,7 +68,10 @@ def get_browser_resource_config(
         bind_dir (str): Directory to bind for the browser resource.
         novnc_port (int, optional): Port for the noVNC server. Default: -1 (auto-assign).
         playwright_port (int, optional): Port for the Playwright browser. Default: -1 (auto-assign).
-
+        inside_docker (bool, optional): Whether the browser is running inside Docker. Default: True.
+        headless (bool, optional): Whether the browser is running in headless mode. Default: True.
+        local (bool, optional): Whether the browser is running locally. Default: False.
+        network_name (str, optional): Name of the Docker network to use. Default: "my-network".
     Returns:
         A tuple containing the following:
             - VncDockerPlaywrightBrowserResource: Configured browser resource.
@@ -85,7 +88,7 @@ def get_browser_resource_config(
             playwright_port=playwright_port,
             inside_docker=inside_docker,
             headless=headless,
-            network_name=network_name or os.getenv("NETWORK_NAME", "my-network"),
+            network_name=network_name,
         )
 
     return browser.dump_component(), novnc_port, playwright_port

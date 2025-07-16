@@ -190,6 +190,7 @@ class VncDockerPlaywrightBrowser(
             novnc_port=self._novnc_port,
             playwright_websocket_path=self._playwright_websocket_path,
             inside_docker=self._inside_docker,
+            network_name=self._network_name,
         )
 
     @classmethod
