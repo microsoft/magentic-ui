@@ -25,7 +25,7 @@ def _get_docker_browser_resource_config(
     playwright_port: int,
     inside_docker: bool,
     headless: bool,
-    network_name: str="my-network",
+    network_name: str = "my-network",
 ) -> Tuple[PlaywrightBrowser, int, int]:
     if playwright_port == -1:
         playwright_port, sock = get_available_port()
