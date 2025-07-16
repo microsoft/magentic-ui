@@ -301,7 +301,6 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
 
     const searchPlans = React.useCallback(
       debounce((query: string) => {
-        console.log("Search request with query:", query);
 
         // Don't search if query is too short, no plans available, or plan is already attached
         if (
@@ -349,7 +348,6 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
             setIsRelevantPlansVisible(false);
           }
         } catch (error) {
-          console.error("Error searching plans:", error);
         } finally {
           setIsSearching(false);
         }

@@ -6,7 +6,6 @@ import logging
 from pathlib import Path
 import secrets
 import socket
-
 from autogen_core import Component
 import docker
 from docker.models.containers import Container
@@ -30,6 +29,7 @@ class VncDockerPlaywrightBrowserConfig(BaseModel):
     novnc_port: int = 6080
     playwright_websocket_path: str | None = None
     inside_docker: bool = True
+    network_name: str = "my-network"
 
 
 class VncDockerPlaywrightBrowser(
@@ -190,6 +190,7 @@ class VncDockerPlaywrightBrowser(
             novnc_port=self._novnc_port,
             playwright_websocket_path=self._playwright_websocket_path,
             inside_docker=self._inside_docker,
+            network_name=self._network_name,
         )
 
     @classmethod
@@ -203,4 +204,5 @@ class VncDockerPlaywrightBrowser(
             novnc_port=config.novnc_port,
             playwright_websocket_path=config.playwright_websocket_path,
             inside_docker=config.inside_docker,
+            network_name=config.network_name,
         )

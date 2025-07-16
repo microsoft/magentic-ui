@@ -116,15 +116,17 @@ async def learn_plan(
             model_client = ChatCompletionClient.load_component(plan_learning_config)
         else:
             # If nothing was provided, use a safe default
-            model_client = ChatCompletionClient.load_component(
-                {
-                    "provider": "OpenAIChatCompletionClient",
-                    "config": {
-                        "model": "gpt-4o-2024-08-06",
-                    },
-                    "max_retries": 5,
-                }
-            )
+            gpt4o_config = {
+                "provider": "OpenAIChatCompletionClient",
+                "config": {
+                    "model": "gpt-4o-2024-08-06",
+                    "api_key": os.environ.get("OPENAI_API_KEY"),
+                },
+                "max_retries": 5,
+            }
+            if os.environ.get("OPENAI_BASE_URL"):
+                gpt4o_config["config"]["base_url"] = os.environ.get("OPENAI_BASE_URL")
+            model_client = ChatCompletionClient.load_component(gpt4o_config)
 
         # 1. Retrieve messages from database
         runs_result = await list_session_runs(

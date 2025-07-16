@@ -70,7 +70,6 @@ export const SessionManager: React.FC = () => {
         setSession(data[0]);
       } else {
         if (data.length === 0) {
-          console.log("No sessions found, creating default session...");
           createDefaultSession();
         }
       }
