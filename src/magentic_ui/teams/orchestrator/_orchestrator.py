@@ -168,6 +168,7 @@ class Orchestrator(BaseGroupChatManager):
             self._config.memory_controller_key
             and self._model_client
             and self._memory_provider is not None
+            and self._config.retrieve_relevant_plans in ["hint", "reuse"]
         ):
             try:
                 provider = self._memory_provider

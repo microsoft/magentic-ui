@@ -506,6 +506,30 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             AsyncGenerator: A stream of `BaseChatMessage` or `Response` objects.
         """
         # only keep last message and any MultiModalMessages
+        await self.lazy_init()
+
+        # Ensure page is ready after lazy initialization
+        assert self._page is not None, "Page should be initialized"
+
+        # Send browser address message if this is the first time the browser is being used
+        if (
+            self._browser_just_initialized
+            and isinstance(self._browser, VncDockerPlaywrightBrowser)
+            and self._browser.novnc_port > 0
+        ):
+            # Send browser address message after browser is initialized
+            yield TextMessage(
+                source="system",
+                content=f"Browser noVNC address can be found at http://localhost:{self._browser.novnc_port}/vnc.html",
+                metadata={
+                    "internal": "no",
+                    "type": "browser_address",
+                    "novnc_port": str(self._browser.novnc_port),
+                    "playwright_port": str(self._browser.playwright_port),
+                },
+            )
+            # Reset the flag so we don't send the message again
+            self._browser_just_initialized = False
         for i, chat_message in enumerate(messages):
             if isinstance(chat_message, MultiModalMessage):
                 self._chat_history.append(
@@ -564,28 +588,6 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                     cancellation_token=llm_cancellation_token
                 )
 
-                # Ensure page is ready after lazy initialization
-                assert self._page is not None, "Page should be initialized"
-
-                # Send browser address message if this is the first time the browser is being used
-                if (
-                    self._browser_just_initialized
-                    and isinstance(self._browser, VncDockerPlaywrightBrowser)
-                    and self._browser.novnc_port > 0
-                ):
-                    # Send browser address message after browser is initialized
-                    yield TextMessage(
-                        source="system",
-                        content=f"Browser noVNC address can be found at http://localhost:{self._browser.novnc_port}/vnc.html",
-                        metadata={
-                            "internal": "no",
-                            "type": "browser_address",
-                            "novnc_port": str(self._browser.novnc_port),
-                            "playwright_port": str(self._browser.playwright_port),
-                        },
-                    )
-                    # Reset the flag so we don't send the message again
-                    self._browser_just_initialized = False
                 final_usage = RequestUsage(
                     prompt_tokens=sum([u.prompt_tokens for u in self.model_usage]),
                     completion_tokens=sum(
@@ -973,11 +975,6 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 - Dict[str, str]: Mapping of element IDs
                 - bool: Boolean indicating if tool execution is needed
         """
-
-        # Lazy init, initialize the browser and the page on the first generate reply only
-        if not self.did_lazy_init:
-            await self.lazy_init()
-
         try:
             assert self._page is not None
             assert (

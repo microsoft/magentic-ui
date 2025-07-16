@@ -353,6 +353,7 @@ class TeamManager:
                             file
                             for file in new_files
                             if not file["name"].startswith("tmp_code")
+                            and not file["name"].startswith("supervisord.pid")
                         ]
                         if len(new_files) > 0:
                             file_message = TextMessage(

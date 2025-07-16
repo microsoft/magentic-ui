@@ -392,7 +392,7 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
         self.is_paused = False
         self._paused = asyncio.Event()
         self._approval_guard = approval_guard
-
+        self._did_lazy_init = False
         if work_dir is None:
             self._work_dir = Path(tempfile.mkdtemp())
             self._cleanup_work_dir = True
@@ -419,11 +419,14 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
         This method is called after initialization to set up any async resources
         needed by the code executor.
         """
+        if self._did_lazy_init:
+            return
         if self._code_executor:
             # check if the code executor has a start method
             if hasattr(self._code_executor, "start"):
                 # TODO: we should add a no-op start() method to the base class.
                 await self._code_executor.start()  # type: ignore
+        self._did_lazy_init = True
 
     async def close(self) -> None:
         """Clean up resources used by the agent.
