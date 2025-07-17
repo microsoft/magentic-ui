@@ -12,6 +12,7 @@ from docker.models.containers import Container
 from pydantic import BaseModel
 
 from .base_playwright_browser import DockerPlaywrightBrowser
+from ...._docker import BROWSER_IMAGE
 
 
 # Configure logging
@@ -66,8 +67,7 @@ class VncDockerPlaywrightBrowser(
         ```
 
     Note:
-        Requires the Docker image 'magentic-ui-vnc-browser' to be available locally.
-        Build using the Dockerfile in docker/browser-docker directory.
+        Requires the Docker image to be available locally.
     """
 
     component_config_schema = VncDockerPlaywrightBrowserConfig
@@ -77,7 +77,7 @@ class VncDockerPlaywrightBrowser(
         self,
         *,
         bind_dir: Path,
-        image: str = "magentic-ui-vnc-browser",
+        image: str = BROWSER_IMAGE,
         playwright_port: int = 37367,
         playwright_websocket_path: str | None = None,
         novnc_port: int = 6080,

@@ -23,10 +23,10 @@ jobs:
       matrix:
         image:
           - name: magentic-ui-browser
-            context: src/magentic_ui/docker/magentic-ui-browser-docker
+            context: docker/magentic-ui-browser-docker
             registry_name: microsoft/magentic-ui-browser
           - name: magentic-ui-python-env
-            context: src/magentic_ui/docker/magentic-ui-python-env
+            context: docker/magentic-ui-python-env
             registry_name: microsoft/magentic-ui-python-env
 
     steps:

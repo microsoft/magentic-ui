@@ -24,8 +24,8 @@ from ._docker import (
     check_docker_running,
     check_browser_image,
     check_python_image,
-    build_browser_image,
-    build_python_image,
+    pull_browser_image,
+    pull_python_image,
 )
 
 BOLD = "\033[1m"
@@ -638,7 +638,7 @@ def main() -> None:
             )
 
     if not args.run_without_docker:
-        # Check Docker and build images if necessary
+        # Check Docker and pull images if necessary
         log_debug("Checking Docker setup...", args.debug)
         logger.info("Checking if Docker is running...")
 
@@ -648,27 +648,27 @@ def main() -> None:
         else:
             logger.success("Docker is running")
 
-        # Check and build Docker images if needed
+        # Check and pull Docker images if needed
         logger.info("Checking Docker vnc browser image...")
         if not check_browser_image():
-            logger.warning("VNC browser image needs to be built")
-            logger.info("Building Docker vnc image (this WILL take a few minutes)")
-            build_browser_image()
+            logger.warning("VNC browser image needs to be pulled")
+            logger.info("Pulling Docker vnc image (this WILL take a few minutes)")
+            pull_browser_image()
         else:
             logger.success("VNC browser image is available")
 
         logger.info("Checking Docker python image...")
         if not check_python_image():
-            logger.warning("Python image needs to be built")
-            logger.info("Building Docker python image (this WILL take a few minutes)")
-            build_python_image()
+            logger.warning("Python image needs to be pulled")
+            logger.info("Pulling Docker python image (this WILL take a few minutes)")
+            pull_python_image()
         else:
             logger.success("Python image is available")
 
-        # Verify Docker images exist after attempted build
+        # Verify Docker images exist after attempted pull
         if not check_browser_image() or not check_python_image():
             logger.error(
-                "Docker images not found. Please build the images and try again."
+                "Docker images not found. Please pull or build the images and try again."
             )
             sys.exit(1)
 
