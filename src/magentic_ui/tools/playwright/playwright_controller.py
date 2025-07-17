@@ -544,6 +544,47 @@ class PlaywrightController:
             # Regular instant scroll
             await page.evaluate(f"window.scrollBy(0, -{scroll_amount});")
 
+    async def scroll_mousewheel(
+        self, page: Page, direction: str, pixels: int = 400
+    ) -> None:
+        """
+        Scroll the page using mouse wheel for a specific number of pixels.
+        Updates cursor position if animations are enabled.
+
+        Args:
+            page (Page): The Playwright page object.
+            direction (str): Direction to scroll ("up" or "down").
+            pixels (int, optional): Number of pixels to scroll. Default: 400.
+        """
+        await self._ensure_page_ready(page)
+
+        # Determine scroll direction (negative for up, positive for down)
+        scroll_amount = pixels if direction.lower() == "down" else -pixels
+
+        if self.animate_actions:
+            # Smooth scrolling in smaller increments
+            steps = 8  # Number of steps for smooth scrolling
+            step_amount = scroll_amount / steps
+            for _ in range(steps):
+                await page.evaluate(f"window.scrollBy(0, {step_amount});")
+                await asyncio.sleep(0.03)  # Small delay between steps
+
+            # Move cursor with the scroll using gradual animation
+            x, y = self.last_cursor_position
+            # Calculate new cursor position relative to scroll direction
+            cursor_offset = min(pixels / 3, 100)  # Limit cursor movement
+            new_y = (
+                y - cursor_offset if direction.lower() == "down" else y + cursor_offset
+            )
+            new_y = max(0, min(new_y, self.viewport_height))
+            await self._animation.gradual_cursor_animation(page, x, y, x, new_y)
+        else:
+            # Regular instant scroll
+            await page.evaluate(f"window.scrollBy(0, {scroll_amount});")
+
+        if self._sleep_after_action > 0:
+            await page.wait_for_timeout(self._sleep_after_action * 1000)
+
     async def click_id(
         self,
         context: BrowserContext,

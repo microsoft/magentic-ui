@@ -156,6 +156,58 @@ TOOL_PAGE_DOWN: ToolSchema = load_tool(
     }
 )
 
+TOOL_SCROLL_DOWN: ToolSchema = load_tool(
+    {
+        "type": "function",
+        "function": {
+            "name": "scroll_down",
+            "description": "Scrolls down on the current page using mouse wheel for 400 pixels.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "explanation": {
+                        "type": "string",
+                        "description": EXPLANATION_TOOL_PROMPT,
+                    },
+                    # "pixels": {
+                    #     "type": "integer",
+                    #     "description": "Number of pixels to scroll down. Default is 400 pixels.",
+                    #     "default": 400,
+                    # },
+                },
+                "required": ["explanation"],
+            },
+        },
+        "metadata": {"requires_approval": "never"},
+    }
+)
+
+TOOL_SCROLL_UP: ToolSchema = load_tool(
+    {
+        "type": "function",
+        "function": {
+            "name": "scroll_up",
+            "description": "Scrolls up on the current page using mouse wheel for 400 pixels.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "explanation": {
+                        "type": "string",
+                        "description": EXPLANATION_TOOL_PROMPT,
+                    },
+                    # "pixels": {
+                    #     "type": "integer",
+                    #     "description": "Number of pixels to scroll up. Default is 400 pixels.",
+                    #     "default": 400,
+                    # },
+                },
+                "required": ["explanation"],
+            },
+        },
+        "metadata": {"requires_approval": "never"},
+    }
+)
+
 TOOL_CLICK: ToolSchema = load_tool(
     {
         "type": "function",
