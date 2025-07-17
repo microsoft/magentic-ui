@@ -438,8 +438,39 @@ export default function ChatView({
     });
   };
 
+  const uploadFiles = async (files: RcFile[], runId: number) => {
+    if (files.length === 0) return [];
+
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    try {
+      const response = await fetch(`${serverUrl}/runs/${runId}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      if (!result.status) {
+        throw new Error(result.message || "Upload failed");
+      }
+
+      return result.files || [];
+    } catch (error) {
+      console.error("File upload error:", error);
+      throw error;
+    }
+  };
+
   const handleInputResponse = async (
     response: string,
+    files: RcFile[] = [],
     accepted = false,
     plan?: IPlan
   ) => {
@@ -454,6 +485,44 @@ export default function ChatView({
     }
 
     try {
+      // Upload files first if any are provided
+      let processedFiles: Array<{ name: string; content: string; type: string; uploaded?: boolean; path?: string; size?: number }> = [];
+      if (files.length > 0) {
+        try {
+          const uploadedFiles = await uploadFiles(files, Number(currentRun.id));
+          // For images, keep the base64 content for immediate display
+          // For other files, use file references
+          processedFiles = await Promise.all(
+            files.map(async (file, index) => {
+              if (file.type.startsWith("image/")) {
+                // For images, convert to base64 for immediate display
+                const base64Files = await convertFilesToBase64([file]);
+                return base64Files[0];
+              } else {
+                // For other files, use file reference
+                const uploadedFile = uploadedFiles[index];
+                return {
+                  name: file.name,
+                  type: file.type,
+                  content: `[FILE_UPLOADED: ${uploadedFile.relative_path}]`,
+                  uploaded: true,
+                  path: uploadedFile.relative_path,
+                  size: uploadedFile.size,
+                };
+              }
+            })
+          );
+        } catch (error) {
+          console.error("File upload failed:", error);
+          message.error("File upload failed. Continuing with response...");
+          // Fall back to base64 conversion for images only
+          const imageFiles = files.filter(f => f.type.startsWith("image/"));
+          if (imageFiles.length > 0) {
+            processedFiles = await convertFilesToBase64(imageFiles);
+          }
+        }
+      }
+
       // Check if the last message is a plan
       const lastMessage = currentRun.messages.slice(-1)[0];
       var planString = "";
@@ -466,9 +535,17 @@ export default function ChatView({
         planString = convertPlanStepsToJsonString(updatedPlan);
       }
 
+      // Add uploaded file information to the response
+      let enhancedResponse = response;
+      const uploadedFilesList = processedFiles.filter(f => f.uploaded);
+      if (uploadedFilesList.length > 0) {
+        const filesList = uploadedFilesList.map(f => f.name).join(", ");
+        enhancedResponse = `Uploaded files: ${filesList}\n\n${response}`;
+      }
+
       const responseJson = {
         accepted: accepted,
-        content: response,
+        content: enhancedResponse,
         ...(planString !== "" && { plan: planString }),
       };
       const responseString = JSON.stringify(responseJson);
@@ -477,6 +554,7 @@ export default function ChatView({
         JSON.stringify({
           type: "input_response",
           response: responseString,
+          files: processedFiles,
         })
       );
 
@@ -652,13 +730,58 @@ export default function ChatView({
         };
         checkState();
       });
-      const processedFiles = await convertFilesToBase64(files);
+      // Upload files first, then create file references for non-images
+      let processedFiles: Array<{ name: string; content: string; type: string; uploaded?: boolean; path?: string; size?: number }> = [];
+      if (files.length > 0) {
+        try {
+          const uploadedFiles = await uploadFiles(files, Number(run.id));
+          // For images, keep the base64 content for immediate display
+          // For other files, use file references
+          processedFiles = await Promise.all(
+            files.map(async (file, index) => {
+              if (file.type.startsWith("image/")) {
+                // For images, convert to base64 for immediate display
+                const base64Files = await convertFilesToBase64([file]);
+                return base64Files[0];
+              } else {
+                // For other files, use file reference
+                const uploadedFile = uploadedFiles[index];
+                return {
+                  name: file.name,
+                  type: file.type,
+                  content: `[FILE_UPLOADED: ${uploadedFile.relative_path}]`,
+                  uploaded: true,
+                  path: uploadedFile.relative_path,
+                  size: uploadedFile.size,
+                };
+              }
+            })
+          );
+        } catch (error) {
+          console.error("File upload failed:", error);
+          message.error("File upload failed. Continuing with task...");
+          // Fall back to base64 conversion for images only
+          const imageFiles = files.filter(f => f.type.startsWith("image/"));
+          if (imageFiles.length > 0) {
+            processedFiles = await convertFilesToBase64(imageFiles);
+          }
+        }
+      }
+
       // Send start message
+      
+      // Add uploaded file information to the query
+      let enhancedQuery = query;
+      const uploadedFilesList = processedFiles.filter(f => f.uploaded);
+      if (uploadedFilesList.length > 0) {
+        const filesList = uploadedFilesList.map(f => f.name).join(", ");
+        enhancedQuery = `Uploaded files: ${filesList}\n\n${query}`;
+      }
 
       var planString = plan ? convertPlanStepsToJsonString(plan.steps) : "";
 
       const taskJson = {
-        content: query,
+        content: enhancedQuery,
         ...(planString !== "" && { plan: planString }),
       };
 
@@ -939,20 +1062,20 @@ export default function ChatView({
   // Add these handlers before the return statement
   const handleApprove = () => {
     if (currentRun?.status === "awaiting_input") {
-      handleInputResponse("approve", true);
+      handleInputResponse("approve", [], true);
     }
   };
 
   const handleDeny = () => {
     if (currentRun?.status === "awaiting_input") {
-      handleInputResponse("deny", false);
+      handleInputResponse("deny", [], false);
     }
   };
 
   const handleAcceptPlan = (text: string) => {
     if (currentRun?.status === "awaiting_input") {
       const query = text || "Plan Accepted";
-      handleInputResponse(query, true);
+      handleInputResponse(query, [], true);
     }
   };
 
@@ -1026,7 +1149,7 @@ export default function ChatView({
                     error={error}
                     chatInputRef={chatInputRef}
                     onExecutePlan={handleExecutePlan}
-                    enable_upload={false} // Or true if needed
+                    enable_upload={true} // Or true if needed
                   />
                 )}
               </>
@@ -1059,7 +1182,7 @@ export default function ChatView({
                       currentRun?.status === "awaiting_input" ||
                       currentRun?.status === "paused"
                     ) {
-                      handleInputResponse(query, accepted, plan);
+                      handleInputResponse(query, files, accepted, plan);
                     } else {
                       runTask(query, files, plan, true);
                     }

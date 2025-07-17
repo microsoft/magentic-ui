@@ -29,11 +29,24 @@ def construct_task(
     images: List[Image] = []
     text_parts: List[str] = []
     messages_return: Sequence[ChatMessage] = []
-    attached_files: List[Dict[str, str]] = []
+    attached_files: List[Dict[str, Any]] = []
     # Process each file based on its type
     for file in files:
         try:
-            if file.get("type", "").startswith("image/"):
+            # Check if this is an uploaded file reference
+            if file.get("uploaded") and file.get("path"):
+                # Handle uploaded file by path reference
+                file_path = file.get("path", "")
+                text_parts.append(f"Attached file: {file.get('name', 'unknown.file')}")
+                attached_files.append(
+                    {
+                        "name": file.get("name", "unknown.file"),
+                        "type": file.get("type", "file"),
+                        "path": file_path,
+                        "uploaded": True,
+                    }
+                )
+            elif file.get("type", "").startswith("image/"):
                 # Handle image file using from_base64 method
                 image = Image.from_base64(file["content"])
                 images.append(image)
@@ -46,7 +59,7 @@ def construct_task(
                     }
                 )
             else:
-                # Handle all other files as text
+                # Handle all other files as text (base64 encoded content)
                 try:
                     text_content = base64.b64decode(file["content"]).decode("utf-8")
                     text_parts.append(

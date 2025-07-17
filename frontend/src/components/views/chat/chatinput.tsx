@@ -25,16 +25,10 @@ import RelevantPlans from "./relevant_plans";
 import { IPlan } from "../../types/plan";
 import PlanView from "./plan";
 
-// Maximum file size in bytes (5MB)
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
-// Allowed file types
-const ALLOWED_FILE_TYPES = [
-  "text/plain",
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/svg+xml",
-];
+// Maximum file size in bytes (100MB)
+const MAX_FILE_SIZE = 100 * 1024 * 1024;
+// Allowed file types - now allowing all files
+const ALLOWED_FILE_TYPES: string[] = [];
 
 // Threshold for large text files (in characters)
 const LARGE_TEXT_THRESHOLD = 1500;
@@ -194,9 +188,9 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
               setFileList((prev) => [...prev, uploadFile]);
 
               // Show successful paste notification
-              message.success(`Image pasted successfully`);
+              message.success(`File pasted successfully`);
             } else if (file && file.size > MAX_FILE_SIZE) {
-              message.error(`Pasted image is too large. Maximum size is 5MB.`);
+              message.error(`Pasted file is too large. Maximum size is 100MB.`);
             }
           }
 
@@ -434,18 +428,17 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
     const handleFileValidationAndAdd = (file: File): boolean => {
       // Check file size
       if (file.size > MAX_FILE_SIZE) {
-        message.error(`${file.name} is too large. Maximum size is 5MB.`);
+        message.error(`${file.name} is too large. Maximum size is 50MB.`);
         return false;
       }
 
-      // Check file type
-      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      // Check file type - allow all file types now
+      if (ALLOWED_FILE_TYPES.length > 0 && !ALLOWED_FILE_TYPES.includes(file.type)) {
         notificationApi.warning({
           message: <span className="text-sm">Unsupported File Type</span>,
           description: (
             <span className="text-sm text-secondary">
-              Please upload only text (.txt) or images (.jpg, .png, .gif, .svg)
-              files.
+              This file type is not currently supported.
             </span>
           ),
           duration: 8.5,
@@ -492,10 +485,30 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
 
     const getFileIcon = (file: UploadFile) => {
       const fileType = file.type || "";
+      const fileName = file.name || "";
+      
       if (fileType.startsWith("image/")) {
         return <ImageIcon className="w-4 h-4" />;
       }
-      return <FileTextIcon className="w-4 h-4" />;
+      
+      // Check for specific file types based on extension
+      const extension = fileName.split('.').pop()?.toLowerCase();
+      switch (extension) {
+        case 'pdf':
+          return <FileTextIcon className="w-4 h-4 text-red-500" />;
+        case 'doc':
+        case 'docx':
+          return <FileTextIcon className="w-4 h-4 text-blue-500" />;
+        case 'xls':
+        case 'xlsx':
+          return <FileTextIcon className="w-4 h-4 text-green-500" />;
+        case 'zip':
+        case 'rar':
+        case '7z':
+          return <FileTextIcon className="w-4 h-4 text-yellow-500" />;
+        default:
+          return <FileTextIcon className="w-4 h-4" />;
+      }
     };
 
     // Add drag and drop handlers

@@ -12,6 +12,7 @@ import BrowserModal from "./DetailViewer/browser_modal";
 import FullscreenOverlay from "./DetailViewer/fullscreen_overlay"; // Import our new component
 import { IPlan } from "../../types/plan";
 import { useSettingsStore } from "../../store";
+import { RcFile } from "antd/es/upload";
 // Define VNC component props type
 interface VncScreenProps {
   url: string;
@@ -42,6 +43,7 @@ interface DetailViewerProps {
   detailViewerContainerId?: string;
   onInputResponse?: (
     response: string,
+    files: RcFile[],
     accepted?: boolean,
     plan?: IPlan
   ) => void;
