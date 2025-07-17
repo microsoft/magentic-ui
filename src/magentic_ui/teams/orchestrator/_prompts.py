@@ -18,7 +18,11 @@ ORCHESTRATOR_FINAL_ANSWER_PROMPT = """
 
     Based on the information gathered, provide a final response to the user in response to the task.
 
-    Make sure the user can easily verify your answer, include links if there are any. Make sure to include any links.
+    Make sure the user can easily verify your answer, include links if there are any. 
+
+    Please refer to steps of the plan that was used to complete the task. Use the steps as a way to help the user verify your answer.
+
+    Make sure to also say whether the answer was found using online search or from your own knowledge.
 
     There is no need to be verbose, but make sure it contains enough information for the user.
 """
@@ -70,7 +74,7 @@ def get_orchestrator_system_message_planning(
 
     - is the user request missing information and can benefit from clarification? For instance, if the user asks "book a flight", the request is missing information about the destination, date and we should ask for clarification before proceeding. Do not ask to clarify more than once, after the first clarification, give a plan.
     - is the user request something that can be answered from the context of the conversation history without executing code, or browsing the internet or executing other tools? If so, we should answer the question directly in as much detail as possible.
-
+        When you answer without a plan and your answer includes factual information, make sure to say whether the answer was found using online search or from your own internal knowledge.
 
     Case 1: If the above is true, then we should provide our answer in the "response" field and set "needs_plan" to False.
 
@@ -577,6 +581,8 @@ def get_orchestrator_plan_prompt_json(sentinel_tasks_enabled: bool = False) -> s
         Remember, there is no requirement to involve all team members -- a team member's particular expertise may not be needed for this task.
 
         {additional_instructions}
+
+        When you answer without a plan and your answer includes factual information, make sure to say whether the answer was found using online search or from your own internal knowledge.
 
         Your plan should should be a sequence of steps that will complete the task."""
 
