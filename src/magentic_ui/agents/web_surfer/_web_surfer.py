@@ -80,8 +80,8 @@ from ._tool_definitions import (
     TOOL_CLICK,
     TOOL_HISTORY_BACK,
     TOOL_HOVER,
-    TOOL_PAGE_DOWN,
-    TOOL_PAGE_UP,
+    # TOOL_PAGE_DOWN,
+    # TOOL_PAGE_UP,
     TOOL_READ_PAGE_AND_ANSWER,
     TOOL_SLEEP,
     TOOL_TYPE,
@@ -91,9 +91,11 @@ from ._tool_definitions import (
     TOOL_SELECT_OPTION,
     TOOL_CREATE_TAB,
     TOOL_SWITCH_TAB,
-    TOOL_CLOSE_TAB,
+    # TOOL_CLOSE_TAB,
     TOOL_KEYPRESS,
     TOOL_REFRESH_PAGE,
+    TOOL_SCROLL_DOWN,
+    TOOL_SCROLL_UP,
     # TOOL_UPLOAD_FILE,
     # TOOL_CLICK_FULL,
 )
@@ -346,6 +348,8 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             TOOL_HISTORY_BACK,
             TOOL_KEYPRESS,
             TOOL_REFRESH_PAGE,
+            TOOL_SCROLL_DOWN,
+            TOOL_SCROLL_UP,
             # TOOL_CLICK_FULL,
         ]
         self.did_lazy_init = False  # flag to check if we have initialized the browser
@@ -1008,7 +1012,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
 
         # Ask the page for interactive elements, then prepare the state-of-mark screenshot
         rects = await self._playwright_controller.get_interactive_rects(self._page)
-        viewport = await self._playwright_controller.get_visual_viewport(self._page)
+        # viewport = await self._playwright_controller.get_visual_viewport(self._page)
         screenshot = await self._playwright_controller.get_screenshot(self._page)
         som_screenshot, visible_rects, rects_above, rects_below, element_id_mapping = (
             add_set_of_mark(screenshot, rects, use_sequential_ids=True)
@@ -1049,15 +1053,15 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         # If there are multiple tabs, we can switch between them and close them
         if not self.single_tab_mode and num_tabs > 1:
             tools.append(TOOL_SWITCH_TAB)
-            tools.append(TOOL_CLOSE_TAB)
+            # tools.append(TOOL_CLOSE_TAB)
 
         # We can scroll up
-        if viewport["pageTop"] > 5:
-            tools.append(TOOL_PAGE_UP)
+        # if viewport["pageTop"] > 5:
+        #    tools.append(TOOL_PAGE_UP)
 
         # Can scroll down
-        if (viewport["pageTop"] + viewport["height"] + 5) < viewport["scrollHeight"]:
-            tools.append(TOOL_PAGE_DOWN)
+        # if (viewport["pageTop"] + viewport["height"] + 5) < viewport["scrollHeight"]:
+        #    tools.append(TOOL_PAGE_DOWN)
 
         # Add select_option tool only if there are option elements
         if any(rect.get("role") == "option" for rect in rects.values()):
@@ -1387,6 +1391,18 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         assert self._page is not None
         await self._playwright_controller.page_down(self._page)
         return "I scrolled down one page in the browser."
+
+    async def _execute_tool_scroll_down(self, args: Dict[str, Any]) -> str:
+        assert self._page is not None
+        pixels = int(args.get("pixels", 400))
+        await self._playwright_controller.scroll_mousewheel(self._page, "down", pixels)
+        return f"I scrolled down {pixels} pixels in the browser."
+
+    async def _execute_tool_scroll_up(self, args: Dict[str, Any]) -> str:
+        assert self._page is not None
+        pixels = int(args.get("pixels", 400))
+        await self._playwright_controller.scroll_mousewheel(self._page, "up", pixels)
+        return f"I scrolled up {pixels} pixels in the browser."
 
     async def _execute_tool_click(
         self,
