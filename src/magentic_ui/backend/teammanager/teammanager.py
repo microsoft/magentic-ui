@@ -199,7 +199,7 @@ class TeamManager:
                     # Lowest priority defaults
                     **self.config,  # type: ignore
                     # Provided settings override defaults
-                    # **settings_config,  # type: ignore,
+                    **settings_config,  # type: ignore,
                     # "model_client_configs": model_client_configs,
                     # These must always be set to the values computed above
                     "playwright_port": playwright_port,
