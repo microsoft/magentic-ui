@@ -38,17 +38,13 @@ def split_docker_repository_and_tag(image_name: str):
 
 
 def pull_browser_image(client: docker.DockerClient | None = None) -> None:
-    if client is None:
-        client = docker.from_env()
-    client = docker.from_env()
+    client = client or docker.from_env()
     repo, tag = split_docker_repository_and_tag(BROWSER_IMAGE)
     client.images.pull(repo, tag)
 
 
 def pull_python_image(client: docker.DockerClient | None = None) -> None:
-    if client is None:
-        client = docker.from_env()
-    client = docker.from_env()
+    client = client or docker.from_env()
     repo, tag = split_docker_repository_and_tag(PYTHON_IMAGE)
     client.images.pull(repo, tag)
 
@@ -68,16 +64,12 @@ def check_docker_access():
 def check_browser_image(client: docker.DockerClient | None = None) -> bool:
     if not check_docker_access():
         return False
-    if client is None:
-        client = docker.from_env()
-    client = docker.from_env()
+    client = client or docker.from_env()
     return check_docker_image(BROWSER_IMAGE, client)
 
 
 def check_python_image(client: docker.DockerClient | None = None) -> bool:
     if not check_docker_access():
         return False
-    if client is None:
-        client = docker.from_env()
-    client = docker.from_env()
+    client = client or docker.from_env()
     return check_docker_image(PYTHON_IMAGE, client)
