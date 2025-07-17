@@ -34,7 +34,9 @@ def check_docker_image(image_name: str, client: docker.DockerClient) -> bool:
 
 
 def split_docker_repository_and_tag(image_name: str):
-    return image_name.rsplit(":", 1)
+    if ":" in image_name:
+        return image_name.rsplit(":", 1)
+    return image_name, "latest"
 
 
 def pull_browser_image(client: docker.DockerClient | None = None) -> None:
