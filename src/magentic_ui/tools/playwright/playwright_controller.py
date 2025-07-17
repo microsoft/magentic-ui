@@ -96,7 +96,7 @@ class PlaywrightController:
         _download_handler: Optional[Callable[[Download], None]] = None,
         to_resize_viewport: bool = True,
         timeout_load: Union[int, float] = 1,
-        sleep_after_action: Union[int, float] = 1,
+        sleep_after_action: Union[int, float] = 0.1,
         single_tab_mode: bool = False,
         url_status_manager: UrlStatusManager | None = None,
         url_validation_callback: Optional[
@@ -175,11 +175,12 @@ class PlaywrightController:
 
         # Wait for page load
         try:
-            await page.wait_for_load_state(timeout=30000)
+            await page.wait_for_load_state(timeout=15000)
         except PlaywrightTimeoutError:
             logger.warning("Page load timeout, page might not be loaded")
-            # stop page loading
-            await page.evaluate("window.stop()")
+            # refresh
+            await page.reload()
+            await page.wait_for_load_state(timeout=15000)
         except Exception:
             pass
 
@@ -244,18 +245,18 @@ class PlaywrightController:
             page (Page): The Playwright page object.
             path (str, optional): The file path to save the screenshot. If None, the screenshot will be returned as bytes. Default: None
         """
-        await self._ensure_page_ready(page)
         try:
-            screenshot = await page.screenshot(path=path, timeout=15000)
+            screenshot = await page.screenshot(path=path, timeout=5000)
             return screenshot
         except Exception:
             logger.warning(
                 "Screenshot failed, page might not be loaded, stopping page and taking screenshot again"
             )
-            # stop the page
-            await page.evaluate("window.stop()")
+            # refresh the page
+            await page.reload()
+            await self._ensure_page_ready(page)
             # try again
-            screenshot = await page.screenshot(path=path, timeout=15000)
+            screenshot = await page.screenshot(path=path, timeout=5000)
             return screenshot
 
     async def sleep(self, page: Page, duration: Union[int, float]) -> None:
@@ -502,11 +503,11 @@ class PlaywrightController:
 
         if self.animate_actions:
             # Smooth scrolling in smaller increments
-            steps = 10  # Number of steps for smooth scrolling
+            steps = 5  # Reduced from 10 for faster animation
             step_amount = scroll_amount / steps
             for _ in range(steps):
                 await page.evaluate(f"window.scrollBy(0, {step_amount});")
-                await asyncio.sleep(0.05)  # Small delay between steps
+                await asyncio.sleep(0.02)  # Reduced from 0.05 for faster animation
 
             # Move cursor with the scroll using gradual animation
             x, y = self.last_cursor_position
@@ -530,11 +531,11 @@ class PlaywrightController:
 
         if self.animate_actions:
             # Smooth scrolling in smaller increments
-            steps = 10  # Number of steps for smooth scrolling
+            steps = 5  # Reduced from 10 for faster animation
             step_amount = scroll_amount / steps
             for _ in range(steps):
                 await page.evaluate(f"window.scrollBy(0, -{step_amount});")
-                await asyncio.sleep(0.05)  # Small delay between steps
+                await asyncio.sleep(0.02)  # Reduced from 0.05 for faster animation
 
             # Move cursor with the scroll using gradual animation
             x, y = self.last_cursor_position
@@ -563,11 +564,11 @@ class PlaywrightController:
 
         if self.animate_actions:
             # Smooth scrolling in smaller increments
-            steps = 8  # Number of steps for smooth scrolling
+            steps = 4
             step_amount = scroll_amount / steps
             for _ in range(steps):
                 await page.evaluate(f"window.scrollBy(0, {step_amount});")
-                await asyncio.sleep(0.03)  # Small delay between steps
+                await asyncio.sleep(0.015)
 
             # Move cursor with the scroll using gradual animation
             x, y = self.last_cursor_position
@@ -863,7 +864,7 @@ class PlaywrightController:
             if self.animate_actions:
                 # Type slower for short text, faster for long text
                 delay_typing_speed = (
-                    50 + 100 * random.random() if len(value) < 100 else 10
+                    20 + 30 * random.random() if len(value) < 100 else 5
                 )
                 try:
                     await page.keyboard.type(value, delay=delay_typing_speed)
@@ -1216,9 +1217,7 @@ class PlaywrightController:
         try:
             if self.animate_actions:
                 # Type slower for short text, faster for long text
-                delay_typing_speed = (
-                    50 + 100 * random.random() if len(text) < 100 else 10
-                )
+                delay_typing_speed = 20 + 30 * random.random() if len(text) < 100 else 5
                 for char in text:
                     await page.keyboard.type(char, delay=delay_typing_speed)
             else:
@@ -1260,10 +1259,10 @@ class PlaywrightController:
             if self.animate_actions:
                 for key in mapped_keys:
                     await page.keyboard.down(key)
-                    await asyncio.sleep(0.05)  # Small delay between key presses
+                    await asyncio.sleep(0.02)
                 for key in reversed(mapped_keys):
                     await page.keyboard.up(key)
-                    await asyncio.sleep(0.05)  # Small delay between key releases
+                    await asyncio.sleep(0.02)
             else:
                 for key in mapped_keys:
                     await page.keyboard.down(key)
