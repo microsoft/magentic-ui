@@ -32,8 +32,10 @@ def check_docker_image(image_name: str, client: docker.DockerClient) -> bool:
     except ImageNotFound:
         return False
 
+
 def split_docker_repository_and_tag(image_name: str):
     return image_name.rsplit(":", 1)
+
 
 def pull_browser_image(client: docker.DockerClient | None = None) -> None:
     if client is None:
