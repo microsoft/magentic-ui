@@ -147,7 +147,7 @@ async def upload_files(
         )
 
     # Notify the team manager about the uploaded files so they don't get marked as generated
-    if hasattr(ws_manager, '_team_managers') and run_id in ws_manager._team_managers:
+    if hasattr(ws_manager, "_team_managers") and run_id in ws_manager._team_managers:
         team_manager = ws_manager._team_managers[run_id]
         uploaded_file_names = {file["name"] for file in uploaded_files}
         team_manager.add_uploaded_files(uploaded_file_names)

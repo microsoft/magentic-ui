@@ -123,17 +123,19 @@ class TeamManager:
             external_run_dir=external_run_dir,
         )
 
-    def _extract_uploaded_file_names(self, task: Optional[Union[ChatMessage, str, Sequence[ChatMessage]]]) -> set[str]:
+    def _extract_uploaded_file_names(
+        self, task: Optional[Union[ChatMessage, str, Sequence[ChatMessage]]]
+    ) -> set[str]:
         """Extract names of uploaded files from the task to exclude them from generated files tracking"""
-        uploaded_files = set()
-        
+        uploaded_files: set[str] = set()
+
         if not task:
             return uploaded_files
-            
+
         # Handle different task types
         if isinstance(task, str):
             return uploaded_files
-        elif hasattr(task, 'metadata'):
+        elif hasattr(task, "metadata"):
             # Single ChatMessage
             messages = [task]
         else:
@@ -142,22 +144,31 @@ class TeamManager:
                 messages = list(task)
             except TypeError:
                 return uploaded_files
-        
+
         for message in messages:
-            if hasattr(message, 'metadata') and message.metadata:
-                attached_files_json = message.metadata.get('attached_files')
-                if attached_files_json:
-                    try:
-                        attached_files = json.loads(attached_files_json)
-                        for file_info in attached_files:
-                            if file_info.get('uploaded', False):
-                                uploaded_files.add(file_info.get('name', ''))
-                    except (json.JSONDecodeError, TypeError):
-                        # If parsing fails, continue without crashing
-                        pass
-        
+            if hasattr(message, "metadata") and hasattr(message, "metadata"):
+                metadata = getattr(message, "metadata", None)
+                if metadata and isinstance(metadata, dict):
+                    attached_files_json: Any = metadata.get("attached_files")  # type: ignore
+                    if attached_files_json and isinstance(attached_files_json, str):
+                        try:
+                            attached_files: Any = json.loads(attached_files_json)
+                            if isinstance(attached_files, list):
+                                for file_info in attached_files:  # type: ignore
+                                    if isinstance(file_info, dict) and cast(
+                                        Dict[str, Any], file_info
+                                    ).get("uploaded", False):
+                                        file_name: Any = cast(
+                                            Dict[str, Any], file_info
+                                        ).get("name", "")
+                                        if isinstance(file_name, str):
+                                            uploaded_files.add(file_name)
+                        except (json.JSONDecodeError, TypeError):
+                            # If parsing fails, continue without crashing
+                            pass
+
         return uploaded_files
-    
+
     def add_uploaded_files(self, file_names: set[str]) -> None:
         """Add uploaded file names to the tracking set to exclude them from generated files"""
         self.uploaded_files.update(file_names)
@@ -347,19 +358,21 @@ class TeamManager:
                 0, time.time(), source_dir=str(paths.internal_run_dir)
             )
         )
-        
+
         # Extract uploaded file names from the task to exclude them from generated files tracking
         task_uploaded_files = self._extract_uploaded_file_names(task)
         self.uploaded_files.update(task_uploaded_files)
-        logger.info(f"Found {len(task_uploaded_files)} new uploaded files to exclude from generated files tracking: {task_uploaded_files}")
+        logger.info(
+            f"Found {len(task_uploaded_files)} new uploaded files to exclude from generated files tracking: {task_uploaded_files}"
+        )
         logger.info(f"Total uploaded files being tracked: {self.uploaded_files}")
-        
+
         global_new_files: List[Dict[str, str]] = []
         try:
             # TODO: This might cause problems later if we are not careful
             if self.team is None:
                 # TODO: if we start allowing load from config, we'll need to write the novnc and playwright ports back to the team config..
-                _, _novnc_port, _playwright_port = await self._create_team(
+                _, _, _ = await self._create_team(
                     team_config,
                     state,
                     input_func,
@@ -389,7 +402,9 @@ class TeamManager:
                     current_file_names = {file["name"] for file in modified_files}
 
                     # Find new files, excluding uploaded files
-                    new_file_names = current_file_names - known_files - self.uploaded_files
+                    new_file_names = (
+                        current_file_names - known_files - self.uploaded_files
+                    )
                     known_files = current_file_names  # Update for next iteration
 
                     # Get the full data for new files
@@ -481,11 +496,11 @@ class TeamManager:
 
     async def run(
         self,
-        task: ChatMessage | Sequence[ChatMessage] | str | None,
-        team_config: Union[str, Path, dict[str, Any], ComponentModel],
-        input_func: Optional[InputFuncType] = None,
-        cancellation_token: Optional[CancellationToken] = None,
-        env_vars: Optional[List[EnvironmentVariable]] = None,
+        _task: ChatMessage | Sequence[ChatMessage] | str | None,
+        _team_config: Union[str, Path, dict[str, Any], ComponentModel],
+        _input_func: Optional[InputFuncType] = None,
+        _cancellation_token: Optional[CancellationToken] = None,
+        _env_vars: Optional[List[EnvironmentVariable]] = None,
     ) -> TeamResult:
         """Run team synchronously"""
         raise NotImplementedError("Use run_stream instead")
