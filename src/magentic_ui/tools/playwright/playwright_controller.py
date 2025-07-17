@@ -180,7 +180,11 @@ class PlaywrightController:
             logger.warning("Page load timeout, page might not be loaded")
             # refresh
             await page.reload()
-            await page.wait_for_load_state(timeout=15000)
+            try:
+                await page.wait_for_load_state(timeout=15000)
+            except Exception:
+                # stop page loading
+                await page.evaluate("window.stop()")
         except Exception:
             pass
 
