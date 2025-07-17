@@ -17,7 +17,7 @@ import {
   Menu,
 } from "antd";
 import type { UploadFile, UploadProps, RcFile } from "antd/es/upload/interface";
-import { FileTextIcon, ImageIcon, XIcon, UploadIcon } from "lucide-react";
+import { FileTextIcon, ImageIcon, XIcon, UploadIcon, PaperclipIcon } from "lucide-react";
 import { InputRequest } from "../../types/datamodel";
 import { debounce } from "lodash";
 import { planAPI } from "../api";
@@ -752,11 +752,15 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                     <Dropdown
                       overlay={
                         <Menu>
-                          <Menu.Item key="attach-file">
+                          <Menu.Item key="attach-file" className="!py-0 !my-0 !h-8">
                             <Upload {...uploadProps} showUploadList={false}>
-                              <span>Attach File</span>
+                              <span className="flex items-center gap-2">
+                                <PaperclipIcon className="w-4 h-4" />
+                                Attach File
+                              </span>
                             </Upload>
                           </Menu.Item>
+                          <Menu.Divider />
                           <Menu.SubMenu key="attach-plan" title="Attach Plan">
                             {allPlans.length === 0 ? (
                               <Menu.Item disabled key="no-plans">
