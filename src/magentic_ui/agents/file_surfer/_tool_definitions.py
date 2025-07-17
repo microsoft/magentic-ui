@@ -25,7 +25,7 @@ TOOL_OPEN_PATH = load_tool(
             ),
         },
         "metadata": {
-            "requires_approval": "always",
+            "requires_approval": "never",
         },
     }
 )
