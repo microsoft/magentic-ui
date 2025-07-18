@@ -1475,14 +1475,13 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
     ) -> str:
         assert "input_field_id" in args
         assert "text_value" in args
-        assert "press_enter" in args
         assert "delete_existing_text" in args
         input_field_id: str = str(args["input_field_id"])
         input_field_name = self._target_name(input_field_id, rects)
         input_field_id = element_id_mapping[input_field_id]
 
         text_value = str(args.get("text_value"))
-        press_enter = bool(args.get("press_enter"))
+        press_enter = bool(args.get("press_enter", True))
         delete_existing_text = bool(args.get("delete_existing_text"))
 
         action_description = (
