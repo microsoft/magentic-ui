@@ -127,6 +127,7 @@ async def upload_files(
         except Exception as e:
             logger.error(f"Error getting filename: {e}")
             continue
+
         file_path = paths.internal_run_dir / filename
 
         # Ensure the directory exists
@@ -151,6 +152,10 @@ async def upload_files(
         team_manager = ws_manager._team_managers[run_id]
         uploaded_file_names = {file["name"] for file in uploaded_files}
         team_manager.add_uploaded_files(uploaded_file_names)
+    else:
+        logger.warning(
+            f"Team manager not found for run {run_id}, files uploaded but not tracked"
+        )
 
     return {
         "status": True,
