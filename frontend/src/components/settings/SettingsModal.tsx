@@ -12,13 +12,11 @@ import {
   Flex,
   message,
   Modal,
-  Select,
+  Spin,
   Tabs,
   Typography,
 } from "antd";
 import { validateAll } from "./validation";
-
-const { Option } = Select;
 
 interface SettingsMenuProps {
   isOpen: boolean;
@@ -29,31 +27,37 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
   const { darkMode, setDarkMode, user } = React.useContext(appContext);
   const [isEmailModalOpen, setIsEmailModalOpen] = React.useState(false);
   const [hasChanges, setHasChanges] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [originalConfig, setOriginalConfig] = React.useState<any>(null);
 
   const { config, updateConfig, resetToDefaults } = useSettingsStore();
 
   React.useEffect(() => {
     if (isOpen) {
       setHasChanges(false);
+      setIsLoading(true);
 
       // Load settings when modal opens
       const loadSettings = async () => {
         if (user?.email) {
           try {
             const settings = await settingsAPI.getSettings(user.email);
-            const errors = validateAll(settings)
+            const errors = validateAll(settings);
             if (errors.length > 0) {
               message.error("Failed to load settings. Using defaults.");
               resetToDefaults();
-            }
-            else {
+              setOriginalConfig(null);
+            } else {
               updateConfig(settings);
+              setOriginalConfig(settings);
             }
           } catch (error) {
-            message.error("Failed to load settings. Using defaults.")
+            message.error("Failed to load settings. Using defaults.");
             resetToDefaults();
+            setOriginalConfig(null);
           }
         }
+        setIsLoading(false);
       };
       loadSettings();
     }
@@ -71,100 +75,116 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
 
   const handleClose = useCallback(async () => {
     // Check all validation states before saving
-    const validationErrors = validateAll(config)
+    const validationErrors = validateAll(config);
     if (validationErrors.length > 0) {
       const errors = validationErrors.join("\n");
       message.error(errors);
-    }
-    else {
-      // Save to database
-      if (user?.email) {
-        try {
-          await settingsAPI.updateSettings(user.email, config);
-          message.success("Updated settings!")
-        } catch (error) {
-          message.error("Failed to save settings");
-          console.error("Failed to save settings:", error);
-        }
-      }
-      
-      onClose();
+      return;
     }
 
-  }, [config, settingsAPI, message]);
+    // Only save if there are actual changes
+    const hasActualChanges =
+      originalConfig &&
+      JSON.stringify(config) !== JSON.stringify(originalConfig);
+
+    if (hasActualChanges && user?.email) {
+      try {
+        await settingsAPI.updateSettings(user.email, config);
+        message.success("Updated settings!");
+      } catch (error) {
+        message.error("Failed to save settings");
+        console.error("Failed to save settings:", error);
+        return;
+      }
+    }
+
+    onClose();
+  }, [config, originalConfig, user?.email, onClose]);
 
   const tabItems = {
-    "general": {
+    general: {
       label: "General",
       children: (
         <>
-        <Typography.Text strong>General Settings</Typography.Text>
-        <Divider />
-        <GeneralSettings
-          darkMode={darkMode}
-          setDarkMode={setDarkMode}
-          config={config}
-          handleUpdateConfig={handleUpdateConfig}
+          <Typography.Text strong>General Settings</Typography.Text>
+          <Divider />
+          <GeneralSettings
+            darkMode={darkMode}
+            setDarkMode={setDarkMode}
+            config={config}
+            handleUpdateConfig={handleUpdateConfig}
           />
         </>
       ),
     },
-    "agents": {
+    agents: {
       label: "Agent Settings",
       children: (
         <>
-        <Typography.Text strong>Agent Settings</Typography.Text>
-        <Divider />
-        <AgentSettingsTab
-          config={config}
-          handleUpdateConfig={handleUpdateConfig}
+          <Typography.Text strong>Agent Settings</Typography.Text>
+          <Divider />
+          <AgentSettingsTab
+            config={config}
+            handleUpdateConfig={handleUpdateConfig}
           />
         </>
       ),
     },
-    "advanced_config": {
+    advanced_config: {
       label: "Advanced Settings",
       children: (
         <>
-        <Typography.Text strong>Advanced Settings</Typography.Text>
-        <Divider />
-        <AdvancedConfigEditor
-          config={config}
-          darkMode={darkMode}
-          handleUpdateConfig={handleUpdateConfig}
+          <Typography.Text strong>Advanced Settings</Typography.Text>
+          <Divider />
+          <AdvancedConfigEditor
+            config={config}
+            darkMode={darkMode}
+            handleUpdateConfig={handleUpdateConfig}
           />
         </>
       ),
     },
-  }
+  };
 
   return (
     <>
       <Modal
         open={isOpen}
-        style={{maxHeight: 800, overflow: 'auto' }}
-
+        style={{ maxHeight: 800, overflow: "auto" }}
         onCancel={handleClose}
         closable={true}
         width={800}
         height={800}
         footer={[
           <Flex gap="large" justify="start" align="center">
-            <Button key="reset" onClick={handleResetDefaults}>
+            <Button
+              key="reset"
+              onClick={handleResetDefaults}
+              disabled={isLoading}
+            >
               Reset to Defaults
             </Button>
             {hasChanges && (
-                <Typography.Text italic type="warning">
-                  Warning: Settings changes will only apply when you create a new session
-                </Typography.Text>
+              <Typography.Text italic type="warning">
+                Warning: Settings changes will only apply when you create a new
+                session
+              </Typography.Text>
             )}
-          </Flex>
+          </Flex>,
         ]}
       >
-        <Tabs
-          tabPosition="left"
-          items={Object.entries(tabItems).map(([key, {label, children}]) => ({key, label, children}))}
-        />
+        {isLoading ? (
+          <Flex justify="center" align="center" style={{ height: "400px" }}>
+            <Spin size="large" />
+          </Flex>
+        ) : (
+          <Tabs
+            tabPosition="left"
+            items={Object.entries(tabItems).map(
+              ([key, { label, children }]) => ({ key, label, children })
+            )}
+          />
+        )}
       </Modal>
       <SignInModal
         isVisible={isEmailModalOpen}

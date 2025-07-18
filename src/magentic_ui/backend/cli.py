@@ -12,8 +12,8 @@ from .._docker import (
     check_docker_running,
     check_browser_image,
     check_python_image,
-    build_browser_image,
-    build_python_image,
+    pull_browser_image,
+    pull_python_image,
 )
 
 # Configure basic logging to show only errors
@@ -73,9 +73,6 @@ def main(
     config: Optional[str] = typer.Option(
         None, "--config", help="Path to the config file."
     ),
-    rebuild_docker: Optional[bool] = typer.Option(
-        False, "--rebuild-docker", help="Rebuild the docker images before starting."
-    ),
     version: bool = typer.Option(
         False, "--version", help="Print the version of Magentic-UI and exit."
     ),
@@ -110,7 +107,6 @@ def main(
             database_uri=database_uri,
             upgrade_database=upgrade_database,
             config=config,
-            rebuild_docker=rebuild_docker,
             run_without_docker=run_without_docker,
         )
 
@@ -125,7 +121,6 @@ def run_ui(
     database_uri: Optional[str],
     upgrade_database: bool,
     config: Optional[str],
-    rebuild_docker: Optional[bool],
     run_without_docker: bool,
 ):
     """
@@ -142,7 +137,6 @@ def run_ui(
         database_uri (str, optional): Database URI to connect to. Defaults to None.
         upgrade_database (bool, optional): Whether to upgrade the database schema. Defaults to False.
         config (str, optional): Path to the config file. Defaults to config.yaml if present.
-        rebuild_docker (bool, optional): Rebuild the docker images. Defaults to False.
         run_without_docker (bool, optional): Run without docker. This will remove coder and filesurfer agents and disale live browser view. Defaults to False.
     """
     # Display a green, bold "Starting Magentic-UI" message
@@ -160,30 +154,30 @@ def run_ui(
         else:
             typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
 
-        # Check and build Docker images if needed
+        # Check and pull Docker images if needed
         typer.echo("Checking Docker vnc browser image...", nl=False)
-        if not check_browser_image() or rebuild_docker:
+        if not check_browser_image():
             typer.echo(typer.style("Update\n", fg=typer.colors.YELLOW, bold=True))
-            typer.echo("Building Docker vnc image (this WILL take a few minutes)")
-            build_browser_image()
+            typer.echo("Pulling Docker vnc image (this WILL take a few minutes)")
+            pull_browser_image()
             typer.echo("\n")
         else:
             typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
 
         typer.echo("Checking Docker python image...", nl=False)
-        if not check_python_image() or rebuild_docker:
+        if not check_python_image():
             typer.echo(typer.style("Update\n", fg=typer.colors.YELLOW, bold=True))
-            typer.echo("Building Docker python image (this WILL take a few minutes)")
-            build_python_image()
+            typer.echo("Pulling Docker python image (this WILL take a few minutes)")
+            pull_python_image()
             typer.echo("\n")
         else:
             typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
 
-        # Verify Docker images exist after attempted build
+        # Verify Docker images exist after attempted pull
         if not check_browser_image() or not check_python_image():
             typer.echo(typer.style("Failed\n", fg=typer.colors.RED, bold=True))
             typer.echo(
-                "Docker images not found. Please build the images and try again."
+                "Docker images not found. Please pull or build the images and try again."
             )
             raise typer.Exit(1)
     else:
@@ -269,7 +263,6 @@ def ui(
     database_uri: Optional[str] = None,
     upgrade_database: bool = False,
     config: Optional[str] = None,
-    rebuild_docker: Optional[bool] = False,
     run_without_docker: Annotated[
         bool,
         typer.Option(
@@ -293,7 +286,6 @@ def ui(
         database_uri=database_uri,
         upgrade_database=upgrade_database,
         config=config,
-        rebuild_docker=rebuild_docker,
         run_without_docker=run_without_docker,
     )
 

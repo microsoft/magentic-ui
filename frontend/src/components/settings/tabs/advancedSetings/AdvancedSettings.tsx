@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import MonacoEditor from "@monaco-editor/react";
 import yaml from "js-yaml";
-import { Button, Tooltip, Flex } from "antd";
+import { Button, Flex, Alert } from "antd";
 import { message } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import { validateAll } from "../../validation";
@@ -18,8 +18,12 @@ const AdvancedConfigEditor: React.FC<AdvancedConfigEditorProps> = ({
   handleUpdateConfig,
 }) => {
   const [errors, setErrors] = React.useState<string[]>([]);
-  const [editorValue, setEditorValue] = React.useState(config ? yaml.dump(config) : "");
+  const [editorValue, setEditorValue] = React.useState(
+    config ? yaml.dump(config) : ""
+  );
+  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const validationTimeoutRef = React.useRef<NodeJS.Timeout>();
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -56,9 +60,10 @@ const AdvancedConfigEditor: React.FC<AdvancedConfigEditorProps> = ({
   useEffect(() => {
     const yamlConfig = config ? yaml.dump(config) : "";
     if (yamlConfig !== editorValue) {
-      setEditorValue(yamlConfig)
+      setEditorValue(yamlConfig);
+      setHasUnsavedChanges(false);
     }
-  }, [config])
+  }, [config]);
 
   return (
     <Flex vertical gap="large">
@@ -72,64 +77,71 @@ const AdvancedConfigEditor: React.FC<AdvancedConfigEditorProps> = ({
             ref={fileInputRef}
             type="file"
             accept=".json,.yaml,.yml"
-            style={{ display: 'none' }}
+            style={{ display: "none" }}
             onChange={handleFileUpload}
           />
         </Button>
         <Button
+          type="primary"
+          disabled={errors.length > 0 || !hasUnsavedChanges}
+          onClick={() => {
+            try {
+              const parsed = yaml.load(editorValue);
+              const validationErrors = validateAll(parsed);
+              if (validationErrors.length === 0) {
+                handleUpdateConfig(parsed);
+                setHasUnsavedChanges(false);
+                message.success("Settings updated successfully");
+              }
+            } catch (e) {
+              message.error("Invalid YAML format");
+            }
+          }}
+        >
+          Apply Changes
+        </Button>
+        <Button
           danger
+          disabled={!hasUnsavedChanges}
           onClick={() => {
             setEditorValue(config ? yaml.dump(config) : "");
-            setErrors(validateAll(config));
+            setErrors([]);
+            setHasUnsavedChanges(false);
           }}
         >
           Discard Changes
         </Button>
-        {errors.length > 0 && (
-          <Tooltip
-            title={
-              <div>
-                {errors.map((err, idx) => (
-                  <div key={idx} style={{ whiteSpace: 'pre-wrap', color: 'white' }}>{err}</div>
-                ))}
-              </div>
-            }
-            color="red"
-            placement="right"
-          >
-            <span style={{ display: 'flex', alignItems: 'center', color: 'red', cursor: 'pointer' }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 4 }}>
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <circle cx="12" cy="16" r="1" />
-              </svg>
-              <span style={{ marginLeft: 4, fontSize: 12 }}>
-                {errors.length} error{errors.length > 1 ? 's' : ''}
-              </span>
-            </span>
-          </Tooltip>
-        )}
       </Flex>
-      <div style={{
-        padding: 2,
-        border: errors.length > 0 ? "2px solid red" : "none",
-        borderRadius: errors.length > 0 ? 6 : undefined,
-      }}>
+
+      <div
+        style={{
+          padding: 2,
+          border: errors.length > 0 ? "2px solid red" : "none",
+          borderRadius: errors.length > 0 ? 6 : undefined,
+        }}
+      >
         <MonacoEditor
-          theme={darkMode === "dark" ? "vs-dark" : "light" }
+          theme={darkMode === "dark" ? "vs-dark" : "light"}
           value={editorValue}
-          onChange={value => {
-            setEditorValue(value || "")
-            try {
-              const parsed = yaml.load(value || "");
-              const errors = validateAll(parsed);
-              setErrors(errors); // Always update errors, even if empty
-              if (errors.length === 0) {
-                handleUpdateConfig(parsed)
-              }
-            } catch (e) {
-              setErrors([`${e}`])
+          onChange={(value) => {
+            setEditorValue(value || "");
+            setHasUnsavedChanges(true);
+
+            // Clear existing timeout
+            if (validationTimeoutRef.current) {
+              clearTimeout(validationTimeoutRef.current);
             }
+
+            // Set new timeout to validate after user stops typing
+            validationTimeoutRef.current = setTimeout(() => {
+              try {
+                const parsed = yaml.load(value || "");
+                const validationErrors = validateAll(parsed);
+                setErrors(validationErrors);
+              } catch (e) {
+                setErrors([`${e}`]);
+              }
+            }, 500); // 0.5 second delay for validation
           }}
           language="yaml"
           options={{
@@ -141,6 +153,25 @@ const AdvancedConfigEditor: React.FC<AdvancedConfigEditorProps> = ({
           height="500px"
         />
       </div>
+
+      {errors.length > 0 && (
+        <Alert
+          message="Configuration Errors"
+          description={
+            <div>
+              {errors.map((err, idx) => (
+                <div key={idx} style={{ marginBottom: 4 }}>
+                  {err}
+                </div>
+              ))}
+            </div>
+          }
+          type="error"
+          showIcon
+          closable
+          onClose={() => setErrors([])}
+        />
+      )}
     </Flex>
   );
 };

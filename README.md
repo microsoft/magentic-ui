@@ -357,11 +357,10 @@ yarn build
 magentic-ui --port 8081
 ```
 
->**Note**: Running this command for the first time will build two docker containers required for the Magentic-UI agents. If you encounter problems, you can build them directly with the following commands from inside the repository: 
+>**Note**: Running this command for the first time will pull two docker images required for the Magentic-UI agents. If you encounter problems, you can build them directly with the following command:
 ```bash
-docker build -t magentic-ui-vnc-browser:latest ./src/magentic_ui/docker/magentic-ui-browser-docker
-
-docker build -t magentic-ui-python-env:latest ./src/magentic_ui/docker/magentic-ui-python-env
+cd docker
+sh build-all.sh
 ```
 
 #### Running the UI from source

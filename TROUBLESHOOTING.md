@@ -35,25 +35,20 @@ Please read [Linux post-installation steps for Docker Engine
 - Make sure port 8081 is not being used by another application.
 - You can change the port with `magentic ui --port <another_port>`.
 
-## 3. 🏗️ Docker Image Build Fails
+## 3. 🏗️ Docker Image Pull Fails
 
 **Error:**  
-`build docker image Failed` or similar
+`Pulling docker image...Failed` or similar
 
 **Solution:**  
-- First try to rebuild the docker with the command:
-  ```bash
-  magentic ui --rebuild-docker
-  ```
 - Make sure you have a stable internet connection.
 - Update Docker to the latest version.
 - Check that you have enough disk space.
 - Try building the images manually:
   ```bash
-  docker build -t magentic-ui-vnc-browser:latest ./src/magentic_ui/docker/magentic-ui-browser-docker
-  docker build -t magentic-ui-python-env:latest ./src/magentic_ui/docker/magentic-ui-python-env
+  cd docker
+  sh build-all.sh
   ```
-
 
 ## 4. 🪟 WSL2 Not Set Up on Windows
 
