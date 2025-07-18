@@ -496,11 +496,11 @@ class TeamManager:
 
     async def run(
         self,
-        _task: ChatMessage | Sequence[ChatMessage] | str | None,
-        _team_config: Union[str, Path, dict[str, Any], ComponentModel],
-        _input_func: Optional[InputFuncType] = None,
-        _cancellation_token: Optional[CancellationToken] = None,
-        _env_vars: Optional[List[EnvironmentVariable]] = None,
+        task: ChatMessage | Sequence[ChatMessage] | str | None,
+        team_config: Union[str, Path, dict[str, Any], ComponentModel],
+        input_func: Optional[InputFuncType] = None,
+        cancellation_token: Optional[CancellationToken] = None,
+        env_vars: Optional[List[EnvironmentVariable]] = None,
     ) -> TeamResult:
         """Run team synchronously"""
         raise NotImplementedError("Use run_stream instead")
