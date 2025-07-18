@@ -80,8 +80,8 @@ from ._tool_definitions import (
     TOOL_CLICK,
     TOOL_HISTORY_BACK,
     TOOL_HOVER,
-    TOOL_PAGE_DOWN,
-    TOOL_PAGE_UP,
+    # TOOL_PAGE_DOWN,
+    # TOOL_PAGE_UP,
     TOOL_READ_PAGE_AND_ANSWER,
     TOOL_SLEEP,
     TOOL_TYPE,
@@ -91,9 +91,11 @@ from ._tool_definitions import (
     TOOL_SELECT_OPTION,
     TOOL_CREATE_TAB,
     TOOL_SWITCH_TAB,
-    TOOL_CLOSE_TAB,
+    # TOOL_CLOSE_TAB,
     TOOL_KEYPRESS,
     TOOL_REFRESH_PAGE,
+    TOOL_SCROLL_DOWN,
+    TOOL_SCROLL_UP,
     # TOOL_UPLOAD_FILE,
     # TOOL_CLICK_FULL,
 )
@@ -346,9 +348,12 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             TOOL_HISTORY_BACK,
             TOOL_KEYPRESS,
             TOOL_REFRESH_PAGE,
+            TOOL_SCROLL_DOWN,
+            TOOL_SCROLL_UP,
             # TOOL_CLICK_FULL,
         ]
         self.did_lazy_init = False  # flag to check if we have initialized the browser
+        self._browser_just_initialized = False
         self.is_paused = False
         self._pause_event = asyncio.Event()
         self.action_guard: BaseApprovalGuard | None = (
@@ -415,6 +420,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         # Prepare the debug directory -- which stores the screenshots generated throughout the process
         await self._set_debug_dir()
         self.did_lazy_init = True
+        self._browser_just_initialized = True
 
     async def pause(self) -> None:
         """Pause the WebSurfer agent."""
@@ -504,6 +510,30 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             AsyncGenerator: A stream of `BaseChatMessage` or `Response` objects.
         """
         # only keep last message and any MultiModalMessages
+        await self.lazy_init()
+
+        # Ensure page is ready after lazy initialization
+        assert self._page is not None, "Page should be initialized"
+
+        # Send browser address message if this is the first time the browser is being used
+        if (
+            self._browser_just_initialized
+            and isinstance(self._browser, VncDockerPlaywrightBrowser)
+            and self._browser.novnc_port > 0
+        ):
+            # Send browser address message after browser is initialized
+            yield TextMessage(
+                source="system",
+                content=f"Browser noVNC address can be found at http://localhost:{self._browser.novnc_port}/vnc.html",
+                metadata={
+                    "internal": "no",
+                    "type": "browser_address",
+                    "novnc_port": str(self._browser.novnc_port),
+                    "playwright_port": str(self._browser.playwright_port),
+                },
+            )
+            # Reset the flag so we don't send the message again
+            self._browser_just_initialized = False
         for i, chat_message in enumerate(messages):
             if isinstance(chat_message, MultiModalMessage):
                 self._chat_history.append(
@@ -535,9 +565,6 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 )
             )
         non_action_tools = ["stop_action", "answer_question"]
-        # first make sure the page is accessible
-
-        assert self._page is not None
 
         # Set up the cancellation token for the code execution.
         llm_cancellation_token = CancellationToken()
@@ -564,6 +591,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 ) = await self._get_llm_response(
                     cancellation_token=llm_cancellation_token
                 )
+
                 final_usage = RequestUsage(
                     prompt_tokens=sum([u.prompt_tokens for u in self.model_usage]),
                     completion_tokens=sum(
@@ -877,6 +905,8 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             )
         )
         try:
+            # Ensure page is ready for final response
+            assert self._page is not None, "Page should be initialized"
             (
                 message_content,
                 maybe_new_screenshot,
@@ -949,11 +979,6 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 - Dict[str, str]: Mapping of element IDs
                 - bool: Boolean indicating if tool execution is needed
         """
-
-        # Lazy init, initialize the browser and the page on the first generate reply only
-        if not self.did_lazy_init:
-            await self.lazy_init()
-
         try:
             assert self._page is not None
             assert (
@@ -987,7 +1012,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
 
         # Ask the page for interactive elements, then prepare the state-of-mark screenshot
         rects = await self._playwright_controller.get_interactive_rects(self._page)
-        viewport = await self._playwright_controller.get_visual_viewport(self._page)
+        # viewport = await self._playwright_controller.get_visual_viewport(self._page)
         screenshot = await self._playwright_controller.get_screenshot(self._page)
         som_screenshot, visible_rects, rects_above, rects_below, element_id_mapping = (
             add_set_of_mark(screenshot, rects, use_sequential_ids=True)
@@ -1028,15 +1053,15 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         # If there are multiple tabs, we can switch between them and close them
         if not self.single_tab_mode and num_tabs > 1:
             tools.append(TOOL_SWITCH_TAB)
-            tools.append(TOOL_CLOSE_TAB)
+            # tools.append(TOOL_CLOSE_TAB)
 
         # We can scroll up
-        if viewport["pageTop"] > 5:
-            tools.append(TOOL_PAGE_UP)
+        # if viewport["pageTop"] > 5:
+        #    tools.append(TOOL_PAGE_UP)
 
         # Can scroll down
-        if (viewport["pageTop"] + viewport["height"] + 5) < viewport["scrollHeight"]:
-            tools.append(TOOL_PAGE_DOWN)
+        # if (viewport["pageTop"] + viewport["height"] + 5) < viewport["scrollHeight"]:
+        #    tools.append(TOOL_PAGE_DOWN)
 
         # Add select_option tool only if there are option elements
         if any(rect.get("role") == "option" for rect in rects.values()):
@@ -1366,6 +1391,18 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         assert self._page is not None
         await self._playwright_controller.page_down(self._page)
         return "I scrolled down one page in the browser."
+
+    async def _execute_tool_scroll_down(self, args: Dict[str, Any]) -> str:
+        assert self._page is not None
+        pixels = int(args.get("pixels", 400))
+        await self._playwright_controller.scroll_mousewheel(self._page, "down", pixels)
+        return f"I scrolled down {pixels} pixels in the browser."
+
+    async def _execute_tool_scroll_up(self, args: Dict[str, Any]) -> str:
+        assert self._page is not None
+        pixels = int(args.get("pixels", 400))
+        await self._playwright_controller.scroll_mousewheel(self._page, "up", pixels)
+        return f"I scrolled up {pixels} pixels in the browser."
 
     async def _execute_tool_click(
         self,
@@ -2008,6 +2045,14 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         Returns:
             A dictionary containing the chat history and browser state
         """
+
+        if not self.did_lazy_init:
+            state = WebSurferState(
+                chat_history=self._chat_history,
+                browser_state=None,  # No browser state when not initialized
+            )
+            return state.model_dump()
+
         assert self._context is not None
         # Get the browser state and convert it to a dict
         browser_state = await save_browser_state(self._context, self._page)

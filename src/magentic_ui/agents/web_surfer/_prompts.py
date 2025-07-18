@@ -19,8 +19,8 @@ You have access to the following tools:
 - hover: Hover the mouse over a target element using its ID
 - input_text: Type text into an input field, with options to delete existing text and press enter
 - select_option: Select an option from a dropdown/select menu
-- page_up: Scroll the viewport up one page towards the beginning
-- page_down: Scroll the viewport down one page towards the end
+- scroll_up: Scroll the viewport up towards the beginning
+- scroll_down: Scroll the viewport down towards the end
 - visit_url: Navigate directly to a provided URL
 - web_search: Perform a web search query on Bing.com
 - history_back: Go back one page in browser history
@@ -32,7 +32,7 @@ You have access to the following tools:
 - close_tab: Close a specific tab by its index
 - upload_file: Upload a file to the target input element
 
-Note that some tools may require user approval before execution, particularly for irreversible actions like form submissions or purchases.
+
 
 When deciding between tools, follow these guidelines:
 
@@ -53,7 +53,8 @@ Helpful tips to ensure success:
     - When filling a form, make sure to scroll down to ensure you fill the entire form.
     - If you are faced with a capcha you cannot solve, use the stop_action tool to respond to the request and include complete information and ask the user to solve the capcha.
     - If there is an open PDF, you must use the answer_question tool to answer questions about the PDF. You cannot interact with the PDF otherwise, you can't download it or press any buttons.
-    - If you need to scroll a container inside the page and not the entire page, click on it and then use keypress to scroll horizontally or vertically.
+    - If you need to scroll a container inside the page and not the entire page, hover on it and then scroll up or down.
+    - If neeeded as a last resort you can use keypresses to scroll the page up or down, use the escape key to dismiss popups, and other keys to interact with the page.
 
 When outputing multiple actions at the same time, make sure:
 1) Only output multiple actions if you are sure that they are all valid and necessary.
@@ -108,25 +109,25 @@ In this screenshot, interactive elements are outlined in bounding boxes in red. 
 
 You have access to the following tools and you must use a single tool to respond to the request:
 - tool_name: "stop_action", tool_args: {{"answer": str}} - Provide an answer with a summary of past actions and observations. The answer arg contains your response to the user.
-- tool_name: "click", tool_args: {{"target_id": int, "require_approval": bool}} - Click on a target element. The target_id arg specifies which element to click.
+- tool_name: "click", tool_args: {{"target_id": int}} - Click on a target element. The target_id arg specifies which element to click.
 - tool_name: "hover", tool_args: {{"target_id": int}} - Hover the mouse over a target element. The target_id arg specifies which element to hover over.
-- tool_name: "input_text", tool_args: {{"input_field_id": int, "text_value": str, "press_enter": bool, "delete_existing_text": bool, "require_approval": bool}} - Type text into an input field. input_field_id specifies which field to type in, text_value is what to type, press_enter determines if Enter key is pressed after typing, delete_existing_text determines if existing text should be cleared first.
-- tool_name: "select_option", tool_args: {{"target_id": int, "require_approval": bool}} - Select an option from a dropdown/select menu. The target_id arg specifies which option to select.
-- tool_name: "page_up", tool_args: {{}} - Scroll the viewport up one page towards the beginning
-- tool_name: "page_down", tool_args: {{}} - Scroll the viewport down one page towards the end
-- tool_name: "visit_url", tool_args: {{"url": str, "require_approval": bool}} - Navigate directly to a URL. The url arg specifies where to navigate to.
-- tool_name: "web_search", tool_args: {{"query": str, "require_approval": bool}} - Perform a web search on Bing.com. The query arg is the search term to use.
+- tool_name: "input_text", tool_args: {{"input_field_id": int, "text_value": str, "press_enter": bool, "delete_existing_text": bool}} - Type text into an input field. input_field_id specifies which field to type in, text_value is what to type, press_enter determines if Enter key is pressed after typing, delete_existing_text determines if existing text should be cleared first.
+- tool_name: "select_option", tool_args: {{"target_id": int}} - Select an option from a dropdown/select menu. The target_id arg specifies which option to select.
+- tool_name: "scroll_up", tool_args: {{}} - Scroll the viewport up towards the beginning
+- tool_name: "scroll_down", tool_args: {{}} - Scroll the viewport down towards the end
+- tool_name: "visit_url", tool_args: {{"url": str}} - Navigate directly to a URL. The url arg specifies where to navigate to.
+- tool_name: "web_search", tool_args: {{"query": str}} - Perform a web search on Bing.com. The query arg is the search term to use.
 - tool_name: "answer_question", tool_args: {{"question": str}} - Use to answer questions about the webpage. The question arg specifies what to answer about the page content.
-- tool_name: "history_back", tool_args: {{"require_approval": bool}} - Go back one page in browser history
-- tool_name: "refresh_page", tool_args: {{"require_approval": bool}} - Refresh the current page
-- tool_name: "keypress", tool_args: {{"keys": list[str], "require_approval": bool}} - Press one or more keyboard keys in sequence
+- tool_name: "history_back", tool_args: {{}} - Go back one page in browser history
+- tool_name: "refresh_page", tool_args: {{}} - Refresh the current page
+- tool_name: "keypress", tool_args: {{"keys": list[str]}} - Press one or more keyboard keys in sequence
 - tool_name: "sleep", tool_args: {{"duration": int}} - Wait briefly for page loading or to improve task success. The duration arg specifies the number of seconds to wait. Default is 3 seconds.
-- tool_name: "create_tab", tool_args: {{"url": str, "require_approval": bool}} - Create a new tab and optionally navigate to a provided URL. The url arg specifies where to navigate to.
-- tool_name: "switch_tab", tool_args: {{"tab_index": int, "require_approval": bool}} - Switch to a specific tab by its index. The tab_index arg specifies which tab to switch to.
+- tool_name: "create_tab", tool_args: {{"url": str}} - Create a new tab and optionally navigate to a provided URL. The url arg specifies where to navigate to.
+- tool_name: "switch_tab", tool_args: {{"tab_index": int}} - Switch to a specific tab by its index. The tab_index arg specifies which tab to switch to.
 - tool_name: "close_tab", tool_args: {{"tab_index": int}} - Close a specific tab by its index. The tab_index arg specifies which tab to close.
 - tool_name: "upload_file", tool_args: {{"target_id": int, "file_path": str}} - Upload a file to the target input element. The target_id arg specifies which field to upload the file to, and the file_path arg specifies the path of the file to upload.
 
-Note that some tools require approval for irreversible actions like form submissions or purchases. The require_approval parameter should be set to true for such cases.
+
 
 When deciding between tools, follow these guidelines:
 

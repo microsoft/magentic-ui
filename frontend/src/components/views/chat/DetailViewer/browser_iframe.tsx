@@ -30,8 +30,15 @@ const BrowserIframe: React.FC<BrowserIframeProps> = ({
   showTakeControlOverlay = true,
   onTakeControl,
   isControlMode = false,
-  serverUrl = "localhost",
+  serverUrl,
 }) => {
+
+  // Get the hostname of the current access address
+  const currentHostname = window.location.hostname;
+
+  // If serverUrl is not provided, use the current hostname
+  const finalServerUrl = serverUrl || currentHostname;
+
   const [iframeDimensions, setIframeDimensions] = useState({
     width: 0,
     height: 0,
@@ -68,7 +75,7 @@ const BrowserIframe: React.FC<BrowserIframeProps> = ({
   }
 
   // Build VNC URL with parameters
-  const vncUrl = `http://${serverUrl}:${novncPort}/vnc.html?autoconnect=true&resize=${
+  const vncUrl = `http://${finalServerUrl}:${novncPort}/vnc.html?autoconnect=true&resize=${
     scaling === "remote" ? "remote" : "scale"
   }&show_dot=true&scaling=${scaling}&quality=${quality}&compression=0&view_only=${
     viewOnly ? 1 : 0

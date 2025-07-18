@@ -157,10 +157,13 @@ const PlanView: React.FC<PlanProps> = ({
   const getAgentIcon = (agentName: string | undefined): JSX.Element | null => {
     const lowerCaseName = (agentName || "").toLowerCase();
     if (lowerCaseName === "coder_agent") return <CoderIcon tooltip="Coder" />;
-    if (lowerCaseName === "web_surfer") return <WebSurferIcon tooltip="WebSurfer" />;
-    if (lowerCaseName === "file_surfer") return <FileSurferIcon tooltip="FileSurfer" />;
+    if (lowerCaseName === "web_surfer")
+      return <WebSurferIcon tooltip="WebSurfer" />;
+    if (lowerCaseName === "file_surfer")
+      return <FileSurferIcon tooltip="FileSurfer" />;
     if (lowerCaseName === "user_proxy") return <UserIcon tooltip="User" />;
-    if (lowerCaseName === "no_action_agent") return <AgentIcon tooltip="Self-Reflection" />;
+    if (lowerCaseName === "no_action_agent")
+      return <AgentIcon tooltip="Self-Reflection" />;
     return <AgentIcon tooltip="Agent" />;
   };
 
@@ -176,7 +179,6 @@ const PlanView: React.FC<PlanProps> = ({
 
   const noop = () => {};
 
-  console.log("PlanView rendered with plan:", localPlan);
   return (
     <>
       {!viewOnly && onRegeneratePlan && (
@@ -191,11 +193,11 @@ const PlanView: React.FC<PlanProps> = ({
       <div className="rounded-none border-[var(--color-border-primary)]">
         {viewOnly && isCollapsed ? (
           <div
-            className="flex items-center  hover:opacity-80"
-            // onClick={() => setIsCollapsed(false)}
+            className="flex items-center hover:opacity-80 cursor-pointer opacity-50"
+            onClick={() => setIsCollapsed(false)}
           >
             <ClipboardList className="h-5 w-5 mr-2 flex-shrink-0" />
-            <h2 className="line-through">Plan for: {task}</h2>
+            <h2 className="">Plan for: {task}</h2>
           </div>
         ) : (
           <>
@@ -205,20 +207,17 @@ const PlanView: React.FC<PlanProps> = ({
               </div>
             ) : (
               <div className="flex justify-between items-center">
-                <div className="flex items-center">
+                <div
+                  className={`flex items-center ${
+                    viewOnly ? "hover:opacity-80 cursor-pointer" : ""
+                  }`}
+                  onClick={viewOnly ? () => setIsCollapsed(true) : undefined}
+                >
                   {viewOnly && (
                     <ClipboardList className="h-5 w-5 mr-2 flex-shrink-0" />
                   )}
                   <h2 className="">Plan for: {task}</h2>
                 </div>
-                {/* {viewOnly && (
-                  <button
-                    className="p-1 rounded-full transition-colors"
-                    onClick={() => setIsCollapsed(true)}
-                  >
-                    <ChevronDownIcon className="h-5 w-5" />
-                  </button>
-                )} */}
               </div>
             )}
             <DragDropContext onDragEnd={!viewOnly ? onDragEnd : noop}>
@@ -251,9 +250,14 @@ const PlanView: React.FC<PlanProps> = ({
                               </span>
                               <div className="flex items-center ml-2">
                                 <div className="text-gray-600 dark:text-gray-300">
-                                  {React.cloneElement(getAgentIcon(item.agent_name) || <AgentIcon />, {
-                                    tooltip: getAgentName(item.agent_name)
-                                  })}
+                                  {React.cloneElement(
+                                    getAgentIcon(item.agent_name) || (
+                                      <AgentIcon />
+                                    ),
+                                    {
+                                      tooltip: getAgentName(item.agent_name),
+                                    }
+                                  )}
                                 </div>
                               </div>
                             </div>

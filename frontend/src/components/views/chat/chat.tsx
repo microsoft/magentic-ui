@@ -260,15 +260,30 @@ export default function ChatView({
     onRunStatusChange,
   ]);
 
-  // Scroll to bottom when a new message appears or message is updated
+  // Track if user was at bottom before new messages
+  const wasAtBottomRef = React.useRef(true);
+  
+  // Check if user is at bottom before messages change
   React.useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTo({
-        top: chatContainerRef.current.scrollHeight,
+      const container = chatContainerRef.current;
+      const scrollTop = container.scrollTop;
+      const clientHeight = container.clientHeight;
+      const scrollHeight = container.scrollHeight;
+      wasAtBottomRef.current = scrollTop + clientHeight >= scrollHeight - 100 || noMessagesYet;
+    }
+  });
+
+  // Smart scrolling: only scroll to bottom if user was at the bottom before new content
+  React.useEffect(() => {
+    if (chatContainerRef.current && wasAtBottomRef.current) {
+      const container = chatContainerRef.current;
+      container.scrollTo({
+        top: container.scrollHeight,
         behavior: "smooth",
       });
     }
-  }, [currentRun?.messages]);
+  }, [currentRun?.messages, noMessagesYet]);
 
   // Add effect to focus input when session changes
   React.useEffect(() => {
@@ -289,7 +304,6 @@ export default function ChatView({
             onRunStatusChange(session.id, message.status as BaseRunStatus);
           }
         } catch (error) {
-          console.error("WebSocket message parsing error:", error);
         }
       };
 
@@ -590,7 +604,6 @@ export default function ChatView({
     setError(null);
     setNoMessagesYet(false);
 
-    console.log("Running task:", query, files);
 
     try {
       // Make sure run is setup first
@@ -639,7 +652,6 @@ export default function ChatView({
         };
         checkState();
       });
-      console.log("Socket connected");
       const processedFiles = await convertFilesToBase64(files);
       // Send start message
 
@@ -713,7 +725,6 @@ export default function ChatView({
     setActiveSocket(socket);
     // set up socket ref
     activeSocketRef.current = socket;
-    console.log("Socket setup complete");
     return socket;
   };
 
@@ -753,7 +764,6 @@ export default function ChatView({
           : setupWebSocket(currentRun.id, true, false);
 
       if (!socket || socket.readyState !== WebSocket.OPEN) {
-        console.error("WebSocket not available or not open");
         return;
       }
 

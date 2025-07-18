@@ -1,6 +1,6 @@
 #!/bin/bash
 
-IMAGE_NAME=magentic-ui-python-env
+IMAGE_NAME=magentic-ui-browser
 IMAGE_VERSION=0.0.1
 REGISTRY=ghcr.io/microsoft
 
@@ -10,7 +10,7 @@ if [[ "$1" == "--push" ]] || [[ "${PUSH}" == "true" ]]; then
     PUSH_FLAG="--push"
     echo "Building and pushing images..."
 else
-    echo "Building images locally (use --push flag or set PUSH=true to push to registry)..."
+    echo "Building images locally..."
 fi
 
 docker buildx build \

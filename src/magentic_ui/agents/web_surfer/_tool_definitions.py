@@ -31,10 +31,6 @@ TOOL_VISIT_URL: ToolSchema = load_tool(
                         "type": "string",
                         "description": "The URL to visit in the browser.",
                     },
-                    "require_approval": {
-                        "type": "boolean",
-                        "description": IRREVERSIBLE_ACTION_PROMPT,
-                    },
                 },
                 "required": ["explanation", "url"],
             },
@@ -62,16 +58,12 @@ TOOL_WEB_SEARCH: ToolSchema = load_tool(
                         "type": "string",
                         "description": "The web search query to use.",
                     },
-                    "require_approval": {
-                        "type": "boolean",
-                        "description": IRREVERSIBLE_ACTION_PROMPT,
-                    },
                 },
                 "required": ["explanation", "query"],
             },
         },
         "metadata": {
-            "requires_approval": "maybe",
+            "requires_approval": "never",
         },
     }
 )
@@ -88,10 +80,6 @@ TOOL_HISTORY_BACK: ToolSchema = load_tool(
                     "explanation": {
                         "type": "string",
                         "description": EXPLANATION_TOOL_PROMPT,
-                    },
-                    "require_approval": {
-                        "type": "boolean",
-                        "description": IRREVERSIBLE_ACTION_PROMPT,
                     },
                 },
                 "required": ["explanation"],
@@ -116,16 +104,12 @@ TOOL_REFRESH_PAGE: ToolSchema = load_tool(
                         "type": "string",
                         "description": EXPLANATION_TOOL_PROMPT,
                     },
-                    "require_approval": {
-                        "type": "boolean",
-                        "description": IRREVERSIBLE_ACTION_PROMPT,
-                    },
                 },
                 "required": ["explanation"],
             },
         },
         "metadata": {
-            "requires_approval": "maybe",
+            "requires_approval": "never",
         },
     }
 )
@@ -172,6 +156,58 @@ TOOL_PAGE_DOWN: ToolSchema = load_tool(
     }
 )
 
+TOOL_SCROLL_DOWN: ToolSchema = load_tool(
+    {
+        "type": "function",
+        "function": {
+            "name": "scroll_down",
+            "description": "Scrolls down on the current page using mouse wheel for 400 pixels.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "explanation": {
+                        "type": "string",
+                        "description": EXPLANATION_TOOL_PROMPT,
+                    },
+                    # "pixels": {
+                    #     "type": "integer",
+                    #     "description": "Number of pixels to scroll down. Default is 400 pixels.",
+                    #     "default": 400,
+                    # },
+                },
+                "required": ["explanation"],
+            },
+        },
+        "metadata": {"requires_approval": "never"},
+    }
+)
+
+TOOL_SCROLL_UP: ToolSchema = load_tool(
+    {
+        "type": "function",
+        "function": {
+            "name": "scroll_up",
+            "description": "Scrolls up on the current page using mouse wheel for 400 pixels.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "explanation": {
+                        "type": "string",
+                        "description": EXPLANATION_TOOL_PROMPT,
+                    },
+                    # "pixels": {
+                    #     "type": "integer",
+                    #     "description": "Number of pixels to scroll up. Default is 400 pixels.",
+                    #     "default": 400,
+                    # },
+                },
+                "required": ["explanation"],
+            },
+        },
+        "metadata": {"requires_approval": "never"},
+    }
+)
+
 TOOL_CLICK: ToolSchema = load_tool(
     {
         "type": "function",
@@ -188,10 +224,6 @@ TOOL_CLICK: ToolSchema = load_tool(
                     "target_id": {
                         "type": "integer",
                         "description": "The numeric id of the target to click.",
-                    },
-                    "require_approval": {
-                        "type": "boolean",
-                        "description": IRREVERSIBLE_ACTION_PROMPT,
                     },
                 },
                 "required": ["explanation", "target_id"],
@@ -231,10 +263,6 @@ TOOL_CLICK_FULL: ToolSchema = load_tool(
                         "description": "Mouse button to use. Default: 'left'.",
                         "default": "left",
                     },
-                    "require_approval": {
-                        "type": "boolean",
-                        "description": IRREVERSIBLE_ACTION_PROMPT,
-                    },
                 },
                 "required": ["explanation", "target_id", "hold", "button"],
             },
@@ -273,10 +301,6 @@ TOOL_TYPE: ToolSchema = load_tool(
                     "delete_existing_text": {
                         "type": "boolean",
                         "description": "Whether to delete existing text in the field before inputing the text value.",
-                    },
-                    "require_approval": {
-                        "type": "boolean",
-                        "description": IRREVERSIBLE_ACTION_PROMPT,
                     },
                 },
                 "required": [
@@ -391,10 +415,6 @@ TOOL_KEYPRESS: ToolSchema = load_tool(
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "List of keys to press in sequence. For special keys, use their full name (e.g. 'Enter', 'Tab', etc.).",
-                    },
-                    "require_approval": {
-                        "type": "boolean",
-                        "description": IRREVERSIBLE_ACTION_PROMPT,
                     },
                 },
                 "required": ["explanation", "keys"],
@@ -528,10 +548,6 @@ TOOL_SELECT_OPTION: ToolSchema = load_tool(
                         "type": "integer",
                         "description": "The numeric id of the option to select.",
                     },
-                    "require_approval": {
-                        "type": "boolean",
-                        "description": IRREVERSIBLE_ACTION_PROMPT,
-                    },
                 },
                 "required": ["explanation", "target_id"],
             },
@@ -558,10 +574,6 @@ TOOL_CREATE_TAB: ToolSchema = load_tool(
                     "url": {
                         "type": "string",
                         "description": "The URL to open in the new tab.",
-                    },
-                    "require_approval": {
-                        "type": "boolean",
-                        "description": IRREVERSIBLE_ACTION_PROMPT,
                     },
                 },
                 "required": ["explanation", "url"],
@@ -590,16 +602,12 @@ TOOL_SWITCH_TAB: ToolSchema = load_tool(
                         "type": "integer",
                         "description": "The index of the tab to switch to (0-based).",
                     },
-                    "require_approval": {
-                        "type": "boolean",
-                        "description": IRREVERSIBLE_ACTION_PROMPT,
-                    },
                 },
                 "required": ["explanation", "tab_index"],
             },
         },
         "metadata": {
-            "requires_approval": "maybe",
+            "requires_approval": "never",
         },
     }
 )

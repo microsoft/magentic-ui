@@ -36,6 +36,7 @@ jobs:
 
 
   lint:
+    needs: format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,6 +56,7 @@ jobs:
           poe lint samples
           poe lint tests
   pyright:
+    needs: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,6 +75,7 @@ jobs:
           poe pyright src
 
   test:
+    needs: pyright
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

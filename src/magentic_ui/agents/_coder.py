@@ -329,7 +329,7 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
     An agent that can write and execute code to solve tasks or use its language skills to summarize, write, solve math and logic problems.
     It understands images and can use them to help it complete the task.
     It can access files if given the path and manipulate them using python code. Use the coder if you want to manipulate a file or read a csv or excel files.
-    In a single step when you ask the agent to do something: it can write code, and then immediately execute the code. If there are errors it can debug the code and try again. 
+    In a single step when you ask the agent to do something: it can write code, and then immediately execute the code. If there are errors it can debug the code and try again.
     """
 
     system_prompt_coder_template = """
@@ -392,7 +392,7 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
         self.is_paused = False
         self._paused = asyncio.Event()
         self._approval_guard = approval_guard
-
+        self._did_lazy_init = False
         if work_dir is None:
             self._work_dir = Path(tempfile.mkdtemp())
             self._cleanup_work_dir = True
@@ -419,11 +419,14 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
         This method is called after initialization to set up any async resources
         needed by the code executor.
         """
+        if self._did_lazy_init:
+            return
         if self._code_executor:
             # check if the code executor has a start method
             if hasattr(self._code_executor, "start"):
                 # TODO: we should add a no-op start() method to the base class.
                 await self._code_executor.start()  # type: ignore
+        self._did_lazy_init = True
 
     async def close(self) -> None:
         """Clean up resources used by the agent.
@@ -471,6 +474,8 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
         self, messages: Sequence[BaseChatMessage], cancellation_token: CancellationToken
     ) -> AsyncGenerator[BaseAgentEvent | BaseChatMessage | Response, None]:
         """Handle incoming messages and yield responses as a stream. Append the request to agents chat history."""
+        await self.lazy_init()
+
         if self.is_paused:
             yield Response(
                 chat_message=TextMessage(

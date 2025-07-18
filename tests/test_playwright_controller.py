@@ -639,6 +639,68 @@ class TestPlaywrightController:
         new_scroll = await page_obj.evaluate("() => window.scrollY")
         assert new_scroll > initial_scroll, "Page did not scroll down"
 
+    async def test_scroll_mousewheel(self, page):
+        page_obj, pc = page
+        # Add content to make page scrollable
+        await page_obj.evaluate("""
+            const div = document.createElement('div');
+            div.style.height = '3000px';
+            div.textContent = 'Very tall content for mousewheel scrolling test';
+            document.body.appendChild(div);
+        """)
+
+        # Get initial scroll position
+        initial_scroll = await page_obj.evaluate("() => window.scrollY")
+        assert initial_scroll == 0, "Page should start at top"
+
+        # Test scrolling down with default pixels (400)
+        await pc.scroll_mousewheel(page_obj, "down")
+        after_down_scroll = await page_obj.evaluate("() => window.scrollY")
+        assert after_down_scroll > initial_scroll, "Page should scroll down"
+        assert (
+            after_down_scroll >= 400
+        ), f"Page should scroll at least 400 pixels, got {after_down_scroll}"
+
+        # Test scrolling down with custom pixels (200)
+        await pc.scroll_mousewheel(page_obj, "down", 200)
+        after_custom_down = await page_obj.evaluate("() => window.scrollY")
+        assert after_custom_down > after_down_scroll, "Page should scroll down more"
+        expected_scroll = after_down_scroll + 200
+        assert (
+            abs(after_custom_down - expected_scroll) <= 10
+        ), f"Expected scroll ~{expected_scroll}, got {after_custom_down}"
+
+        # Test scrolling up with default pixels (400)
+        await pc.scroll_mousewheel(page_obj, "up")
+        after_up_scroll = await page_obj.evaluate("() => window.scrollY")
+        assert after_up_scroll < after_custom_down, "Page should scroll up"
+        expected_up_scroll = after_custom_down - 400
+        assert (
+            abs(after_up_scroll - expected_up_scroll) <= 10
+        ), f"Expected scroll ~{expected_up_scroll}, got {after_up_scroll}"
+
+        # Test scrolling up with custom pixels (200) - use smaller amount to avoid going below 0
+        await pc.scroll_mousewheel(page_obj, "up", 200)
+        final_scroll = await page_obj.evaluate("() => window.scrollY")
+        assert final_scroll < after_up_scroll, "Page should scroll up more"
+        expected_final = max(
+            0, after_up_scroll - 200
+        )  # Clamp to 0 if would go negative
+        assert (
+            abs(final_scroll - expected_final) <= 10
+        ), f"Expected scroll ~{expected_final}, got {final_scroll}"
+
+        # Test case-insensitive direction
+        current_scroll = await page_obj.evaluate("() => window.scrollY")
+        await pc.scroll_mousewheel(page_obj, "DOWN", 100)  # Uppercase
+        after_case_test = await page_obj.evaluate("() => window.scrollY")
+        assert after_case_test > current_scroll, "Uppercase 'DOWN' should work"
+
+        # Test scrolling to top boundary
+        await pc.scroll_mousewheel(page_obj, "up", 5000)  # Large scroll up
+        top_scroll = await page_obj.evaluate("() => window.scrollY")
+        assert top_scroll == 0, "Should not scroll beyond top of page"
+
     async def test_type_direct(self, page):
         page_obj, pc = page
         # Focus the input box
