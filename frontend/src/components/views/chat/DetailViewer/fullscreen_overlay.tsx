@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import FeedbackForm from "./FeedbackForm";
+import { RcFile } from "antd/es/upload";
+import { IPlan } from "../../../types/plan";
 
 interface FullscreenOverlayProps {
   isVisible: boolean;
@@ -9,6 +11,7 @@ interface FullscreenOverlayProps {
   zIndex?: number;
   onInputResponse?: (
     response: string,
+    files: RcFile[],
     accepted?: boolean,
     plan?: IPlan
   ) => void;
@@ -125,7 +128,7 @@ const FullscreenOverlay: React.FC<FullscreenOverlayProps> = ({
       if (runStatus === "awaiting_input") {
         const feedbackToSend =
           userFeedback.trim() === "" ? "Resume" : userFeedback;
-        onInputResponse(feedbackToSend, true);
+        onInputResponse(feedbackToSend, [], true);
       }
     }
 

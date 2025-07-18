@@ -98,13 +98,28 @@ class FileSurfer(BaseChatAgent, Component[FileSurferConfig]):
     - scroll up in an open file that it has already opened
     - find text on the page of an open file
     - find a file: will return a list of files that match the query, if the file is found exactly it will be opened
-    It can briefly answer questions about the text contents of the open file using an LLM call. 
+    It can briefly answer questions about the text contents of the open file using an LLM call without tools.
 
     It cannot manipulate or create files, use the coder agent if that is needed.
      """
 
     system_prompt_file_surfer_template = """
-    You are a helpful AI Assistant.
+    You are a helpful AI Assistant that can read files and answer questions about them.
+
+    You can use the following tools to help the user with their request:
+    - open_path: open a file or directory
+    - list_current_directory: list the files in the current directory
+    - page_up: scroll up in an open file that it has already opened
+    - page_down: scroll down in an open file that it has already opened
+    - find_on_page_ctrl_f: find text on the page of an open file
+    - find_file: find a file: will return a list of files that match the query, if the file is found exactly it will be opened
+    You also don't need to use the tools if the user query is not related to the files or you have already opened the file.
+
+    Helpful tips:
+    - Do not repeat the same action twice.
+    - If you've already opened a file, you don't need to open it again. And return a string answer telling the user that you have already opened the file along with any answer to their request
+    - To analyze a file, you need to open it first and then return a string answer without tool calls.
+
     When given a user query, use available functions to help the user with their request.
     The date today is: {date_today}
     """
@@ -149,10 +164,12 @@ class FileSurfer(BaseChatAgent, Component[FileSurferConfig]):
         elif use_local_executor:
             self._code_executor = LocalCommandLineCodeExecutor(work_dir=work_dir)
         else:
+            from ..._docker import PYTHON_IMAGE
+
             name = f"{name}-{uuid.uuid4()}"
             self._code_executor = DockerCommandLineCodeExecutor(
                 container_name=name,
-                image="magentic-ui-python-env",
+                image=PYTHON_IMAGE,
                 work_dir=work_dir,
                 bind_dir=bind_dir,
                 delete_tmp_files=True,
@@ -257,18 +274,18 @@ class FileSurfer(BaseChatAgent, Component[FileSurferConfig]):
 
             assert self._browser is not None
 
+            system_prompt_file_surfer = self.system_prompt_file_surfer_template.format(
+                date_today=datetime.now().strftime("%Y-%m-%d")
+            )
+
             context_message = UserMessage(
                 source="user",
-                content=f"Your file viewer is currently open to the file or directory '{self._browser.page_title}' with path '{self._browser.path}'.",
+                content=f" {system_prompt_file_surfer}\nYour file viewer is currently open to the file or directory '{self._browser.page_title}' with path '{self._browser.path}'.",
             )
 
             task_message = UserMessage(
                 source="user",
                 content=task_content,
-            )
-
-            system_prompt_file_surfer = self.system_prompt_file_surfer_template.format(
-                date_today=datetime.now().strftime("%Y-%m-%d")
             )
 
             default_system_messages = [

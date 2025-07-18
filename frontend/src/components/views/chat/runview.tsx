@@ -25,7 +25,7 @@ interface RunViewProps {
   onDeny?: () => void;
   onAcceptPlan?: (text: string) => void;
   // Add new props needed for ChatInput
-  onInputResponse?: (query: string, accepted?: boolean, plan?: IPlan) => void;
+  onInputResponse?: (query: string, files: RcFile[], accepted?: boolean, plan?: IPlan) => void;
   onRunTask?: (
     query: string,
     files: RcFile[],
@@ -177,7 +177,7 @@ const RunView: React.FC<RunViewProps> = ({
         Array.isArray(msg.config.content) &&
         msg.config.metadata?.type === "browser_screenshot"
       ) {
-        msg.config.content.forEach((item: any, itemIndex: number) => {
+        msg.config.content.forEach((item: any) => {
           if (typeof item === "object" && ("url" in item || "data" in item)) {
             const imageUrl =
               ("url" in item && item.url) ||
@@ -429,7 +429,6 @@ const RunView: React.FC<RunViewProps> = ({
             }
             continue;
           }
-          const content = JSON.parse(msg.config.content);
 
           // If this is a step execution that's not repeated
           if (
@@ -677,7 +676,7 @@ const RunView: React.FC<RunViewProps> = ({
               plan?: IPlan
             ) => {
               if (run.status === "awaiting_input" || run.status === "paused") {
-                onInputResponse?.(query, accepted, plan);
+                onInputResponse?.(query, files, accepted, plan);
               } else {
                 onRunTask?.(query, files, plan, true);
               }

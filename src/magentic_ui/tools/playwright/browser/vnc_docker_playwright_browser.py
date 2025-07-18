@@ -25,7 +25,7 @@ class VncDockerPlaywrightBrowserConfig(BaseModel):
     """
 
     bind_dir: Path
-    image: str = "magentic-ui-vnc-browser"
+    image: str = BROWSER_IMAGE
     playwright_port: int = 37367
     novnc_port: int = 6080
     playwright_websocket_path: str | None = None
@@ -36,13 +36,13 @@ class VncDockerPlaywrightBrowserConfig(BaseModel):
 class VncDockerPlaywrightBrowser(
     DockerPlaywrightBrowser, Component[VncDockerPlaywrightBrowserConfig]
 ):
-    """
+    f"""
     A Docker-based Playwright browser implementation with VNC support for visual interaction.
     Provides both programmatic browser control via Playwright and visual access through noVNC.
 
     Args:
         bind_dir (Path): Directory to bind mount into the container for file access.
-        image (str, optional): Docker image name for the VNC-enabled browser. Default: "magentic-ui-vnc-browser".
+        image (str, optional): Docker image name for the VNC-enabled browser. Default: "{BROWSER_IMAGE}".
         playwright_port (int, optional): Port for Playwright WebSocket connection. Default: 37367.
         playwright_websocket_path (str | None, optional): Custom WebSocket path. If None, generates random path.
         novnc_port (int, optional): Port for noVNC web interface. Default: 6080.
