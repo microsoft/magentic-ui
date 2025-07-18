@@ -113,24 +113,6 @@ const AdvancedConfigEditor: React.FC<AdvancedConfigEditorProps> = ({
         </Button>
       </Flex>
 
-      {errors.length > 0 && (
-        <Alert
-          message="Configuration Errors"
-          description={
-            <div>
-              {errors.map((err, idx) => (
-                <div key={idx} style={{ marginBottom: 4 }}>
-                  {err}
-                </div>
-              ))}
-            </div>
-          }
-          type="error"
-          showIcon
-          closable
-          onClose={() => setErrors([])}
-        />
-      )}
       <div
         style={{
           padding: 2,
@@ -171,6 +153,25 @@ const AdvancedConfigEditor: React.FC<AdvancedConfigEditorProps> = ({
           height="500px"
         />
       </div>
+
+      {errors.length > 0 && (
+        <Alert
+          message="Configuration Errors"
+          description={
+            <div>
+              {errors.map((err, idx) => (
+                <div key={idx} style={{ marginBottom: 4 }}>
+                  {err}
+                </div>
+              ))}
+            </div>
+          }
+          type="error"
+          showIcon
+          closable
+          onClose={() => setErrors([])}
+        />
+      )}
     </Flex>
   );
 };
