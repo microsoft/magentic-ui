@@ -262,7 +262,7 @@ export default function ChatView({
 
   // Track if user was at bottom before new messages
   const wasAtBottomRef = React.useRef(true);
-  
+
   // Check if user is at bottom before messages change
   React.useEffect(() => {
     if (chatContainerRef.current) {
@@ -270,7 +270,8 @@ export default function ChatView({
       const scrollTop = container.scrollTop;
       const clientHeight = container.clientHeight;
       const scrollHeight = container.scrollHeight;
-      wasAtBottomRef.current = scrollTop + clientHeight >= scrollHeight - 100 || noMessagesYet;
+      wasAtBottomRef.current =
+        scrollTop + clientHeight >= scrollHeight - 100 || noMessagesYet;
     }
   });
 
@@ -303,8 +304,7 @@ export default function ChatView({
             // Update the run status even when not visible
             onRunStatusChange(session.id, message.status as BaseRunStatus);
           }
-        } catch (error) {
-        }
+        } catch (error) {}
       };
 
       activeSocket.addEventListener("message", messageHandler);
@@ -318,7 +318,6 @@ export default function ChatView({
   const handleWebSocketMessage = (message: WebSocketMessage) => {
     setCurrentRun((current: Run | null) => {
       if (!current || !session?.id) return null;
-
 
       switch (message.type) {
         case "error":
@@ -468,6 +467,59 @@ export default function ChatView({
     }
   };
 
+  const processFiles = async (
+    files: RcFile[],
+    runId: number,
+    errorMessage: string = "File upload failed. Continuing with task..."
+  ) => {
+    let processedFiles: Array<{
+      name: string;
+      content: string;
+      type: string;
+      uploaded?: boolean;
+      path?: string;
+      size?: number;
+    }> = [];
+
+    if (files.length > 0) {
+      try {
+        const uploadedFiles = await uploadFiles(files, runId);
+        // For images, keep the base64 content for immediate display
+        // For other files, use file references
+        processedFiles = await Promise.all(
+          files.map(async (file, index) => {
+            if (file.type.startsWith("image/")) {
+              // For images, convert to base64 for immediate display
+              const base64Files = await convertFilesToBase64([file]);
+              return base64Files[0];
+            } else {
+              // For other files, use file reference
+              const uploadedFile = uploadedFiles[index];
+              return {
+                name: file.name,
+                type: file.type,
+                content: `[FILE_UPLOADED: ${uploadedFile.relative_path}]`,
+                uploaded: true,
+                path: uploadedFile.relative_path,
+                size: uploadedFile.size,
+              };
+            }
+          })
+        );
+      } catch (error) {
+        console.error("File upload failed:", error);
+        message.error(errorMessage);
+        // Fall back to base64 conversion for images only
+        const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+        if (imageFiles.length > 0) {
+          processedFiles = await convertFilesToBase64(imageFiles);
+        }
+      }
+    }
+
+    return processedFiles;
+  };
+
   const handleInputResponse = async (
     response: string,
     files: RcFile[] = [],
@@ -486,42 +538,11 @@ export default function ChatView({
 
     try {
       // Upload files first if any are provided
-      let processedFiles: Array<{ name: string; content: string; type: string; uploaded?: boolean; path?: string; size?: number }> = [];
-      if (files.length > 0) {
-        try {
-          const uploadedFiles = await uploadFiles(files, Number(currentRun.id));
-          // For images, keep the base64 content for immediate display
-          // For other files, use file references
-          processedFiles = await Promise.all(
-            files.map(async (file, index) => {
-              if (file.type.startsWith("image/")) {
-                // For images, convert to base64 for immediate display
-                const base64Files = await convertFilesToBase64([file]);
-                return base64Files[0];
-              } else {
-                // For other files, use file reference
-                const uploadedFile = uploadedFiles[index];
-                return {
-                  name: file.name,
-                  type: file.type,
-                  content: `[FILE_UPLOADED: ${uploadedFile.relative_path}]`,
-                  uploaded: true,
-                  path: uploadedFile.relative_path,
-                  size: uploadedFile.size,
-                };
-              }
-            })
-          );
-        } catch (error) {
-          console.error("File upload failed:", error);
-          message.error("File upload failed. Continuing with response...");
-          // Fall back to base64 conversion for images only
-          const imageFiles = files.filter(f => f.type.startsWith("image/"));
-          if (imageFiles.length > 0) {
-            processedFiles = await convertFilesToBase64(imageFiles);
-          }
-        }
-      }
+      const processedFiles = await processFiles(
+        files,
+        Number(currentRun.id),
+        "File upload failed. Continuing with response..."
+      );
 
       // Check if the last message is a plan
       const lastMessage = currentRun.messages.slice(-1)[0];
@@ -537,9 +558,9 @@ export default function ChatView({
 
       // Add uploaded file information to the response
       let enhancedResponse = response;
-      const uploadedFilesList = processedFiles.filter(f => f.uploaded);
+      const uploadedFilesList = processedFiles.filter((f) => f.uploaded);
       if (uploadedFilesList.length > 0) {
-        const filesList = uploadedFilesList.map(f => f.name).join(", ");
+        const filesList = uploadedFilesList.map((f) => f.name).join(", ");
         enhancedResponse = `Uploaded files: ${filesList}\n\n${response}`;
       }
 
@@ -682,7 +703,6 @@ export default function ChatView({
     setError(null);
     setNoMessagesYet(false);
 
-
     try {
       // Make sure run is setup first
       let run = currentRun;
@@ -731,50 +751,15 @@ export default function ChatView({
         checkState();
       });
       // Upload files first, then create file references for non-images
-      let processedFiles: Array<{ name: string; content: string; type: string; uploaded?: boolean; path?: string; size?: number }> = [];
-      if (files.length > 0) {
-        try {
-          const uploadedFiles = await uploadFiles(files, Number(run.id));
-          // For images, keep the base64 content for immediate display
-          // For other files, use file references
-          processedFiles = await Promise.all(
-            files.map(async (file, index) => {
-              if (file.type.startsWith("image/")) {
-                // For images, convert to base64 for immediate display
-                const base64Files = await convertFilesToBase64([file]);
-                return base64Files[0];
-              } else {
-                // For other files, use file reference
-                const uploadedFile = uploadedFiles[index];
-                return {
-                  name: file.name,
-                  type: file.type,
-                  content: `[FILE_UPLOADED: ${uploadedFile.relative_path}]`,
-                  uploaded: true,
-                  path: uploadedFile.relative_path,
-                  size: uploadedFile.size,
-                };
-              }
-            })
-          );
-        } catch (error) {
-          console.error("File upload failed:", error);
-          message.error("File upload failed. Continuing with task...");
-          // Fall back to base64 conversion for images only
-          const imageFiles = files.filter(f => f.type.startsWith("image/"));
-          if (imageFiles.length > 0) {
-            processedFiles = await convertFilesToBase64(imageFiles);
-          }
-        }
-      }
+      const processedFiles = await processFiles(files, Number(run.id));
 
       // Send start message
-      
+
       // Add uploaded file information to the query
       let enhancedQuery = query;
-      const uploadedFilesList = processedFiles.filter(f => f.uploaded);
+      const uploadedFilesList = processedFiles.filter((f) => f.uploaded);
       if (uploadedFilesList.length > 0) {
-        const filesList = uploadedFilesList.map(f => f.name).join(", ");
+        const filesList = uploadedFilesList.map((f) => f.name).join(", ");
         enhancedQuery = `Uploaded files: ${filesList}\n\n${query}`;
       }
 
