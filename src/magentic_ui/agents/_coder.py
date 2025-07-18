@@ -405,6 +405,7 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
             self._code_executor = LocalCommandLineCodeExecutor(work_dir=self._work_dir)
         else:
             from .._docker import PYTHON_IMAGE
+
             name = f"{name}-{uuid.uuid4()}"
             self._code_executor = DockerCommandLineCodeExecutor(
                 container_name=name,

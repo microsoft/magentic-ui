@@ -165,6 +165,7 @@ class FileSurfer(BaseChatAgent, Component[FileSurferConfig]):
             self._code_executor = LocalCommandLineCodeExecutor(work_dir=work_dir)
         else:
             from ..._docker import PYTHON_IMAGE
+
             name = f"{name}-{uuid.uuid4()}"
             self._code_executor = DockerCommandLineCodeExecutor(
                 container_name=name,
