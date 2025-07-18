@@ -17,18 +17,19 @@ import {
   Menu,
 } from "antd";
 import type { UploadFile, UploadProps, RcFile } from "antd/es/upload/interface";
-import { FileTextIcon, ImageIcon, XIcon, UploadIcon, PaperclipIcon } from "lucide-react";
+import {
+  FileTextIcon,
+  ImageIcon,
+  XIcon,
+  UploadIcon,
+  PaperclipIcon,
+} from "lucide-react";
 import { InputRequest } from "../../types/datamodel";
 import { debounce } from "lodash";
 import { planAPI } from "../api";
 import RelevantPlans from "./relevant_plans";
 import { IPlan } from "../../types/plan";
 import PlanView from "./plan";
-
-// Maximum file size in bytes (100MB)
-const MAX_FILE_SIZE = 100 * 1024 * 1024;
-// Allowed file types - now allowing all files
-const ALLOWED_FILE_TYPES: string[] = [];
 
 // Threshold for large text files (in characters)
 const LARGE_TEXT_THRESHOLD = 1500;
@@ -162,7 +163,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
             hasImageItem = true;
             const file = item.getAsFile();
 
-            if (file && file.size <= MAX_FILE_SIZE) {
+            if (file) {
               // Prevent the default paste behavior for images
               e.preventDefault();
 
@@ -189,8 +190,6 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
 
               // Show successful paste notification
               message.success(`File pasted successfully`);
-            } else if (file && file.size > MAX_FILE_SIZE) {
-              message.error(`Pasted file is too large. Maximum size is 100MB.`);
             }
           }
 
@@ -295,7 +294,6 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
 
     const searchPlans = React.useCallback(
       debounce((query: string) => {
-
         // Don't search if query is too short, no plans available, or plan is already attached
         if (
           query.length < 3 ||
@@ -424,29 +422,9 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       },
     }));
 
-    // Add helper function for file validation and addition
-    const handleFileValidationAndAdd = (file: File): boolean => {
-      // Check file size
-      if (file.size > MAX_FILE_SIZE) {
-        message.error(`${file.name} is too large. Maximum size is 50MB.`);
-        return false;
-      }
-
-      // Check file type - allow all file types now
-      if (ALLOWED_FILE_TYPES.length > 0 && !ALLOWED_FILE_TYPES.includes(file.type)) {
-        notificationApi.warning({
-          message: <span className="text-sm">Unsupported File Type</span>,
-          description: (
-            <span className="text-sm text-secondary">
-              This file type is not currently supported.
-            </span>
-          ),
-          duration: 8.5,
-        });
-        return false;
-      }
-
-      // Add valid file to fileList
+    // Add helper function for file addition
+    const handleFileAdd = (file: File): boolean => {
+      // Add file to fileList
       const uploadFile: UploadFile = {
         uid: `file-${Date.now()}-${file.name}`,
         name: file.name,
@@ -466,10 +444,8 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       multiple: true,
       fileList,
       beforeUpload: (file: RcFile) => {
-        if (handleFileValidationAndAdd(file)) {
-          return false; // Prevent automatic upload
-        }
-        return Upload.LIST_IGNORE;
+        handleFileAdd(file);
+        return false; // Prevent automatic upload
       },
       onRemove: (file: UploadFile) => {
         setFileList(fileList.filter((item) => item.uid !== file.uid));
@@ -486,25 +462,25 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
     const getFileIcon = (file: UploadFile) => {
       const fileType = file.type || "";
       const fileName = file.name || "";
-      
+
       if (fileType.startsWith("image/")) {
         return <ImageIcon className="w-4 h-4" />;
       }
-      
+
       // Check for specific file types based on extension
-      const extension = fileName.split('.').pop()?.toLowerCase();
+      const extension = fileName.split(".").pop()?.toLowerCase();
       switch (extension) {
-        case 'pdf':
+        case "pdf":
           return <FileTextIcon className="w-4 h-4 text-red-500" />;
-        case 'doc':
-        case 'docx':
+        case "doc":
+        case "docx":
           return <FileTextIcon className="w-4 h-4 text-blue-500" />;
-        case 'xls':
-        case 'xlsx':
+        case "xls":
+        case "xlsx":
           return <FileTextIcon className="w-4 h-4 text-green-500" />;
-        case 'zip':
-        case 'rar':
-        case '7z':
+        case "zip":
+        case "rar":
+        case "7z":
           return <FileTextIcon className="w-4 h-4 text-yellow-500" />;
         default:
           return <FileTextIcon className="w-4 h-4" />;
@@ -535,7 +511,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       if (isInputDisabled || !enable_upload) return;
 
       const droppedFiles = Array.from(e.dataTransfer.files);
-      droppedFiles.forEach(handleFileValidationAndAdd);
+      droppedFiles.forEach(handleFileAdd);
     };
 
     const handleUsePlan = (plan: IPlan) => {
@@ -745,14 +721,17 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                 {/* File upload button replaced with Dropdown */}
                 {enable_upload && (
                   <div
-                    className={`$${
+                    className={`${
                       isInputDisabled ? "pointer-events-none opacity-50" : ""
                     }`}
                   >
                     <Dropdown
                       overlay={
                         <Menu>
-                          <Menu.Item key="attach-file" className="!py-0 !my-0 !h-8">
+                          <Menu.Item
+                            key="attach-file"
+                            className="!py-0 !my-0 !h-8"
+                          >
                             <Upload {...uploadProps} showUploadList={false}>
                               <span className="flex items-center gap-2">
                                 <PaperclipIcon className="w-4 h-4" />
