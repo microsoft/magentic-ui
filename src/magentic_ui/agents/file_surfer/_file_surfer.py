@@ -164,10 +164,11 @@ class FileSurfer(BaseChatAgent, Component[FileSurferConfig]):
         elif use_local_executor:
             self._code_executor = LocalCommandLineCodeExecutor(work_dir=work_dir)
         else:
+            from ..._docker import PYTHON_IMAGE
             name = f"{name}-{uuid.uuid4()}"
             self._code_executor = DockerCommandLineCodeExecutor(
                 container_name=name,
-                image="magentic-ui-python-env",
+                image=PYTHON_IMAGE,
                 work_dir=work_dir,
                 bind_dir=bind_dir,
                 delete_tmp_files=True,
