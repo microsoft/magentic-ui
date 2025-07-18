@@ -690,8 +690,8 @@ def get_orchestrator_plan_prompt_json(sentinel_tasks_enabled: bool = False) -> s
     {json_schema}
     """
 
-def get_orchestrator_enhanced_plan_prompt_json() -> str:
 
+def get_orchestrator_enhanced_plan_prompt_json() -> str:
     return """
     You have access to the following team members that can help you address the request each with unique expertise:
 
@@ -763,7 +763,6 @@ def get_orchestrator_enhanced_plan_prompt_json() -> str:
     }}
 
     DO NOT OUTPUT ANYTHING OTHER THAN THE JSON OBJECT."""
-
 
 
 def get_orchestrator_plan_replan_json(sentinel_tasks_enabled: bool = False) -> str:
@@ -983,10 +982,11 @@ def validate_plan_json(
                 return False
     return True
 
+
 def validate_enhanced_plan_json(json_response: Dict[str, Any]) -> bool:
     if not isinstance(json_response, dict):
         return False
-    required_keys = ["terms","task","needs_plan","response","plan_summary","steps"]
+    required_keys = ["terms", "task", "needs_plan", "response", "plan_summary", "steps"]
     for key in required_keys:
         if key not in json_response:
             return False

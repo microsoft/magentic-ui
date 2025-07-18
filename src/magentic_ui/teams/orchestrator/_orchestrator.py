@@ -265,7 +265,9 @@ class Orchestrator(BaseGroupChatManager):
             )
 
         return get_orchestrator_enhanced_plan_prompt_json().format(
-            team=team, additional_instructions=additional_instructions,user_query=user_query
+            team=team,
+            additional_instructions=additional_instructions,
+            user_query=user_query,
         )
 
     def _get_task_ledger_replan_plan_prompt(
@@ -331,7 +333,7 @@ class Orchestrator(BaseGroupChatManager):
 
     def _validate_plan_json(self, json_response: Dict[str, Any]) -> bool:
         return validate_plan_json(json_response, self._config.sentinel_tasks)
-    
+
     def _validate_enhanced_plan_json(self, json_response: Dict[str, Any]) -> bool:
         return validate_enhanced_plan_json(json_response)
 
@@ -413,23 +415,25 @@ class Orchestrator(BaseGroupChatManager):
             cancellation_token=cancellation_token,
         )
 
-    async def change_format(self,response):
-        output = {
-            "terms": response.get('terms', ''),
-            'response': response.get('response', ''),
-            'task': response.get('task', {}),
-            'plan_summary': response.get('plan_summary', ''),
-            'needs_plan': response.get('needs_plan', False),
-            'steps': []
-            }
-        for step in response.get('steps', {}).values():
-            agent_name = step.get('agent_name', '')
-            for substep in step.get('substeps', {}).values():
-                output['steps'].append({
-                    'title': substep['title'],
-                    'details': substep['details'],
-                    'agent_name': agent_name
-                })
+    async def change_format(self, response: Dict[str, Any]) -> Dict[str, Any]:
+        output: Dict[str, Any] = {
+            "terms": response.get("terms", ""),
+            "response": response.get("response", ""),
+            "task": response.get("task", {}),
+            "plan_summary": response.get("plan_summary", ""),
+            "needs_plan": response.get("needs_plan", False),
+            "steps": [],
+        }
+        for step in response.get("steps", {}).values():
+            agent_name = step.get("agent_name", "")
+            for substep in step.get("substeps", {}).values():
+                output["steps"].append(
+                    {
+                        "title": substep["title"],
+                        "details": substep["details"],
+                        "agent_name": agent_name,
+                    }
+                )
         return output
 
     async def _get_json_response(
@@ -797,19 +801,26 @@ class Orchestrator(BaseGroupChatManager):
             # create a first plan
             if self.enhanced_plan:
                 user_query = context[1].content
+                assert isinstance(user_query, str)
                 context.append(
-                UserMessage(
-                    content=self._get_task_ledger_plan_prompt_enhanced(self._team_description,user_query),
-                    source=self._name,
-                ))
-                plan_response = await self._get_json_response(
-                context, self._validate_enhanced_plan_json, cancellation_token
+                    UserMessage(
+                        content=self._get_task_ledger_plan_prompt_enhanced(
+                            self._team_description, user_query
+                        ),
+                        source=self._name,
+                    )
                 )
+                plan_response = await self._get_json_response(
+                    context, self._validate_enhanced_plan_json, cancellation_token
+                )
+                assert plan_response is not None
                 plan_response = await self.change_format(plan_response)
             else:
                 context.append(
                     UserMessage(
-                        content=self._get_task_ledger_plan_prompt(self._team_description),
+                        content=self._get_task_ledger_plan_prompt(
+                            self._team_description
+                        ),
                         source=self._name,
                     )
                 )
@@ -871,14 +882,19 @@ class Orchestrator(BaseGroupChatManager):
 
                 if self.enhanced_plan:
                     user_query = context[1].content
+                    assert isinstance(user_query, str)
                     context.append(
-                    UserMessage(
-                        content=self._get_task_ledger_plan_prompt_enhanced(self._team_description,user_query),
-                        source=self._name,
-                    ))
-                    plan_response = await self._get_json_response(
-                    context, self._validate_enhanced_plan_json, cancellation_token
+                        UserMessage(
+                            content=self._get_task_ledger_plan_prompt_enhanced(
+                                self._team_description, user_query
+                            ),
+                            source=self._name,
+                        )
                     )
+                    plan_response = await self._get_json_response(
+                        context, self._validate_enhanced_plan_json, cancellation_token
+                    )
+                    assert plan_response is not None
                     plan_response = await self.change_format(plan_response)
                 else:
                     context.append(
