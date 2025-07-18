@@ -146,7 +146,7 @@ class TeamManager:
                 return uploaded_files
 
         for message in messages:
-            if hasattr(message, "metadata") and hasattr(message, "metadata"):
+            if hasattr(message, "metadata"):
                 metadata = getattr(message, "metadata", None)
                 if metadata and isinstance(metadata, dict):
                     attached_files_json: Any = metadata.get("attached_files")  # type: ignore
