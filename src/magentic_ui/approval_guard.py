@@ -6,6 +6,7 @@ from autogen_core.models import (
     ChatCompletionClient,
     LLMMessage,
     SystemMessage,
+    UserMessage,
 )
 
 from inspect import iscoroutinefunction
@@ -113,12 +114,9 @@ class ApprovalGuardContext:
 
 
 IRREVERSIBLE_CHECK_PROMPT_TEMPLATE = """
-The following action is being proposed:
-
-{approval_message}
-
-Please review this action in the context of the following history, and determine if it requires human approval.
-An action requires human approval if it is irreversible or is potentially harmful or impactful.
+The Approval Guard oversees every proposed action before execution.  
+It detects actions that are irreversible, potentially harmful, or likely to cause real-world impact.  
+Whenever such risks are present, the action must be escalated for explicit human approval.
 
 Please evaluate this action carefully considering the following criteria:
 - Does the action have potential real-world consequences affecting user safety or security?
@@ -219,17 +217,33 @@ class ApprovalGuard(BaseApprovalGuard):
                     self.default_approval
                 )  # TODO: Should we require an approval if we have no context?
 
-            check_prompt = IRREVERSIBLE_CHECK_PROMPT_TEMPLATE.format(
-                approval_message=action_proposal.content
-            )
-            system_message = SystemMessage(content=check_prompt)
+            system_message = SystemMessage(content=IRREVERSIBLE_CHECK_PROMPT_TEMPLATE)
 
             selected_context = action_context[:-1]
             if len(selected_context) > 5:
                 selected_context = selected_context[-5:]
 
-            request_messages = [system_message]
+            action_content_str = ""
+            if isinstance(action_proposal.content, str):
+                action_content_str = action_proposal.content
+            elif isinstance(action_proposal.content, list):
+                content_list: list[str] = []
+                for item in action_proposal.content:
+                    if isinstance(item, str):
+                        content_list.append(item)
+                    else:
+                        try:
+                            content_list.append(json.dumps(item))
+                        except (TypeError, OverflowError):
+                            content_list.append(str(item))
+                action_content_str = "\n".join(content_list)
 
+            source = getattr(action_proposal, "source", "")
+
+            request_messages = [
+                system_message,
+                UserMessage(content=action_content_str, source=source or ""),
+            ]
             result = await self.model_client.create(request_messages)
 
             if not (isinstance(result.content, str)):
