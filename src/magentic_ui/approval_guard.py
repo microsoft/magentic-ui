@@ -223,9 +223,9 @@ class ApprovalGuard(BaseApprovalGuard):
             if len(selected_context) > 5:
                 selected_context = selected_context[-5:]
 
-            action_content_str = ""
+            action_content = ""
             if isinstance(action_proposal.content, str):
-                action_content_str = action_proposal.content
+                action_content = action_proposal.content
             elif isinstance(action_proposal.content, list):
                 content_list: list[str] = []
                 for item in action_proposal.content:
@@ -236,13 +236,13 @@ class ApprovalGuard(BaseApprovalGuard):
                             content_list.append(json.dumps(item))
                         except TypeError:
                             content_list.append(str(item))
-                action_content_str = "\n".join(content_list)
+                action_content = "\n".join(content_list)
 
             source = getattr(action_proposal, "source", "")
 
             request_messages = [
                 system_message,
-                UserMessage(content=action_content_str, source=source or ""),
+                UserMessage(content=action_content, source=source or ""),
             ]
             result = await self.model_client.create(request_messages)
 
