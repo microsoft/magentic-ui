@@ -234,7 +234,7 @@ class ApprovalGuard(BaseApprovalGuard):
                     else:
                         try:
                             content_list.append(json.dumps(item))
-                        except (TypeError, OverflowError):
+                        except TypeError:
                             content_list.append(str(item))
                 action_content_str = "\n".join(content_list)
 
