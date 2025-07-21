@@ -185,8 +185,6 @@ class Orchestrator(BaseGroupChatManager):
         # Setup internal variables
         self._setup_internals()
 
-        self.enhanced_plan = True
-
     def _setup_internals(self) -> None:
         """
         Setup internal variables used in orchestrator
@@ -800,7 +798,7 @@ class Orchestrator(BaseGroupChatManager):
                 await self._handle_relevant_plan_from_memory(context=context)
 
             # create a first plan
-            if self.enhanced_plan:
+            if self._config.enhanced_planning:
                 user_query = context[1].content
                 assert isinstance(user_query, str)
                 context.append(
@@ -881,7 +879,7 @@ class Orchestrator(BaseGroupChatManager):
                 if self._config.retrieve_relevant_plans == "hint":
                     await self._handle_relevant_plan_from_memory(context=context)
 
-                if self.enhanced_plan:
+                if self._config.enhanced_planning:
                     user_query = context[1].content
                     assert isinstance(user_query, str)
                     context.append(
