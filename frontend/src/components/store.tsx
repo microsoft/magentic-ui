@@ -20,10 +20,12 @@ export interface GeneralConfig {
   websurfer_loop: boolean;
   run_without_docker: boolean;
   browser_headless: boolean;
-  model_client_configs: {orchestrator: any, web_surfer: any, coder: any, file_surfer: any, action_guard: any};
+  model_client_configs: Record<string, any>;
   mcp_agent_configs: any[];
   retrieve_relevant_plans: "never" | "hint" | "reuse"; // this is for using task centric memory to retrieve relevant plans
   server_url: string; // Optional server URL for VNC/live view
+  advanced_agent_settings?: boolean; // Whether advanced agent settings are enabled
+  default_model?: any; // The default model for all agents in basic mode
 }
 
 const defaultConfig: GeneralConfig = {
@@ -42,11 +44,14 @@ const defaultConfig: GeneralConfig = {
   run_without_docker: false,
   browser_headless: true,
   model_client_configs: {
-    "orchestrator": DEFAULT_OPENAI,
-    "web_surfer": DEFAULT_OPENAI,
-    "coder": DEFAULT_OPENAI,
-    "file_surfer": DEFAULT_OPENAI,
-    "action_guard": PROVIDER_FORM_MAP[DEFAULT_OPENAI.provider].presets["gpt-4.1-nano-2025-04-14"],
+    orchestrator: DEFAULT_OPENAI,
+    web_surfer: DEFAULT_OPENAI,
+    coder: DEFAULT_OPENAI,
+    file_surfer: DEFAULT_OPENAI,
+    action_guard:
+      PROVIDER_FORM_MAP[DEFAULT_OPENAI.provider].presets[
+        "gpt-4.1-nano-2025-04-14"
+      ],
   },
 };
 

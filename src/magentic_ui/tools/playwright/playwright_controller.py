@@ -219,6 +219,8 @@ class PlaywrightController:
             page (Page): The Playwright page object.
         """
         assert page is not None
+        # bring the page to front
+        await page.bring_to_front()
         await self.on_new_page(page)
 
     async def get_current_url_title(self, page: Page) -> Tuple[str, str]:
@@ -250,7 +252,7 @@ class PlaywrightController:
             path (str, optional): The file path to save the screenshot. If None, the screenshot will be returned as bytes. Default: None
         """
         try:
-            screenshot = await page.screenshot(path=path, timeout=5000)
+            screenshot = await page.screenshot(path=path, timeout=7000)
             return screenshot
         except Exception:
             logger.warning(
@@ -260,7 +262,7 @@ class PlaywrightController:
             await page.reload()
             await self._ensure_page_ready(page)
             # try again
-            screenshot = await page.screenshot(path=path, timeout=5000)
+            screenshot = await page.screenshot(path=path, timeout=10000)
             return screenshot
 
     async def sleep(self, page: Page, duration: Union[int, float]) -> None:
