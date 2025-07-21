@@ -67,6 +67,8 @@ class TeamManager:
         self.inside_docker = inside_docker
         self.run_without_docker = run_without_docker
         self.config = config
+        # Track uploaded files across the entire conversation
+        self.uploaded_files: set[str] = set()
 
     @staticmethod
     async def load_from_file(path: Union[str, Path]) -> Dict[str, Any]:
@@ -120,6 +122,58 @@ class TeamManager:
             internal_run_dir=internal_run_dir,
             external_run_dir=external_run_dir,
         )
+
+    def _extract_uploaded_file_names(
+        self, task: Optional[Union[ChatMessage, str, Sequence[ChatMessage]]]
+    ) -> set[str]:
+        """Extract names of uploaded files from the task to exclude them from generated files tracking"""
+        uploaded_files: set[str] = set()
+
+        if not task:
+            return uploaded_files
+
+        # Handle different task types
+        if isinstance(task, str):
+            return uploaded_files
+        elif hasattr(task, "metadata"):
+            # Single ChatMessage
+            messages = [task]
+        else:
+            # Handle Sequence[ChatMessage]
+            try:
+                messages = list(task)
+            except TypeError:
+                return uploaded_files
+
+        for message in messages:
+            if hasattr(message, "metadata"):
+                metadata = getattr(message, "metadata", None)
+                if metadata and isinstance(metadata, dict):
+                    attached_files_json: Any = metadata.get("attached_files")  # type: ignore
+                    if attached_files_json and isinstance(attached_files_json, str):
+                        try:
+                            attached_files: Any = json.loads(attached_files_json)
+                            if isinstance(attached_files, list):
+                                for file_info in attached_files:  # type: ignore
+                                    if isinstance(file_info, dict) and cast(
+                                        Dict[str, Any], file_info
+                                    ).get("uploaded", False):
+                                        file_name: Any = cast(
+                                            Dict[str, Any], file_info
+                                        ).get("name", "")
+                                        if isinstance(file_name, str):
+                                            uploaded_files.add(file_name)
+                        except (json.JSONDecodeError, TypeError):
+                            # If parsing fails, continue without crashing
+                            pass
+
+        return uploaded_files
+
+    def add_uploaded_files(self, file_names: set[str]) -> None:
+        """Add uploaded file names to the tracking set to exclude them from generated files"""
+        self.uploaded_files.update(file_names)
+        logger.info(f"Added {len(file_names)} uploaded files to tracking: {file_names}")
+        logger.info(f"Total uploaded files being tracked: {self.uploaded_files}")
 
     @staticmethod
     async def load_from_directory(directory: Union[str, Path]) -> List[Dict[str, Any]]:
@@ -304,12 +358,21 @@ class TeamManager:
                 0, time.time(), source_dir=str(paths.internal_run_dir)
             )
         )
+
+        # Extract uploaded file names from the task to exclude them from generated files tracking
+        task_uploaded_files = self._extract_uploaded_file_names(task)
+        self.uploaded_files.update(task_uploaded_files)
+        logger.info(
+            f"Found {len(task_uploaded_files)} new uploaded files to exclude from generated files tracking: {task_uploaded_files}"
+        )
+        logger.info(f"Total uploaded files being tracked: {self.uploaded_files}")
+
         global_new_files: List[Dict[str, str]] = []
         try:
             # TODO: This might cause problems later if we are not careful
             if self.team is None:
                 # TODO: if we start allowing load from config, we'll need to write the novnc and playwright ports back to the team config..
-                _, _novnc_port, _playwright_port = await self._create_team(
+                _, _, _ = await self._create_team(
                     team_config,
                     state,
                     input_func,
@@ -323,6 +386,8 @@ class TeamManager:
                     start_time, time.time(), source_dir=str(paths.internal_run_dir)
                 )
                 known_files = {file["name"] for file in initial_files}
+                # Add uploaded files to known_files so they don't get marked as generated
+                known_files.update(self.uploaded_files)
 
                 async for message in self.team.run_stream(  # type: ignore
                     task=task, cancellation_token=cancellation_token
@@ -336,8 +401,10 @@ class TeamManager:
                     )
                     current_file_names = {file["name"] for file in modified_files}
 
-                    # Find new files
-                    new_file_names = current_file_names - known_files
+                    # Find new files, excluding uploaded files
+                    new_file_names = (
+                        current_file_names - known_files - self.uploaded_files
+                    )
                     known_files = current_file_names  # Update for next iteration
 
                     # Get the full data for new files
