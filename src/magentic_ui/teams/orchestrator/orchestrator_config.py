@@ -44,3 +44,4 @@ class OrchestratorConfig(BaseModel):
     max_replans: Union[int, None] = 3
     no_overwrite_of_task: bool = False
     sentinel_tasks: bool = False
+    enhanced_planning: bool = False
