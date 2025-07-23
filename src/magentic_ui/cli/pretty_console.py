@@ -27,6 +27,7 @@ RED = "\033[31m"
 WHITE_BG = "\033[47m"
 BLACK_TEXT = "\033[30m"
 UNDERLINE = "\033[4m"
+BRIGHT_YELLOW = "\033[93m"
 
 # used for clearing the "input prompt" box
 INPUT_PROMPT_LINES = 4
@@ -40,9 +41,11 @@ _AGENT_COLORS = {
     "coder_agent": RED,
     "coder": RED,
     "web_surfer": BLUE,
-    "file_surfer": YELLOW,
+    "file_surfer": BRIGHT_YELLOW, 
     "user": GREEN,
     "user_proxy": GREEN,
+    "no_action_agent": CYAN, 
+    "reviewer": GREEN,
 }
 
 _COLOR_POOL = [BLUE, GREEN, YELLOW, CYAN, MAGENTA]
@@ -243,87 +246,88 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
 
         print(f"{left}{BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}")
 
-    # Response
-    if obj.get("response"):
-        print(left)
-        print(f"{left}{BOLD}Response:{RESET}")
-        _wrap(str(obj["response"]))
+    elif (
+        "response" in obj
+        and "task" in obj
+        and "steps" in obj
+    ):
+        # Response
+        _wrap(str(obj["response"]), 0)
 
-    # Task
-    if obj.get("task"):
+        # Task
         print(left)
         print(f"{left}{BOLD}Task:{RESET}")
         _wrap(str(obj["task"]))
 
-    # Steps
-    steps: list[dict[str, Any]] = obj.get("steps", []) or []
-    if steps:
-        print(f"{left}\n{left}{BOLD}Steps:{RESET}")
-        for i, step in enumerate(steps, 1):
-            # Add a line break between steps (except for the first one)
-            if i > 1:
-                print(f"{left}")  # Add an empty line between steps
+        # Steps
+        steps: list[dict[str, Any]] = obj.get("steps", []) or []
+        if steps:
+            print(f"{left}\n{left}{BOLD}Steps:{RESET}")
+            for i, step in enumerate(steps, 1):
+                # Add a line break between steps (except for the first one)
+                if i > 1:
+                    print(f"{left}")  # Add an empty line between steps
 
-            # Get step type and create indicator
-            if isinstance(step, dict) and step.get("step_type") == "SentinelPlanStep":
-                step_type = "SentinelPlanStep"
-            else:
-                step_type = "PlanStep"
+                # Get step type and create indicator
+                if isinstance(step, dict) and step.get("step_type") == "SentinelPlanStep":
+                    step_type = "SentinelPlanStep"
+                else:
+                    step_type = "PlanStep"
 
-            # Shows the step type icon to Console
-            type_indicator = ""
-            if step_type == "PlanStep":
-                type_indicator = f"{BOLD}{GREEN}[R]{RESET} "
-            elif step_type == "SentinelPlanStep":
-                type_indicator = f"{BOLD}{YELLOW}[S]{RESET} "
+                # Shows the step type icon to Console
+                type_indicator = ""
+                if step_type == "PlanStep":
+                    type_indicator = f"{BOLD}{GREEN}[R]{RESET} "
+                elif step_type == "SentinelPlanStep":
+                    type_indicator = f"{BOLD}{YELLOW}[S]{RESET} "
 
-            # Shows the step title name to Console
-            step_title = (
-                step.get("title", step) if isinstance(step, dict) else str(step)
-            )
-            print(f"{left}{BOLD}{i}. {type_indicator}{step_title}{RESET}")
+                # Shows the step title name to Console
+                step_title = (
+                    step.get("title", step) if isinstance(step, dict) else str(step)
+                )
+                print(f"{left}{BOLD}{i}. {type_indicator}{step_title}{RESET}")
 
-            if isinstance(step, dict):
-                # shows the details for a specific step
-                if step.get("details"):
-                    print(f"{left}{' ' * 3}{BOLD}Details:{RESET}")
-                    _wrap(str(step["details"]), 5)
+                if isinstance(step, dict):
+                    # shows the details for a specific step
+                    if step.get("details"):
+                        print(f"{left}{' ' * 3}{BOLD}Details:{RESET}")
+                        _wrap(str(step["details"]), 5)
 
-                # instruction
-                if step.get("instruction"):
-                    print(f"{left}{' ' * 3}{BOLD}Instruction:{RESET}")
-                    _wrap(str(step["instruction"]), 7)
+                    # instruction
+                    if step.get("instruction"):
+                        print(f"{left}{' ' * 3}{BOLD}Instruction:{RESET}")
+                        _wrap(str(step["instruction"]), 7)
 
-                # progress summary
-                if step.get("progress_summary"):
-                    print(f"{left}{' ' * 3}{BOLD}Progress Summary:{RESET}")
-                    _wrap(str(step["progress_summary"]), 7)
+                    # progress summary
+                    if step.get("progress_summary"):
+                        print(f"{left}{' ' * 3}{BOLD}Progress Summary:{RESET}")
+                        _wrap(str(step["progress_summary"]), 7)
 
-                # shows which agent should perform the action for this step
-                if step.get("agent_name"):
-                    print(
-                        f"{left}{' ' * 3}{BOLD}Agent:{RESET} {BOLD}{agent_color(step['agent_name'])}{step['agent_name'].upper()}{RESET}"
-                    )
+                    # shows which agent should perform the action for this step
+                    if step.get("agent_name"):
+                        print(
+                            f"{left}{' ' * 3}{BOLD}Agent:{RESET} {BOLD}{agent_color(step['agent_name'])}{step['agent_name'].upper()}{RESET}"
+                        )
 
-                # Show step type information if available
-                if step_type:
-                    type_name = (
-                        "Regular Step" if step_type == "PlanStep" else "Sentinel Step"
-                    )
-                    print(f"{left}{' ' * 3}{BOLD}Type:{RESET} {type_name}")
-                    if step_type == "SentinelPlanStep":
-                        if "condition" in step:
-                            print(
-                                f"{left}{' ' * 5}{BOLD}Condition:{RESET} {step['condition']}"
-                            )
-                        if "sleep_duration" in step:
-                            print(
-                                f"{left}{' ' * 5}{BOLD}Sleep Duration:{RESET} {step['sleep_duration']}s"
-                            )
+                    # Show step type information if available
+                    if step_type:
+                        type_name = (
+                            "Regular Step" if step_type == "PlanStep" else "Sentinel Step"
+                        )
+                        print(f"{left}{' ' * 3}{BOLD}Type:{RESET} {type_name}")
+                        if step_type == "SentinelPlanStep":
+                            if "condition" in step:
+                                print(
+                                    f"{left}{' ' * 5}{BOLD}Condition:{RESET} {step['condition']}"
+                                )
+                            if "sleep_duration" in step:
+                                print(
+                                    f"{left}{' ' * 5}{BOLD}Sleep Duration:{RESET} {step['sleep_duration']}s"
+                                )
 
-        # Always show acceptance prompt for full plans
-        print()  # tail spacer
-        print(f"{BOLD}{YELLOW}Type 'accept' to proceed or describe changes:{RESET}")
+            # Always show acceptance prompt for full plans
+            print()  # tail spacer
+            print(f"{BOLD}{YELLOW}Type 'accept' to proceed or describe changes:{RESET}")
 
     # Single‑step orchestrator JSON (title/index style)
     # Prints the information of the current step being processed
@@ -331,8 +335,7 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
         idx = obj["index"] + 1 if isinstance(obj.get("index"), int) else obj["index"]
 
         if "title" in obj:
-            print(left)
-            print(f"{left}{BOLD} Step {idx}:{RESET}")
+            print(f"{left}{BOLD}Step #{idx}:{RESET}")
             _wrap(str(obj["title"]))
 
         if "details" in obj:
@@ -383,10 +386,10 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
         if is_user_proxy:
             print(f"{BOLD}{YELLOW}Type 'accept' to proceed or describe changes:{RESET}")
 
-    # If it's a full plan without steps, always show acceptance prompt
+    # If it's a full plan without steps, the user may need to clarify their task
     elif "task" in obj or "plan_summary" in obj:
         print()  # tail spacer
-        print(f"{BOLD}{YELLOW}Type 'accept' to proceed or describe changes:{RESET}")
+        print(f"{BOLD}{YELLOW}You may need to clarify your task:{RESET}")
 
 
 def pretty_print_plan(raw: str, colour: str) -> bool:
