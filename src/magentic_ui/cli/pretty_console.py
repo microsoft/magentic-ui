@@ -28,15 +28,38 @@ WHITE_BG = "\033[47m"
 BLACK_TEXT = "\033[30m"
 UNDERLINE = "\033[4m"
 
+# used for clearing the "input prompt" box
+INPUT_PROMPT_LINES = 4
+CURSOR_UP = "\033[A"
+CLEAR_LINE = "\033[2K"
+CURSOR_TO_START = "\033[G"
+
+
+_AGENT_COLORS = {
+    "orchestrator": MAGENTA,
+    "coder_agent": RED,
+    "coder": RED,
+    "web_surfer": BLUE,
+    "file_surfer": YELLOW,
+    "user": GREEN,
+    "user_proxy": GREEN,
+}
+
+_COLOR_POOL = [BLUE, GREEN, YELLOW, CYAN, MAGENTA]
+
+
+def agent_color(name: str) -> str:
+    ln = name.lower()
+    for key, col in _AGENT_COLORS.items():
+        if key in ln:
+            return col
+    return _COLOR_POOL[hash(name) % len(_COLOR_POOL)]
+
+
 # ╭────────────────────────────────────────────────────────────────────────────╮
 # │  Helper utilities                                                          │
 # ╰────────────────────────────────────────────────────────────────────────────╯
-DEBUG_PRINT = (
-    False  # Set to True to enable additional debug prints, hardcoded on purpose
-)
-
-
-def _terminal_width(fallback: int = 100) -> int:
+def terminal_width(fallback: int = 100) -> int:
     """Return terminal width minus a 10‑column safety margin."""
     try:
         import shutil
@@ -61,7 +84,7 @@ def try_parse_json(raw: str) -> tuple[bool, Any]:
         return True, json.loads(raw)
     except (ValueError, TypeError) as e:
         # Print detailed error information to help with debugging
-        if sys.__stdout__ is not None and DEBUG_PRINT:
+        if sys.__stdout__ is not None:
             print(f"\n{RED}[JSON PARSE ERROR]{RESET} {type(e).__name__}: {str(e)}")
             # Show a truncated version of the problematic content
             preview = raw[:200] + "..." if len(raw) > 200 else raw
@@ -70,35 +93,15 @@ def try_parse_json(raw: str) -> tuple[bool, Any]:
 
 
 # ╭────────────────────────────────────────────────────────────────────────────╮
-# │  Agent‑specific colour selection (deterministic but cheap)                 │
-# ╰────────────────────────────────────────────────────────────────────────────╯
-_AGENT_COLORS = {
-    "orchestrator": CYAN,
-    "coder_agent": MAGENTA,
-    "coder": MAGENTA,
-    "reviewer": GREEN,
-    "web_surfer": BLUE,
-    "file_surfer": YELLOW,
-    "user_proxy": GREEN,
-    "azure_reasoning_agent": RED,
-}
-_COLOR_POOL = [BLUE, GREEN, YELLOW, CYAN, MAGENTA]
-
-
-def agent_color(name: str) -> str:
-    ln = name.lower()
-    for key, col in _AGENT_COLORS.items():
-        if key in ln:
-            return col
-    return _COLOR_POOL[hash(name) % len(_COLOR_POOL)]
-
-
-# ╭────────────────────────────────────────────────────────────────────────────╮
 # │  Header & transition boxes                                                 │
 # ╰────────────────────────────────────────────────────────────────────────────╯
 def header_box(agent: str) -> str:
-    """Return a symmetric ASCII box with the agent name centred."""
+    """Return a symmetric ASCII box with the agent name centered."""
     INNER = 24  # number of "═" characters (and usable chars in mid line)
+
+    # Display "USER" instead of "USER_PROXY" for consistency
+    if agent.upper() == "USER_PROXY":
+        agent = "USER"
 
     colour = agent_color(agent)
     text = agent.upper()[:INNER]  # truncate if the name is longer than the box
@@ -109,10 +112,16 @@ def header_box(agent: str) -> str:
     mid = f"║{' ' * left}{text}{RESET}{colour}{' ' * right}║"
     bot = f"╚{'═' * INNER}╝{RESET}"
 
-    return f"\n{top}\n{mid}\n{bot}"
+    return f"{top}\n{mid}\n{bot}"
 
 
 def transition_line(prev: str, curr: str) -> str:
+    # Display "USER" instead of "USER_PROXY" for consistency
+    if prev.upper() == "USER_PROXY":
+        prev = "USER"
+    if curr.upper() == "USER_PROXY":
+        curr = "USER"
+
     return (
         f"{BOLD}{agent_color(prev)}{str(prev).upper()}{RESET}  "
         f"{BOLD}{YELLOW}━━━━▶{RESET}  "
@@ -123,24 +132,16 @@ def transition_line(prev: str, curr: str) -> str:
 # ╭────────────────────────────────────────────────────────────────────────────╮
 # │  JSON pretty printer                                                       │
 # ╰────────────────────────────────────────────────────────────────────────────╯
-
-
 def pretty_print_json(raw: str, colour: str) -> bool:
     ok, obj = try_parse_json(raw)
     if not ok or obj in ([], {}):
         return False
 
-    width = _terminal_width()
+    width = terminal_width()
     left = f"{colour}┃{RESET} "
     indent_json = json.dumps(obj, indent=2, ensure_ascii=False)
     indent_json = re.sub(r'"([^"\\]+)":', rf'"{BOLD}\1{RESET}":', indent_json)
 
-    if DEBUG_PRINT:
-        print("*_________________________________*")
-        print(obj)
-        print("*_________________________________*")
-
-    print()  # top spacer
     for line in indent_json.splitlines():
         if len(line) <= width - len(left):
             print(f"{left}{line}")
@@ -154,28 +155,21 @@ def pretty_print_json(raw: str, colour: str) -> bool:
             ):
                 prefix = " " * lead if i else ""
                 print(f"{left}{prefix}{chunk}")
-    print()  # bottom spacer
+    print()
     return True
 
 
 # ╭────────────────────────────────────────────────────────────────────────────╮
 # │  Plan & step formatters                                                    │
 # ╰────────────────────────────────────────────────────────────────────────────╯
-
-
 def format_plan(obj: dict[str, Any], colour: str) -> None:
-    width = _terminal_width()
+    width = terminal_width()
     left = f"{colour}┃{RESET} "
     body_w = width - len(left)
 
     def _wrap(text: str, indent: int = 3):
         for ln in textwrap.wrap(text, body_w - indent):
             print(f"{left}{' ' * indent}{ln}")
-
-    if DEBUG_PRINT:
-        print("---------x---------x---------x---------")  # top spacer
-        print(obj)
-        print("---------x---------x---------x---------")  # bottom spacer
 
     # printing the ledger (step status and progress info)
     if (
@@ -266,7 +260,9 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
     if steps:
         print(f"{left}\n{left}{BOLD}Steps:{RESET}")
         for i, step in enumerate(steps, 1):
-            # print("-----STEP------", step, " NUMBER: ", i)
+            # Add a line break between steps (except for the first one)
+            if i > 1:
+                print(f"{left}")  # Add an empty line between steps
 
             # Get step type and create indicator
             if isinstance(step, dict) and step.get("step_type") == "SentinelPlanStep":
@@ -293,12 +289,12 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
                     print(f"{left}{' ' * 3}{BOLD}Details:{RESET}")
                     _wrap(str(step["details"]), 5)
 
-                # ---
+                # instruction
                 if step.get("instruction"):
                     print(f"{left}{' ' * 3}{BOLD}Instruction:{RESET}")
                     _wrap(str(step["instruction"]), 7)
 
-                # ---
+                # progress summary
                 if step.get("progress_summary"):
                     print(f"{left}{' ' * 3}{BOLD}Progress Summary:{RESET}")
                     _wrap(str(step["progress_summary"]), 7)
@@ -306,7 +302,7 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
                 # shows which agent should perform the action for this step
                 if step.get("agent_name"):
                     print(
-                        f"{left}{' ' * 3}{BOLD}Agent:{RESET} {step['agent_name'].upper()}"
+                        f"{left}{' ' * 3}{BOLD}Agent:{RESET} {BOLD}{agent_color(step['agent_name'])}{step['agent_name'].upper()}{RESET}"
                     )
 
                 # Show step type information if available
@@ -325,31 +321,19 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
                                 f"{left}{' ' * 5}{BOLD}Sleep Duration:{RESET} {step['sleep_duration']}s"
                             )
 
-                print(left)  # new line using the bar "┃" icon
-
         # Always show acceptance prompt for full plans
         print()  # tail spacer
         print(f"{BOLD}{YELLOW}Type 'accept' to proceed or describe changes:{RESET}")
 
     # Single‑step orchestrator JSON (title/index style)
     # Prints the information of the current step being processed
-    # --- need to find where to print the progress ledger
     elif {"title", "index", "agent_name"}.issubset(obj):
         idx = obj["index"] + 1 if isinstance(obj.get("index"), int) else obj["index"]
-
-        if DEBUG_PRINT:
-            print("---------------------")
-            print(obj)
-            print("---------------------")
 
         if "title" in obj:
             print(left)
             print(f"{left}{BOLD} Step {idx}:{RESET}")
             _wrap(str(obj["title"]))
-
-        if "index" in obj:
-            print(left)
-            print(f"{left}{BOLD}Index:{RESET} {idx}")
 
         if "details" in obj:
             print(left)
@@ -358,7 +342,9 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
 
         if "agent_name" in obj:
             print(left)
-            print(f"{left}{BOLD}Agent:{RESET} {str(obj['agent_name']).upper()}")
+            print(
+                f"{left}{BOLD}Agent:{RESET} {BOLD}{agent_color(obj['agent_name'])}{str(obj['agent_name']).upper()}{RESET}"
+            )
 
         if "instruction" in obj:
             print(left)
@@ -404,10 +390,7 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
 
 
 def pretty_print_plan(raw: str, colour: str) -> bool:
-    if DEBUG_PRINT:
-        print("------------- RAW OUTPUT -------------")
-        print(raw)
-        print("--------------------------------------")
+
 
     ok, obj = try_parse_json(raw)
     if not ok:
@@ -434,10 +417,10 @@ def try_format_step(raw: str, colour: str) -> bool:
     ok, obj = try_parse_json(raw)
     if not ok or not {"step", "content"}.issubset(obj):
         return False
-    width = _terminal_width()
+    width = terminal_width()
     title = obj.get("title", f"Step {obj['step']}")
     print(
-        f"\n{BOLD}{colour}╔{'═' * (width - 4)}╗\n"
+        f"{BOLD}{colour}╔{'═' * (width - 4)}╗\n"
         f"║ {title:<{width - 6}}║\n"
         f"╚{'═' * (width - 4)}╝{RESET}\n"
     )
@@ -448,8 +431,6 @@ def try_format_step(raw: str, colour: str) -> bool:
 # ╭────────────────────────────────────────────────────────────────────────────╮
 # │  Function to print Web_Surfer's Formatted Actions                          │
 # ╰────────────────────────────────────────────────────────────────────────────╯
-
-
 def format_web_surfer_actions(raw: str, colour: str) -> bool:
     """Format and display Web Surfer actions and observations in a structured way."""
     # Check if this is a Web Surfer action log
@@ -459,7 +440,7 @@ def format_web_surfer_actions(raw: str, colour: str) -> bool:
     ):
         return False
 
-    width = _terminal_width()
+    width = terminal_width()
     left = f"{colour}┃{RESET} "
     body_w = width - len(left)
 
@@ -476,7 +457,7 @@ def format_web_surfer_actions(raw: str, colour: str) -> bool:
                 for chunk in textwrap.wrap(line, width=body_w - indent):
                     print(f"{left}{' ' * indent}{chunk}")
 
-    print(f"\n{BOLD}{colour}╔{'═' * (width - 4)}╗")
+    print(f"{BOLD}{colour}╔{'═' * (width - 4)}╗")
     print(f"{colour}║ {BOLD}WEB SURFER ACTIONS{RESET}{colour}{' ' * (width - 20)}║")
     print(f"{colour}╚{'═' * (width - 4)}╝{RESET}\n")
 
@@ -556,8 +537,71 @@ def format_web_surfer_actions(raw: str, colour: str) -> bool:
         print(f"{left}{BOLD}Current Webpage:{RESET}")
         _wrap_text(webpage_info, 2)
 
-    print()  # Final spacing
+    print() 
     return True
+
+
+def clear_previous_lines(num_lines: int) -> None:
+    """Clear the specified number of previous lines in the terminal.
+
+    This function moves the cursor up and clears lines, effectively
+    erasing previous output from the terminal.
+    """
+    if num_lines <= 0:
+        return
+
+    for _ in range(num_lines):
+        print(f"{CURSOR_UP}{CLEAR_LINE}", end="", flush=True)
+
+
+def display_initial_user_task(task: str) -> None:
+    """Display the initial user task in the same format as other messages.
+
+    This function is meant to be called before starting the agent stream
+    to display the user's initial input in a consistent format.
+    """
+    colour = agent_color("user")
+    print(header_box("USER"))
+    left = f"{colour}┃{RESET} "
+
+    width = terminal_width()
+    body_w = width - len(left)
+
+    # Format the task text with proper line wrapping
+    lines = task.splitlines()
+    for line in lines:
+        if not line.strip():
+            print(f"{left}")
+            continue
+
+        if len(line) <= body_w:
+            print(f"{left}{line}")
+        else:
+            # Wrap long lines
+            for chunk in textwrap.wrap(line, body_w):
+                print(f"{left}{chunk}")
+
+    print()  # Add a single blank line after
+
+
+# display a welcome message from the orchestrator
+def display_orchestrator_welcome() -> None:
+    agent_name = "orchestrator"
+    colour = agent_color(agent_name)
+    print(header_box(agent_name))
+    left = f"{colour}┃{RESET} "
+
+    width = terminal_width()
+    body_w = width - len(left)
+
+    welcome_message = "Hi, welcome to Magentic-UI CLI! How can I help you?"
+
+    # Format the welcome message with proper line wrapping
+    for chunk in textwrap.wrap(welcome_message, body_w):
+        print(f"{left}{chunk}")
+
+    # Add a green '>' prompt similar to the input requested format
+    print(f"\n{BOLD}{GREEN}> {RESET}", end="")
 
 
 # ╭────────────────────────────────────────────────────────────────────────────╮
@@ -599,8 +643,11 @@ async def _PrettyConsole(
     sys.stderr = _Gate(debug, gate)
     sys.__stdout__ = sys.__stdout__  # keep a reference for raw writes
 
+    # Track the most recent input prompt state
+    input_prompt_shown = False
+
     async def process(msg: BaseChatMessage | BaseAgentEvent | TaskResult | Response):
-        nonlocal current_agent, previous_agent, last_processed
+        nonlocal current_agent, previous_agent, last_processed, input_prompt_shown
         last_processed = msg
         gate["open"] = True
 
@@ -611,6 +658,44 @@ async def _PrettyConsole(
                 if meta.get("internal") == "yes" and not debug:
                     return
                 src = msg.source
+
+                # Clear the request prompt box for better display
+                if src.lower() in ("user", "user_proxy") and input_prompt_shown:
+                    # Get the content of the user message
+                    content = str(getattr(msg, "content", ""))
+
+                    # Calculate lines dynamically based on message length and terminal width
+                    width = terminal_width()
+
+                    # Start with the base INPUT_PROMPT_LINES (box + prompt)
+                    lines_to_clear = INPUT_PROMPT_LINES
+
+                    # Add lines for the actual user input (if any)
+                    if content:
+                        # Count explicit newlines
+                        newline_count = content.count("\n")
+
+                        # Calculate wrapped lines based on content length and terminal width
+                        # Subtract 2 from width to account for the prompt '> '
+                        chars_per_line = max(20, width - 2)
+                        wrapped_lines = (
+                            len(content) + chars_per_line - 1
+                        ) // chars_per_line
+
+                        # Use the maximum of explicit newlines or wrapped lines calculation
+                        content_lines = max(1, newline_count + 1, wrapped_lines)
+
+                        lines_to_clear += content_lines
+
+                        if debug:
+                            print(
+                                f"{YELLOW}[DEBUG] Clearing {lines_to_clear} lines (content: {content_lines}, prompt: {INPUT_PROMPT_LINES}){RESET}"
+                            )
+
+                    # Erase the input prompt box plus user input
+                    clear_previous_lines(lines_to_clear)
+                    input_prompt_shown = False
+
                 if src != current_agent:
                     previous_agent, current_agent = current_agent, src
                     if previous_agent:
@@ -632,7 +717,7 @@ async def _PrettyConsole(
                 elif try_format_step(content, colour):
                     pass
                 else:
-                    width = _terminal_width()
+                    width = terminal_width()
                     left = f"{colour}┃{RESET} "
                     body_w = width - len(left)
 
@@ -682,9 +767,10 @@ async def _PrettyConsole(
                     print(
                         f"{BOLD}{GREEN}╰───────────────────────────────────────╯{RESET}"
                     )
-                    print(f"{BOLD}{GREEN}> {RESET}", end="")
-                    if sys.__stdout__ is not None:
-                        sys.__stdout__.flush()  # Ensure prompt is displayed immediately
+                    print(f"{BOLD}{GREEN}> {RESET}", end="", flush=True)
+
+                    # Track that we've shown an input prompt
+                    input_prompt_shown = True
 
             # TaskResult / Response (final outputs)
             elif isinstance(msg, (TaskResult, Response)):
