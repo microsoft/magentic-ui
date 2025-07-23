@@ -304,8 +304,8 @@ async def get_team(
                 user_input = input()
                 log_debug(f"User input received, length: {len(user_input)}", debug)
 
-                # Calculate lines taken by user input
-                input_lines = 1  # Start with 1 for the basic input
+                # Calculate lines to erase after user input
+                input_lines = 1
                 if user_input:
                     term_width = terminal_width()
                     input_lines += len(user_input) // term_width
@@ -321,13 +321,14 @@ async def get_team(
                 task = await asyncio.get_event_loop().run_in_executor(
                     None,
                     flushed_input,
-                    "",  # Empty prompt since it's already displayed by display_orchestrator_welcome
+                    "",  # prompt is already displayed with display_orchestrator_welcome
                 )
 
                 # Calculate how many lines to clear based on input length and terminal width
                 term_width = terminal_width()
 
-                lines_to_clear = 2  # Start with 2 for the blank line + prompt line
+                # prompt line
+                lines_to_clear = 1
 
                 # Add lines for the input text based on how it would wrap in the terminal
                 if task:

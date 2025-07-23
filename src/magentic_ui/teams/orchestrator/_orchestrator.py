@@ -1416,7 +1416,7 @@ class Orchestrator(BaseGroupChatManager):
 
                 # Sleep before the next check
                 await self._log_message_agentchat(
-                    f"[SENTINEL] Sleeping for {step.sleep_duration}s until next check",
+                    f"[SENTINEL] Check #{idxx}: Sleeping for {step.sleep_duration}s",
                     metadata={"internal": "no", "type": "sentinel_sleep"},
                 )
                 await asyncio.sleep(step.sleep_duration)

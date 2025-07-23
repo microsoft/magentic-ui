@@ -13,41 +13,53 @@ from typing import Any, AsyncGenerator, Dict, Optional
 from autogen_agentchat.base import Response, TaskResult
 from autogen_agentchat.messages import BaseAgentEvent, BaseChatMessage
 
-# ╭────────────────────────────────────────────────────────────────────────────╮
-# │  Terminal colours / styles - 7‑bit ANSI so they work everywhere            │
-# ╰────────────────────────────────────────────────────────────────────────────╯
-BOLD = "\033[1m"
-RESET = "\033[0m"
-BLUE = "\033[34m"
-GREEN = "\033[32m"
-YELLOW = "\033[33m"
-CYAN = "\033[36m"
-MAGENTA = "\033[35m"
-RED = "\033[31m"
-WHITE_BG = "\033[47m"
-BLACK_TEXT = "\033[30m"
-UNDERLINE = "\033[4m"
-BRIGHT_YELLOW = "\033[93m"
+
+# ╭──────────────────────────────────────────────────────────────────────────╮
+# │  ANSI Color Detection and Agent Colors                                   │
+# ╰──────────────────────────────────────────────────────────────────────────╯
+def _ansi(seq: str) -> str:
+    """Return full ESC sequence if colours are on, else empty string."""
+    return f"\033[{seq}m" if _COLOR_ENABLED else ""
+
+
+# checks if the terminal supports ANSI colors
+_COLOR_ENABLED = sys.stdout.isatty()
+
+# text attributes
+RESET = _ansi("0")
+BOLD = _ansi("1")
+UNDERLINE = _ansi("4")
+
+# foreground colours
+RED = _ansi("31")
+GREEN = _ansi("32")
+YELLOW = _ansi("33")
+BLUE = _ansi("34")
+MAGENTA = _ansi("35")
+CYAN = _ansi("36")
+
+# cursor control (not m‑terminated)
+CURSOR_UP = "\033[A" if _COLOR_ENABLED else ""
+CLEAR_LINE = "\033[2K" if _COLOR_ENABLED else ""
+CURSOR_TO_START = "\033[G" if _COLOR_ENABLED else ""
 
 # used for clearing the "input prompt" box
-INPUT_PROMPT_LINES = 4
-CURSOR_UP = "\033[A"
-CLEAR_LINE = "\033[2K"
-CURSOR_TO_START = "\033[G"
+_LINES_TO_CLEAR = 4
 
-
+# agent colors
 _AGENT_COLORS = {
     "orchestrator": MAGENTA,
     "coder_agent": RED,
     "coder": RED,
     "web_surfer": BLUE,
-    "file_surfer": BRIGHT_YELLOW,
+    "file_surfer": YELLOW,
     "user": GREEN,
     "user_proxy": GREEN,
     "no_action_agent": CYAN,
     "reviewer": GREEN,
 }
 
+# consistent color fallback for non-defined agents
 _COLOR_POOL = [BLUE, GREEN, YELLOW, CYAN, MAGENTA]
 
 
@@ -100,14 +112,16 @@ def try_parse_json(raw: str) -> tuple[bool, Any]:
 # ╰────────────────────────────────────────────────────────────────────────────╯
 def header_box(agent: str) -> str:
     """Return a symmetric ASCII box with the agent name centered."""
-    INNER = 24  # number of "═" characters (and usable chars in mid line)
 
-    # Display "USER" instead of "USER_PROXY" for consistency
+    # number of "═" characters (and usable chars in mid line)
+    INNER = 24
+
+    # Show "USER" instead of "USER_PROXY"
     if agent.upper() == "USER_PROXY":
         agent = "USER"
 
     colour = agent_color(agent)
-    text = agent.upper()[:INNER]  # truncate if the name is longer than the box
+    text = agent.upper()[:INNER]
     pad = INNER - len(text)
     left, right = pad // 2, pad - pad // 2
 
@@ -119,7 +133,7 @@ def header_box(agent: str) -> str:
 
 
 def transition_line(prev: str, curr: str) -> str:
-    # Display "USER" instead of "USER_PROXY" for consistency
+    # Display "USER" instead of "USER_PROXY"
     if prev.upper() == "USER_PROXY":
         prev = "USER"
     if curr.upper() == "USER_PROXY":
@@ -237,12 +251,12 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
             print(f"{left}{BOLD}Next Action:{RESET}")
             _wrap(str(instruction), 3)
 
-        print(left)  # Add spacing between sections
+        print(left)
 
         # Progress summary
         print(f"{left}{BOLD}Progress Summary:{RESET}")
         _wrap(str(obj["progress_summary"]), 3)
-        print(left)  # Add spacing between sections
+        print(left)
 
         print(f"{left}{BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}")
 
@@ -583,7 +597,7 @@ def display_initial_user_task(task: str) -> None:
             for chunk in textwrap.wrap(line, body_w):
                 print(f"{left}{chunk}")
 
-    print()  # Add a single blank line after
+    print()
 
 
 # display a welcome message from the orchestrator
@@ -603,7 +617,7 @@ def display_orchestrator_welcome() -> None:
         print(f"{left}{chunk}")
 
     # Add a green '>' prompt similar to the input requested format
-    print(f"\n{BOLD}{GREEN}> {RESET}", end="")
+    print(f"{BOLD}{GREEN}> {RESET}", end="")
 
 
 # ╭────────────────────────────────────────────────────────────────────────────╮
@@ -669,8 +683,8 @@ async def _PrettyConsole(
                     # Calculate lines dynamically based on message length and terminal width
                     width = terminal_width()
 
-                    # Start with the base INPUT_PROMPT_LINES (box + prompt)
-                    lines_to_clear = INPUT_PROMPT_LINES
+                    # Start with the base _LINES_TO_CLEAR (box + prompt)
+                    lines_to_clear = _LINES_TO_CLEAR
 
                     # Add lines for the actual user input (if any)
                     if content:
@@ -688,11 +702,6 @@ async def _PrettyConsole(
                         content_lines = max(1, newline_count + 1, wrapped_lines)
 
                         lines_to_clear += content_lines
-
-                        if debug:
-                            print(
-                                f"{YELLOW}[DEBUG] Clearing {lines_to_clear} lines (content: {content_lines}, prompt: {INPUT_PROMPT_LINES}){RESET}"
-                            )
 
                     # Erase the input prompt box plus user input
                     clear_previous_lines(lines_to_clear)
@@ -760,16 +769,14 @@ async def _PrettyConsole(
 
                 # Special handling for user input requests - always show this regardless of debug mode
                 if msg.__class__.__name__ == "UserInputRequestedEvent":
-                    print(
-                        f"\n{BOLD}{GREEN}╭───────────────────────────────────────╮{RESET}"
+                    box = (
+                        "\n"
+                        f"{BOLD}{GREEN}╭───────────────────────────────────────╮{RESET}\n"
+                        f"{BOLD}{GREEN}│  Input requested - please type below  │{RESET}\n"
+                        f"{BOLD}{GREEN}╰───────────────────────────────────────╯{RESET}\n"
+                        f"{BOLD}{GREEN}> {RESET}"
                     )
-                    print(
-                        f"{BOLD}{GREEN}│  Input requested - please type below  │{RESET}"
-                    )
-                    print(
-                        f"{BOLD}{GREEN}╰───────────────────────────────────────╯{RESET}"
-                    )
-                    print(f"{BOLD}{GREEN}> {RESET}", end="", flush=True)
+                    print(box, end="", flush=True)
 
                     # Track that we've shown an input prompt
                     input_prompt_shown = True
