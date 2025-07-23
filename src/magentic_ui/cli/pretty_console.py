@@ -41,10 +41,10 @@ _AGENT_COLORS = {
     "coder_agent": RED,
     "coder": RED,
     "web_surfer": BLUE,
-    "file_surfer": BRIGHT_YELLOW, 
+    "file_surfer": BRIGHT_YELLOW,
     "user": GREEN,
     "user_proxy": GREEN,
-    "no_action_agent": CYAN, 
+    "no_action_agent": CYAN,
     "reviewer": GREEN,
 }
 
@@ -246,11 +246,7 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
 
         print(f"{left}{BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}")
 
-    elif (
-        "response" in obj
-        and "task" in obj
-        and "steps" in obj
-    ):
+    elif "response" in obj and "task" in obj and "steps" in obj:
         # Response
         _wrap(str(obj["response"]), 0)
 
@@ -269,7 +265,10 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
                     print(f"{left}")  # Add an empty line between steps
 
                 # Get step type and create indicator
-                if isinstance(step, dict) and step.get("step_type") == "SentinelPlanStep":
+                if (
+                    isinstance(step, dict)
+                    and step.get("step_type") == "SentinelPlanStep"
+                ):
                     step_type = "SentinelPlanStep"
                 else:
                     step_type = "PlanStep"
@@ -312,7 +311,9 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
                     # Show step type information if available
                     if step_type:
                         type_name = (
-                            "Regular Step" if step_type == "PlanStep" else "Sentinel Step"
+                            "Regular Step"
+                            if step_type == "PlanStep"
+                            else "Sentinel Step"
                         )
                         print(f"{left}{' ' * 3}{BOLD}Type:{RESET} {type_name}")
                         if step_type == "SentinelPlanStep":
@@ -393,8 +394,6 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
 
 
 def pretty_print_plan(raw: str, colour: str) -> bool:
-
-
     ok, obj = try_parse_json(raw)
     if not ok:
         return False
@@ -540,7 +539,7 @@ def format_web_surfer_actions(raw: str, colour: str) -> bool:
         print(f"{left}{BOLD}Current Webpage:{RESET}")
         _wrap_text(webpage_info, 2)
 
-    print() 
+    print()
     return True
 
 
