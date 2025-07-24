@@ -42,17 +42,17 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
         if (user?.email) {
           try {
             const settings = await settingsAPI.getSettings(user.email);
-            const errors = validateAll(settings);
-            if (errors.length > 0) {
-              message.error("Failed to load settings. Using defaults.");
-              resetToDefaults();
-              setOriginalConfig(null);
-            } else {
-              updateConfig(settings);
-              setOriginalConfig(settings);
-            }
+            // Merge backend settings with frontend defaults
+            const { config: defaultConfig } = useSettingsStore.getState();
+            const mergedConfig = { ...defaultConfig, ...settings };
+
+            // Always use the merged config since we provide proper defaults
+            updateConfig(mergedConfig);
+            setOriginalConfig(mergedConfig);
           } catch (error) {
-            message.error("Failed to load settings. Using defaults.");
+            message.error(
+              "Failed to load settings. Using defaults. Error: " + error
+            );
             resetToDefaults();
             setOriginalConfig(null);
           }

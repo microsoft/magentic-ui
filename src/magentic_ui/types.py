@@ -41,6 +41,24 @@ class PlanStep(BaseModel):
     agent_name: str
 
 
+class SentinelPlanStep(PlanStep):
+    """
+    A class representing a long-running monitoring or periodic task.
+
+    Attributes:
+        title (str): The title of the step.
+        details (str): The description of the step.
+        agent_name (str): The name of the agent responsible for this step.
+        sleep_duration (int): Seconds to wait between checks.
+        condition (Union[int, str]): Either:
+            - An integer indicating number of iterations to perform
+            - A string describing the condition to check for completion
+    """
+
+    sleep_duration: int
+    condition: Union[int, str]
+
+
 class Plan(BaseModel):
     """
     A class representing a plan consisting of multiple steps.
@@ -72,6 +90,9 @@ class Plan(BaseModel):
             plan_str += f"Task: {self.task}\n"
         for i, step in enumerate(self.steps):
             plan_str += f"{i}. {step.agent_name}: {step.title}\n   {step.details}\n"
+            if isinstance(step, SentinelPlanStep):
+                condition_str = str(step.condition)
+                plan_str += f"   [Sentinel: every {step.sleep_duration}s, condition: {condition_str}]\n"
         return plan_str
 
     @classmethod
@@ -94,13 +115,27 @@ class Plan(BaseModel):
         for raw_step in plan_dict:
             if isinstance(raw_step, dict):
                 step: dict[str, Any] = raw_step  # type: ignore
-                steps.append(
-                    PlanStep(
-                        title=step.get("title", "Untitled Step"),
-                        details=step.get("details", "No details provided."),
-                        agent_name=step.get("agent_name", "agent"),
+
+                # Check if this is a sentinel step based on whether it has
+                # the condition and sleep_duration fields
+                if "condition" in step and "sleep_duration" in step:
+                    steps.append(
+                        SentinelPlanStep(
+                            title=step.get("title", "Untitled Step"),
+                            details=step.get("details", "No details provided."),
+                            agent_name=step.get("agent_name", "agent"),
+                            sleep_duration=step.get("sleep_duration", 0),
+                            condition=step.get("condition", "indefinite"),
+                        )
                     )
-                )
+                else:
+                    steps.append(
+                        PlanStep(
+                            title=step.get("title", "Untitled Step"),
+                            details=step.get("details", "No details provided."),
+                            agent_name=step.get("agent_name", "agent"),
+                        )
+                    )
         return cls(task=task, steps=steps) if steps else None
 
 
