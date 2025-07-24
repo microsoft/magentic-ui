@@ -1294,15 +1294,6 @@ class Orchestrator(BaseGroupChatManager):
                 f"Invalid agent: {agent_name}, participants are: {self._agent_execution_names}"
             )
 
-        # Creates a one-time instruction to the agent (UNUSED)
-        # agent_instruction = await self._create_execution_task_from_condition(
-        #     step.condition, agent_name
-        # )
-        # print(f"{BOLD}{RED}agent_instruction: {agent_instruction}{RESET}")
-
-        # TODO: need to make a snapshot of the agent and then reset its state at the end
-
-        # Forces the agent on a loop to check the condition until it is met or cancelled
         idxx = 0
         while True:
             try:
@@ -1317,9 +1308,7 @@ class Orchestrator(BaseGroupChatManager):
                     web_surfer_container = (
                         await self._runtime.try_get_underlying_agent_instance(
                             AgentId(
-                                type=self._participant_name_to_topic_type[
-                                    self._web_agent_topic
-                                ],
+                                type=self._participant_name_to_topic_type[agent_name],
                                 key=self.id.key,
                             )
                         )
@@ -1359,7 +1348,6 @@ class Orchestrator(BaseGroupChatManager):
                 # No Action Agent Check
                 elif agent_name == "no_action_agent":
                     pass
-                # TODO: add other agents later (coder, file_surfer, mcp agents, etc)
 
                 # Get the agent's response (last message in history)
                 if len(self._state.message_history) > 0:

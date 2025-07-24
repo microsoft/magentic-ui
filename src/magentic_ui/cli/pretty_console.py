@@ -369,11 +369,6 @@ def format_plan(obj: dict[str, Any], colour: str) -> None:
             print(f"{left}{BOLD}Instruction:{RESET}")
             _wrap(str(obj["instruction"]))
 
-        if "progress_summary" in obj:
-            print(left)
-            print(f"{left}{BOLD}Progress:{RESET}")
-            _wrap(str(obj["progress_summary"]))
-
         if "step_type" in obj:
             step_type = (
                 "Sentinel Step"

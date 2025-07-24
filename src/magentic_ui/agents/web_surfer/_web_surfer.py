@@ -981,6 +981,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         """
         try:
             assert self._page is not None
+            await self._playwright_controller._ensure_page_ready(self._page)  # type: ignore
             assert (
                 await self._playwright_controller.get_interactive_rects(self._page)
                 is not None
@@ -1426,6 +1427,8 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         if new_page_tentative is not None:
             new_url = new_page_tentative.url
             self._page = new_page_tentative
+            # Ensure the new page is visible and active
+            await self._page.bring_to_front()
             self._prior_metadata_hash = None
             ret, approved = await self._check_url_and_generate_msg(new_url)
             if not approved:
@@ -1460,6 +1463,8 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         if new_page_tentative is not None:
             new_url = new_page_tentative.url
             self._page = new_page_tentative
+            # Ensure the new page is visible and active
+            await self._page.bring_to_front()
             self._prior_metadata_hash = None
             ret, approved = await self._check_url_and_generate_msg(new_url)
             if not approved:
@@ -1568,6 +1573,8 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             if not approved:
                 return ret
             self._page = new_page_tentative
+            # Ensure the new page is visible and active
+            await self._page.bring_to_front()
             self._prior_metadata_hash = None
 
         return action_description
@@ -1581,6 +1588,8 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         action_description = f"I created a new tab and navigated to '{url}'."
         new_page = await self._playwright_controller.create_new_tab(self._context, url)
         self._page = new_page
+        # Ensure the new page is visible and active
+        await self._page.bring_to_front()
         self._prior_metadata_hash = None
         return action_description
 
@@ -1593,6 +1602,8 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 self._context, tab_index
             )
             self._page = new_page
+            # Ensure the switched tab is visible and active
+            await self._page.bring_to_front()
             self._prior_metadata_hash = None
             return f"I switched to tab {tab_index}."
         except (ValueError, TypeError) as e:
@@ -1607,6 +1618,8 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 self._context, tab_index
             )
             self._page = new_page
+            # Ensure the new active tab is visible and active
+            await self._page.bring_to_front()
             self._prior_metadata_hash = None
             return f"I closed tab {tab_index} and switched to an adjacent tab."
         except (ValueError, TypeError) as e:
