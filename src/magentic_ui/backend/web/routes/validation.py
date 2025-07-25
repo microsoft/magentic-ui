@@ -40,6 +40,11 @@ class ValidationService:
                 "OpenAIChatCompletionClient",
             ]:
                 provider = "autogen_ext.models.openai.OpenAIChatCompletionClient"
+            elif provider in [
+                "anthropic_chat_completion_client",
+                "AnthropicChatCompletionClient",
+            ]:
+                provider = "autogen_ext.models.anthropic.AnthropicChatCompletionClient"
 
             module_path, class_name = provider.rsplit(".", maxsplit=1)
             module = importlib.import_module(module_path)
