@@ -1294,7 +1294,17 @@ class Orchestrator(BaseGroupChatManager):
                 f"Invalid agent: {agent_name}, participants are: {self._agent_execution_names}"
             )
 
-        idxx = 0
+        # TODO the next step is to fix THIS.
+        # currently the details still have the "repetition" aspect
+        #e.g. check magentic-ui repo 5 times for a DJ Agent issue
+        # we want to convert this to a SINGLE execution instruction
+        #e.g. is there a DJ Agent issue in the magentic-ui repo?
+        # three proposed ways: 
+        # 1. LLM call to convert the details to a single instruction
+        # 2. Change the examples for the Sentinel step so it understands
+        # 3. Add an explicit field to the Sentinel step for a single instruction
+        step_details = step.details
+
         while True:
             try:
                 # Check if task is cancelled
@@ -1313,37 +1323,78 @@ class Orchestrator(BaseGroupChatManager):
                             )
                         )
                     )
-                    if web_surfer_container:
-                        # if web_surfer_container and web_surfer_container._agent:
-                        # web_surfer = web_surfer_container._agent
+                    if web_surfer_container._agent is not None:  # type: ignore
+                        # gets web_surfer agent
+                        web_surfer = web_surfer_container._agent
 
-                        # error because of the lazy init there is no browser to get page title url
-                        # _, page_url = await web_surfer.get_page_title_url()
-                        # print(f"Web Surfer page URL: {page_url}")
-                        # # Web Surfer sends a message with the current page URL
-                        # self._state.message_history.append(
-                        #     TextMessage(
-                        #         content=f"Currently on {page_url}",
-                        #         source=agent_name,
-                        #     )
-                        # )
-                        # placeholder since other way broke with lazy init PR
+                        # creates a BaseChatMessage instance and turns into a sequence
+                        test_message = TextMessage(
+                            content=step_details,
+                            source="user",
+                        )
 
-                        idxx += 1
-                        if idxx == 3:
-                            self._state.message_history.append(
-                                TextMessage(
-                                    content="Currently on apple.com",
-                                    source=agent_name,
-                                )
-                            )
+                        # turns the BaseChatMessage into a Sequence
+                        test_message = [test_message]
+                        
+                        ## this approach did not work because it only performed one action
+                        ## it will return a Response object
+                        # response_obj = await web_surfer.on_messages(test_message, cancellation_token)                        
+                        # print(f"Response Object: {repr(response)}")
+                        # if response.chat_message:
+                        #     response_content = response.chat_message.content   
+                        #     print(f"response: {response_content}")
+                                 
+                        # uses streaming to get ALL responses
+                        final_response = None
+                        async for response in web_surfer.on_messages_stream(test_message, cancellation_token):
+                            if isinstance(response, Response):
+                                # logs each step of the process
+                                if response.chat_message:
+                                    ## commented out to reduce clutter
+                                    # await self._log_message_agentchat(
+                                    #     f"[SENTINEL] Web surfer step: {response.chat_message.content}",
+                                    #     metadata={"internal": "no", "type": "sentinel_debug"},
+                                    # )
+                                    print("working") # just to show it is going through
+                            final_response = response
+
+                        #print(f"Final Response: {repr(final_response)}")
+
+
+                    # append the response's content to the message history
+                    if final_response and final_response.chat_message:
+                        content = ""
+                        
+                        if isinstance(final_response.chat_message, TextMessage):
+                            content = final_response.chat_message.content
+                        elif isinstance(final_response.chat_message, MultiModalMessage):
+                            # handles MultiModalMessage content which can be a string or list
+                            if isinstance(final_response.chat_message.content, str):
+                                content = final_response.chat_message.content
+                            elif isinstance(final_response.chat_message.content, list):
+                                # extracts only the string content from the list, ignore images
+                                for item in final_response.chat_message.content:
+                                    if isinstance(item, str):
+                                        content = item
+                                        break
+                                if not content:  # fallback if no string found
+                                    content = "Response received with non-text content"
                         else:
-                            self._state.message_history.append(
-                                TextMessage(
-                                    content="Currently on bing.com",
-                                    source=agent_name,
-                                )
-                            )
+                            content = "No content available"
+
+                    print(f"Content: {content}")
+
+                    # TODO we also want to reset the state of the web surfer agent
+                    # in the test I am trying with, I asked to check when the repository became private
+                    # but the web surfer does not seem to refresh the page (so it doesn't see I privated it)
+                    # but it successfully completed the step when I refreshed the page and it saw it was private!
+                    self._state.message_history.append(
+                        TextMessage(
+                            content=content,
+                            source=agent_name,
+                        )
+                    )
+                       
 
                 # No Action Agent Check
                 elif agent_name == "no_action_agent":
@@ -1384,6 +1435,8 @@ class Orchestrator(BaseGroupChatManager):
                             )
                         )
 
+                        print("context being checked: ", context)
+
                         # sends the condition check (the 2 messages) to an LLM
                         response = await self._model_client.create(
                             context, cancellation_token=cancellation_token
@@ -1404,7 +1457,7 @@ class Orchestrator(BaseGroupChatManager):
 
                 # Sleep before the next check
                 await self._log_message_agentchat(
-                    f"[SENTINEL] Check #{idxx}: Sleeping for {step.sleep_duration}s",
+                    f"[SENTINEL] Check #{iteration}: Sleeping for {step.sleep_duration}s",
                     metadata={"internal": "no", "type": "sentinel_sleep"},
                 )
                 await asyncio.sleep(step.sleep_duration)
