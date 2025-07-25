@@ -702,7 +702,7 @@ class PlaywrightController:
                     try:
                         # Wait for the new page to open
                         new_page = await new_page_promise
-                        await self.on_new_page(new_page)
+                        await self._ensure_page_ready(new_page)
                         return new_page
                     except PlaywrightTimeoutError:
                         # No new page opened within timeout
@@ -1102,7 +1102,7 @@ class PlaywrightController:
         tabs = context.pages
         try:
             tab = tabs[tab_id]
-            await self.on_new_page(tab)
+            await self._ensure_page_ready(tab)
             # Bring the tab to front
             await tab.bring_to_front()
             return tab
@@ -1158,7 +1158,7 @@ class PlaywrightController:
         """
         assert context is not None
         new_page: Page = await context.new_page()
-        await self.on_new_page(new_page)
+        await self._ensure_page_ready(new_page)
         # bring the page to the foreground
         await new_page.bring_to_front()
         try:

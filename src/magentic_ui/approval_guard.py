@@ -6,6 +6,7 @@ from autogen_core.models import (
     ChatCompletionClient,
     LLMMessage,
     SystemMessage,
+    UserMessage,
 )
 
 from inspect import iscoroutinefunction
@@ -112,13 +113,9 @@ class ApprovalGuardContext:
             ) from e
 
 
-IRREVERSIBLE_CHECK_PROMPT_TEMPLATE = """
-The following action is being proposed:
-
-{approval_message}
-
-Please review this action in the context of the following history, and determine if it requires human approval.
-An action requires human approval if it is irreversible or is potentially harmful or impactful.
+ACTION_GUARD_SYSTEM_MESSAGE = """
+The Approval Guard oversees every proposed action before execution.  
+It detects actions that are irreversible, potentially harmful, or likely to cause real-world impact that the user would not want to happen.  
 
 Please evaluate this action carefully considering the following criteria:
 - Does the action have potential real-world consequences affecting user safety or security?
@@ -132,16 +129,25 @@ Examples for when the action should require human approval:
 - If the websurfer is about to click a button that submits a form, or sends an email, or make a purchase, it should require human approval.
 - If the websurfer is typing potentially sensitive information, it should require human approval.
 - If the coder is writing code that creates files that were not approved or leaks information about the underlying system, it should require human approval.
-- If the filesurfer wants to open a file that seems malicious, it should require human approval.
+
 
 Examples for when the action should not require human approval:
 - If the websurfer is about to click a button that changes focus in a UI, it should not require human approval.
+- If the websurfer is clicking a button to add an item to cart, but not checking out, it should not require human approval.
 - If the websurfer is entering a search query into a search engine that is not sensitive, it should not require human approval.
-- If the coder is writing code that is not harmful or creating or opening files, it should not require human approval.
+- If the coder is writing code that is not harmful it should not require human approval.
 
 This is not an exhaustive list.
 
 When unsure, err on the side of caution and require human approval.
+
+Please respond with "YES" (requires human approval) or "NO" (does not require human approval) ONLY to indicate your decision.
+"""
+
+IRREVERSIBLE_CHECK_PROMPT_TEMPLATE = """
+The action proposed by the agent is:
+
+{action_description}
 
 Please respond with "YES" (requires human approval) or "NO" (does not require human approval) ONLY to indicate your decision.
 """
@@ -219,17 +225,36 @@ class ApprovalGuard(BaseApprovalGuard):
                     self.default_approval
                 )  # TODO: Should we require an approval if we have no context?
 
-            check_prompt = IRREVERSIBLE_CHECK_PROMPT_TEMPLATE.format(
-                approval_message=action_proposal.content
-            )
-            system_message = SystemMessage(content=check_prompt)
+            system_message = SystemMessage(content=ACTION_GUARD_SYSTEM_MESSAGE)
 
             selected_context = action_context[:-1]
             if len(selected_context) > 5:
                 selected_context = selected_context[-5:]
 
-            request_messages = [system_message]
+            action_content = ""
+            if isinstance(action_proposal.content, str):
+                action_content = action_proposal.content
+            elif isinstance(action_proposal.content, list):
+                content_list: list[str] = []
+                for item in action_proposal.content:
+                    if isinstance(item, str):
+                        content_list.append(item)
+                    else:
+                        try:
+                            content_list.append(json.dumps(item))
+                        except TypeError:
+                            content_list.append(str(item))
+                action_content = "\n".join(content_list)
 
+            request_messages = [
+                system_message,
+                UserMessage(
+                    content=IRREVERSIBLE_CHECK_PROMPT_TEMPLATE.format(
+                        action_description=action_content
+                    ),
+                    source="user",
+                ),
+            ]
             result = await self.model_client.create(request_messages)
 
             if not (isinstance(result.content, str)):

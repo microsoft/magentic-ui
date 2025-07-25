@@ -13,6 +13,12 @@ from typing import Any, List, Literal, Optional, cast
 import yaml
 from autogen_core import EVENT_LOGGER_NAME, CancellationToken
 from .cli import Console, PrettyConsole
+from .cli.pretty_console import (
+    display_initial_user_task,
+    display_orchestrator_welcome,
+    clear_previous_lines,
+    terminal_width,
+)
 from .task_team import get_task_team
 from loguru import logger
 
@@ -31,6 +37,7 @@ from ._docker import (
 BOLD = "\033[1m"
 RESET = "\033[0m"
 MAGENTA = "\033[35m"
+GREEN = "\033[32m"
 
 
 # Simple debug logging helper - no formatting, just output
@@ -141,10 +148,8 @@ async def get_team(
     )
 
     if reset:
-        print(f"Resetting state file: {state_file}")
         # delete the state file if it exists
         if os.path.exists(state_file):
-            print(f"Deleting state file: {state_file}")
             log_debug(f"Deleting existing state file at: {state_file}", debug)
             os.remove(state_file)
 
@@ -225,6 +230,7 @@ async def get_team(
         web_surfer=client_config_dict.get("web_surfer_client", None),
         coder=client_config_dict.get("coder_client", None),
         file_surfer=client_config_dict.get("file_surfer_client", None),
+        action_guard=client_config_dict.get("action_guard_client", None),
     )
 
     mcp_agents = mcp_agents or []
@@ -291,25 +297,87 @@ async def get_team(
         if not task:
             log_debug("No task provided, prompting user for input", debug)
 
+            # Define flushed_input function that can be used for both UI modes
             def flushed_input(prompt: str) -> str:
                 # Prompt for input, but flush the prompt to ensure it appears immediately
                 print(prompt, end="", flush=True)
                 user_input = input()
                 log_debug(f"User input received, length: {len(user_input)}", debug)
+
+                # Calculate lines to erase after user input
+                input_lines = 1
+                if user_input:
+                    term_width = terminal_width()
+                    input_lines += len(user_input) // term_width
+
                 return user_input
 
-            log_debug("Creating input task in event loop", debug)
-            task = await asyncio.get_event_loop().run_in_executor(
-                None,
-                flushed_input,
-                f"{MAGENTA}{BOLD}Enter your task (or press Ctrl+C to cancel):  {RESET}",
-            )
+            if use_pretty_ui:
+                # Display orchestrator welcome message using pretty console formatting
+                display_orchestrator_welcome()
+
+                # The prompt is now included in the welcome message
+                log_debug("Creating input task in event loop with pretty UI", debug)
+                task = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    flushed_input,
+                    "",  # prompt is already displayed with display_orchestrator_welcome
+                )
+
+                # Calculate how many lines to clear based on input length and terminal width
+                term_width = terminal_width()
+
+                # prompt line
+                lines_to_clear = 1
+
+                # Add lines for the input text based on how it would wrap in the terminal
+                if task:
+                    # Allow for the '> ' prefix (2 chars) in the first line
+                    first_line_chars = term_width - 2
+                    if len(task) > first_line_chars:
+                        # First line is shorter due to the prompt
+                        remaining_chars = len(task) - first_line_chars
+                        # Remaining lines use full width
+                        additional_lines = (
+                            remaining_chars + term_width - 1
+                        ) // term_width
+                        lines_to_clear += additional_lines
+
+                # Log the calculation for debugging purposes
+                log_debug(
+                    f"Clearing {lines_to_clear} lines for user input (term width: {term_width})",
+                    debug,
+                )
+
+                # Clear just the empty line + prompt + user input lines, not the welcome message
+                clear_previous_lines(lines_to_clear)
+
+            else:
+                # Use the original prompt for non-pretty UI mode
+                log_debug("Creating input task in event loop", debug)
+                task = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    flushed_input,
+                    f"{MAGENTA}{BOLD}Enter your task (or press Ctrl+C to cancel): {RESET}",
+                )
+
             log_debug("User input task completed", debug)
 
         log_debug(
             f"Task to execute: {task[:50] if task else ''}{'...' if task and len(task) > 50 else ''}",
             debug,
         )
+
+        # Add an extra blank line for better spacing
+        print()
+
+        # Display the user's task in a USER box format before passing to agents
+        if use_pretty_ui and task:
+            # Display the initial user task with proper USER box formatting
+            display_initial_user_task(task)
+        elif task:
+            # For non-pretty UI, we still want to display the initial task
+            display_initial_user_task(task)
 
         log_debug("Creating team run stream with task", debug)
         stream = team.run_stream(task=task)
@@ -321,12 +389,8 @@ async def get_team(
         # Use PrettyConsole or the regular console based on the use_pretty_ui parameter
         if use_pretty_ui:
             await PrettyConsole(stream, debug=debug)
+        # Using default Console
         else:
-            # Console doesn't accept debug parameter, using default Console
-            log_debug(
-                "Using default Console without debug parameter",
-                debug,
-            )
             await Console(stream)
 
         log_debug("Console processing completed", debug)
@@ -350,16 +414,14 @@ async def get_team(
 def display_magentic_ui_logo():
     """Display the MAGENTIC UI entry text."""
 
-    magentic_logo = f"""{MAGENTA}{BOLD}
-╔═══════════════════════════════════════════════════════════════════╗
+    magentic_logo = f"""{MAGENTA}{BOLD}╔═══════════════════════════════════════════════════════════════════╗
 ║    __  __    _    ____ _____ _   _ _____ ___ ____    _   _ ___    ║
 ║   |  \\/  |  / \\  / ___| ____| \\ | |_   _|_ _/ ___|  | | | |_ _|   ║
 ║   | |\\/| | / _ \\| |  _|  _| |  \\| | | |  | | |      | | | || |    ║
 ║   | |  | |/ ___ \\ |_| | |___| |\\  | | |  | | |___   | |_| || |    ║
-║   |_|  |_/_/   \\_\\____|_____|_| \\_| |_| |___\\____|   \\___/|___|   ║  
+║   |_|  |_/_/   \\_\\____|_____|_| \\_| |_| |___\\____|   \\___/|___|   ║ 
 ║                                                                   ║
-╚═══════════════════════════════════════════════════════════════════╝                                                          
-    {RESET}"""
+╚═══════════════════════════════════════════════════════════════════╝\n{RESET}"""
 
     print(magentic_logo)
 
