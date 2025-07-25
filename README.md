@@ -41,7 +41,7 @@ Then open <http://localhost:8081> in your browser to interact with Magentic-UI!
 
 - **File Upload Support**: Upload any file through the UI for analysis or modification
 - **MCP Agents**: Extend capabilities with your favorite MCP servers
-- **No more building Dockers**: We have uploaded our docker containers to GHCR so you no longer need to build any containers!
+- **Easier Installation**: We have uploaded our docker containers to GHCR so you no longer need to build any containers! Installation time now is much quicker.
 
 ## Alternative Usage Options
 
