@@ -14,57 +14,66 @@ _Automate your web tasks while you stay in control_
 
 Magentic-UI is a **research prototype** of a human-centered interface powered by a multi-agent system that can browse and perform actions on the web, generate and execute code, and generate and analyze files.
 
-
   https://github.com/user-attachments/assets/7975fc26-1a18-4acb-8bf9-321171eeade7
 
-Updates:
-- Support for arbitrary file uploads through the UI! Upload your file and let the Magentic-UI analyze or modify it for your task.
-- Adding MCP Agents to the agent team! You can now add your favorite MCP servers to Magentic-UI to complete tasks.
-
+## 🚀 Quick Start
 
 Here's how you can get started with Magentic-UI:
 
-> **Note**: Before installing, please read the [pre-requisites](#-pre-requisites) carefully. Magentic-UI requires Docker to run, and if you are on Windows, WSL2 is recommended. We recommend using [uv](https://docs.astral.sh/uv/getting-started/installation/) for a quicker installation. If you are using Mac or Linux, you can skip the WSL2 step.
-
 ```bash
+# 1. Setup environment
 python3 -m venv .venv
 source .venv/bin/activate
 pip install magentic-ui --upgrade
-# export OPENAI_API_KEY=<YOUR API KEY>
+
+# 2. Set your API key
+export OPENAI_API_KEY="your-api-key-here"
+
+# 3. Launch Magentic-UI
 magentic-ui --port 8081
 ```
-If your port is 8081, you can then access Magentic-UI at <http://localhost:8081>.
 
+Then open <http://localhost:8081> in your browser to interact with Magentic-UI!
 
-If you are not able to setup Docker, you can run a limited version of Magentic-UI which does not have the ability to execute code, navigate files or display the browser in the interface with the command:
+> **Prerequisites**: Requires Docker and Python 3.10+. Windows users should use WSL2. See [detailed installation](#️-installation) for more info.
 
+## ✨ What's New
+
+- **File Upload Support**: Upload any file through the UI for analysis or modification
+- **MCP Agents**: Extend capabilities with your favorite MCP servers
+- **No more building Dockers**: We have uploaded our docker containers to GHCR so you no longer need to build any containers!
+
+## Alternative Usage Options
+
+**Without Docker** (limited functionality: no code execution):
 ```bash
 magentic-ui --run-without-docker --port 8081
 ```
 
-You can also run Magentic-UI in a command-line-interface:
+**Command Line Interface**:
 ```bash
 magentic-cli --work-dir PATH/TO/STORE/DATA
 ```
 
-To use Azure models or Ollama please install with the optional dependencies:
+**Custom LLM Clients**:
 ```bash
-# for Azure
-pip install magentic-ui[azure] 
-# for Ollama
+# Azure
+pip install magentic-ui[azure]
+
+# Ollama (local models)
 pip install magentic-ui[ollama]
 ```
 
-For further details on installation please read the   <a href="#%EF%B8%8F-installation">🛠️ Installation</a> section. For common installation issues and their solutions, please refer to the [troubleshooting document](TROUBLESHOOTING.md).
+For further details on installation please read the   <a href="#️-installation">🛠️ Installation</a> section. For common installation issues and their solutions, please refer to the [troubleshooting document](TROUBLESHOOTING.md). See advanced usage instructions with the command `magentic-ui --help`. 
 
 
 ## Quick Navigation:
 <p align="center">
   <a href="#-how-it-works">🟪 How it Works</a> &nbsp;|&nbsp;
-  <a href="#%EF%B8%8F-installation">🛠️ Installation</a> &nbsp;|&nbsp;
-  <a href="#%EF%B8%8F-troubleshooting">⚠️ Troubleshooting</a> &nbsp;|&nbsp; 
-  <a href="#-contributing">🤝 Contributing</a> &nbsp;|&nbsp;
-  <a href="#-license">📄 License</a>
+  <a href="#️-installation">🛠️ Installation</a> &nbsp;|&nbsp;
+  <a href="#troubleshooting">⚠️ Troubleshooting</a> &nbsp;|&nbsp; 
+  <a href="#contributing">🤝 Contributing</a> &nbsp;|&nbsp;
+  <a href="#license">📄 License</a>
 </p>
 
 ---
@@ -78,7 +87,7 @@ Magentic-UI is especially useful for web tasks that require actions on the web (
 
 The interface of Magentic-UI is displayed in the screenshot above and consists of two panels. The left side panel is the sessions navigator where users can create new sessions to solve new tasks, switch between sessions and check on session progress with the session status indicators (🔴 needs input, ✅ task done, ↺ task in progress).
 
-The right-side panel displays the session selected. This is where you can type your query to Magentic-UI alongside text and image attachments and observe detailed task progress as well as  interact with the agents. The session display itself is split in two panels: the left side is where Magentic-UI presents the plan, task progress and asks for action approvals, the right side is a browser view where you can see web agent actions in real time and interact with the browser. Finally, at the top of the session display is a progress bar that updates as Magentic-UI makes progress.
+The right-side panel displays the session selected. This is where you can type your query to Magentic-UI alongside any file attachments and observe detailed task progress as well as  interact with the agents. The session display itself is split in two panels: the left side is where Magentic-UI presents the plan, task progress and asks for action approvals, the right side is a browser view where you can see web agent actions in real time and interact with the browser. Finally, at the top of the session display is a progress bar that updates as Magentic-UI makes progress.
 
 
 The example below shows a step by step user interaction with Magentic-UI:
@@ -118,8 +127,7 @@ To reproduce these experimental results, please see the following [instructions]
 If you're interested in reading more checkout our [blog post](https://www.microsoft.com/en-us/research/blog/magentic-ui-an-experimental-human-centered-web-agent/).
 
 ## 🛠️ Installation
-
-### 📝 Pre-Requisites
+### Pre-Requisites
 
 **Note**: If you're using Windows, we highly recommend using [WSL2](https://docs.microsoft.com/en-us/windows/wsl/install) (Windows Subsystem for Linux).
 
@@ -131,7 +139,7 @@ If using Docker Desktop, make sure it is set up to use WSL2:
 
 
 
-2. During the Installation step, you will need to set up your `OPENAI_API_KEY`. To use other models, review the [Custom Client Configuration](#Configuration) section below.
+2. During the Installation step, you will need to set up your `OPENAI_API_KEY`. To use other models, review the [Custom Client Configuration](#configuration) section below.
 
 3. You need at least [Python 3.10](https://www.python.org/downloads/) installed.
 
@@ -176,6 +184,7 @@ sh build-all.sh
 If you face issues with Docker, please refer to the [TROUBLESHOOTING.md](TROUBLESHOOTING.md) document.
 
 Once the server is running, you can access the UI at <http://localhost:8081>.
+
 
 ### Configuration
 
@@ -299,19 +308,22 @@ magentic-ui --port 8081
 The frontend from source will be available at <http://localhost:8000>, and the compiled frontend will be available at <http://localhost:8081>.
 
 
-## ⚠️ Troubleshooting
 
-If you were unable to get Magentic-UI running, do not worry! The first step is to make sure you have followed the steps outlined above, particularly with the [pre-requisites](#-pre-requisites).
+
+## Troubleshooting
+
+
+If you were unable to get Magentic-UI running, do not worry! The first step is to make sure you have followed the steps outlined above, particularly with the [pre-requisites](#pre-requisites).
 
 For common issues and their solutions, please refer to the [TROUBLESHOOTING.md](TROUBLESHOOTING.md) file in this repository. If you do not see your problem there, please open a `GitHub Issue`. 
 
-## 🤝 Contributing
+## Contributing
 
 This project welcomes contributions and suggestions. For information about contributing to Magentic-UI, please see our [CONTRIBUTING.md](CONTRIBUTING.md) guide, which includes current issues to be resolved and other forms of contributing.
 
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information, see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
-## 📄 License
+## License
 
 Microsoft, and any contributors, grant you a license to any code in the repository under the [MIT License](https://opensource.org/licenses/MIT). See the [LICENSE](LICENSE) file.
 
