@@ -128,8 +128,12 @@ def get_orchestrator_system_message_planning(
 
             - The title should be a short one sentence description of the step.
 
+            FOR REGULAR STEP:
             - The details should be a detailed description of the step. The details should be concise and directly describe the action to be taken.
             - The details should start with a brief recap of the title. We then follow it with a new line. We then add any additional details without repeating information from the title. We should be concise but mention all crucial details to allow the human to verify the step.
+            FOR SENTINEL STEP:
+            - the details field should be the single instruction the agent will do. For instance, if the sentinel step is "check the magentic-ui repo until it has 7k stars", the details field should be "check the number of stars of magentic-ui repo"
+
 
             - The agent_name should be the name of the agent that will execute the step. The agent_name should be one of the team members listed above.
 
@@ -205,7 +209,7 @@ def get_orchestrator_system_message_planning(
 
             Step 1:
             - title: "Monitor Instagram follower count until reaching 2000 followers"
-            - details: "Monitor Instagram follower count until reaching 2000 followers. \\n Periodically check the user's Instagram account follower count, sleeping between checks to avoid excessive API calls, and continue monitoring until the 2000 follower threshold is reached."
+            - details: "Check the user's Instagram account follower count"
             - agent_name: "web_surfer"
             - step_type: "SentinelPlanStep"
             - sleep_duration: 600
@@ -222,7 +226,7 @@ def get_orchestrator_system_message_planning(
 
             Step 1:
             - title: "Monitor GitHub repository stars with 5 repeated checks"
-            - details: "Monitor GitHub repository stars with 5 repeated checks. \\n Visit the magentic-ui GitHub repository 5 times, recording the star count at each visit and compiling a report of all star counts collected during the monitoring period."
+            - details: "Visit the magentic-ui GitHub repository and record the star count"
             - agent_name: "web_surfer"
             - step_type: "SentinelPlanStep"
             - sleep_duration: 0
@@ -243,7 +247,7 @@ def get_orchestrator_system_message_planning(
             
             Step 1:
             - title: "Monitor Bing for SpaceX updates with 5 repeated checks."
-            - details: "Monitor Bing for SpaceX updates with 5 repeated checks. \\n Search Bing for SpaceX news and updates 5 times with 30 seconds between each search, collecting all new information found during the monitoring period."
+            - details: "Search Bing for SpaceX news and updates"
             - agent_name: "web_surfer"
             - step_type: "SentinelPlanStep"
             - sleep_duration: 30
@@ -251,7 +255,7 @@ def get_orchestrator_system_message_planning(
 
             Step 2:
             - title: "Continuously monitor for SpaceX rocket launches"
-            - details: "Continuously monitor for SpaceX rocket launches. \\n Check for any new SpaceX rocket launch announcements or updates, sleep 600s in between checks, and report when a new launch is detected."
+            - details: "Check for new SpaceX rocket launch announcements"
             - agent_name: "web_surfer"
             - step_type: "SentinelPlanStep"
             - sleep_duration: 600
@@ -429,8 +433,11 @@ def get_orchestrator_system_message_planning_autonomous(
 
             - The title should be a short one sentence description of the step.
 
+            FOR REGULAR STEP:
             - The details should be a detailed description of the step. The details should be concise and directly describe the action to be taken.
             - The details should start with a brief recap of the title. We then follow it with a new line. We then add any additional details without repeating information from the title. We should be concise but mention all crucial details to allow the human to verify the step.
+            FOR SENTINEL STEP:
+            - the details field should be the single instruction the agent will do. For instance, if the sentinel step is "check the magentic-ui repo until it has 7k stars", the details field should be "check the number of stars of magentic-ui repo"
 
             - The agent_name should be the name of the agent that will execute the step. The agent_name should be one of the team members listed above.
 
@@ -506,7 +513,7 @@ def get_orchestrator_system_message_planning_autonomous(
 
             Step 1:
             - title: "Monitor Instagram follower count until reaching 2000 followers"
-            - details: "Monitor Instagram follower count until reaching 2000 followers. \\n Periodically check the user's Instagram account follower count, sleeping between checks to avoid excessive API calls, and continue monitoring until the 2000 follower threshold is reached."
+            - details: "Check the user's Instagram account follower count"
             - agent_name: "web_surfer"
             - step_type: "SentinelPlanStep"
             - sleep_duration: 600
@@ -523,7 +530,7 @@ def get_orchestrator_system_message_planning_autonomous(
 
             Step 1:
             - title: "Monitor GitHub repository stars with 5 repeated checks"
-            - details: "Monitor GitHub repository stars with 5 repeated checks. \\n Visit the magentic-ui GitHub repository 5 times, recording the star count at each visit and compiling a report of all star counts collected during the monitoring period."
+            - details: "Visit the magentic-ui GitHub repository and record the star count"
             - agent_name: "web_surfer"
             - step_type: "SentinelPlanStep"
             - sleep_duration: 0
@@ -544,7 +551,7 @@ def get_orchestrator_system_message_planning_autonomous(
             
             Step 1:
             - title: "Monitor Bing for SpaceX updates with 5 repeated checks."
-            - details: "Monitor Bing for SpaceX updates with 5 repeated checks. \\n Search Bing for SpaceX news and updates 5 times with 30 seconds between each search, collecting all new information found during the monitoring period."
+            - details: "Search Bing for SpaceX news and updates"
             - agent_name: "web_surfer"
             - step_type: "SentinelPlanStep"
             - sleep_duration: 30
@@ -552,7 +559,7 @@ def get_orchestrator_system_message_planning_autonomous(
 
             Step 2:
             - title: "Continuously monitor for SpaceX rocket launches"
-            - details: "Continuously monitor for SpaceX rocket launches. \\n Check for any new SpaceX rocket launch announcements or updates, sleep 600s in between checks, and report when a new launch is detected."
+            - details: "Check for new SpaceX rocket launch announcements"
             - agent_name: "web_surfer"
             - step_type: "SentinelPlanStep"
             - sleep_duration: 600
@@ -723,8 +730,11 @@ def get_orchestrator_plan_prompt_json(sentinel_tasks_enabled: bool = False) -> s
 
             - The title should be a short one sentence description of the step.
 
+            FOR REGULAR STEP:
             - The details should be a detailed description of the step. The details should be concise and directly describe the action to be taken.
             - The details should start with a brief recap of the title. We then follow it with a new line. We then add any additional details without repeating information from the title. We should be concise but mention all crucial details to allow the human to verify the step.
+            FOR SENTINEL STEP:
+            - the details field should be the single instruction the agent will do. For instance, if the sentinel step is "check the magentic-ui repo until it has 7k stars", the details field should be "check the number of stars of magentic-ui repo". It might need to refresh to check.
 
             - The agent_name should be the name of the agent that will execute the step. The agent_name should be one of the team members listed above.
 
@@ -772,7 +782,7 @@ def get_orchestrator_plan_prompt_json(sentinel_tasks_enabled: bool = False) -> s
             [
             {{
                 "title": "title of step 1",
-                "details": "recap the title in one short sentence \\n remaining details of step 1",
+                "details": "single instruction for the agent to perform",
                 "agent_name": "the name of the agent that should complete the step",
                 "step_type": "SentinelPlanStep",
                 "condition": "number of times to repeat this step or a description of the completion condition",
@@ -780,7 +790,7 @@ def get_orchestrator_plan_prompt_json(sentinel_tasks_enabled: bool = False) -> s
             }},
             {{
                 "title": "title of step 2",
-                "details": "recap the title in one short sentence \\n remaining details of step 2",
+                "details": "single instruction for the agent to perform",
                 "agent_name": "the name of the agent that should complete the step",
                 "step_type": "SentinelPlanStep",
                 "condition": "number of times to repeat this step or a description of the completion condition",

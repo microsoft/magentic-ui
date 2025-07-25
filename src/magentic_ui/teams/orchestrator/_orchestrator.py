@@ -1351,10 +1351,10 @@ class Orchestrator(BaseGroupChatManager):
                                 # logs each step of the process
                                 if response.chat_message:
                                     ## commented out to reduce clutter
-                                    # await self._log_message_agentchat(
-                                    #     f"[SENTINEL] Web surfer step: {response.chat_message.content}",
-                                    #     metadata={"internal": "no", "type": "sentinel_debug"},
-                                    # )
+                                    await self._log_message_agentchat(
+                                        f"[SENTINEL] Web surfer step: {response.chat_message.content}",
+                                        metadata={"internal": "no", "type": "sentinel_debug"},
+                                    )
                                     print("working") # just to show it is going through
                             final_response = response
 
