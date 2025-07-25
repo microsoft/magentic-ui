@@ -1314,6 +1314,7 @@ class Orchestrator(BaseGroupChatManager):
                 iteration += 1
                 # Web Surfer Agent Check
                 # TODO Define these outside of the loop so we are not instantiating them every loop
+                # INSTEAD OF ONLY FOR WEB_SURFER, YOU CAN RETREIVE ANY AGENT, 
                 if agent_name == "web_surfer":
                     web_surfer_container = (
                         await self._runtime.try_get_underlying_agent_instance(
@@ -1355,7 +1356,6 @@ class Orchestrator(BaseGroupChatManager):
                                         f"[SENTINEL] Web surfer step: {response.chat_message.content}",
                                         metadata={"internal": "no", "type": "sentinel_debug"},
                                     )
-                                    print("working") # just to show it is going through
                             final_response = response
 
                         #print(f"Final Response: {repr(final_response)}")
@@ -1364,7 +1364,8 @@ class Orchestrator(BaseGroupChatManager):
                     # append the response's content to the message history
                     if final_response and final_response.chat_message:
                         content = ""
-                        
+                        # STORE ALL OF THIS AS SINGLE message
+                        chat_message = final_response.chat_message
                         if isinstance(final_response.chat_message, TextMessage):
                             content = final_response.chat_message.content
                         elif isinstance(final_response.chat_message, MultiModalMessage):
@@ -1388,12 +1389,6 @@ class Orchestrator(BaseGroupChatManager):
                     # in the test I am trying with, I asked to check when the repository became private
                     # but the web surfer does not seem to refresh the page (so it doesn't see I privated it)
                     # but it successfully completed the step when I refreshed the page and it saw it was private!
-                    self._state.message_history.append(
-                        TextMessage(
-                            content=content,
-                            source=agent_name,
-                        )
-                    )
                        
 
                 # No Action Agent Check
@@ -1424,8 +1419,9 @@ class Orchestrator(BaseGroupChatManager):
                         # For string condition, check with an LLM if the condition is met
 
                         # initializes empty context and adds the last message in the system
+                        # TODO: context should be [message_from_agent, prompt below asking to reflect condition]
                         context: List[LLMMessage] = []
-                        context.append(SystemMessage(content=response_content))
+                        context.append(UserMessage(content=response_content, source="user"))
 
                         # checks if the previous message suffices the condition
                         context.append(
