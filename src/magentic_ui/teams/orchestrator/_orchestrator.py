@@ -1409,6 +1409,8 @@ class Orchestrator(BaseGroupChatManager):
                 )
                 await asyncio.sleep(step.sleep_duration)
 
+
+            # exception
             except asyncio.CancelledError:
                 # Handle cancellation
                 return
