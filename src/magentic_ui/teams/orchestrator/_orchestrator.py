@@ -1276,12 +1276,13 @@ class Orchestrator(BaseGroupChatManager):
             step: The sentinel step to execute
             cancellation_token: Cancellation token to stop execution
         """
-
         # Number of times to iterate over the condition
         iteration = 0
 
         # The agent tasked with this sentinel step
         agent_name = step.agent_name
+
+        print(self._agent_execution_names)
 
         # Validate agent exists
         valid_agent = False
@@ -1294,15 +1295,21 @@ class Orchestrator(BaseGroupChatManager):
                 f"Invalid agent: {agent_name}, participants are: {self._agent_execution_names}"
             )
 
-        # TODO the next step is to fix THIS.
-        # currently the details still have the "repetition" aspect
-        #e.g. check magentic-ui repo 5 times for a DJ Agent issue
-        # we want to convert this to a SINGLE execution instruction
-        #e.g. is there a DJ Agent issue in the magentic-ui repo?
-        # three proposed ways: 
-        # 1. LLM call to convert the details to a single instruction
-        # 2. Change the examples for the Sentinel step so it understands
-        # 3. Add an explicit field to the Sentinel step for a single instruction
+
+        # Get the agent container
+        agent_container = (
+            await self._runtime.try_get_underlying_agent_instance(
+                AgentId(
+                    type=self._participant_name_to_topic_type[agent_name],
+                    key=self.id.key,
+                )
+            )
+        )
+        if agent_container._agent is not None:  # type: ignore
+            # gets corresponding agent
+            agent = agent_container._agent
+
+        # gets the instruction that the agent will perform
         step_details = step.details
 
         while True:
@@ -1311,149 +1318,89 @@ class Orchestrator(BaseGroupChatManager):
                 if cancellation_token.is_cancelled():
                     return
 
+                # increases iteration count
                 iteration += 1
-                # Web Surfer Agent Check
-                # TODO Define these outside of the loop so we are not instantiating them every loop
-                if agent_name == "web_surfer":
-                    web_surfer_container = (
-                        await self._runtime.try_get_underlying_agent_instance(
-                            AgentId(
-                                type=self._participant_name_to_topic_type[agent_name],
-                                key=self.id.key,
+                
+                # creates a BaseChatMessage instance and turns into a sequence
+                test_message = TextMessage(
+                    content=step_details,
+                    source="user",
+                )
+                test_message = [test_message]
+
+                # uses streaming to get ALL responses
+                final_response = None
+                async for response in agent.on_messages_stream(test_message, cancellation_token):
+                    if isinstance(response, Response):
+                        # logs each step of the process
+                        if response.chat_message:
+                            await self._log_message_agentchat(
+                                f"[SENTINEL] Web surfer step: {response.chat_message.content}",
+                                metadata={"internal": "no", "type": "sentinel_debug"},
                             )
-                        )
-                    )
-                    if web_surfer_container._agent is not None:  # type: ignore
-                        # gets web_surfer agent
-                        web_surfer = web_surfer_container._agent
+                    final_response = response
 
-                        # creates a BaseChatMessage instance and turns into a sequence
-                        test_message = TextMessage(
-                            content=step_details,
-                            source="user",
-                        )
-
-                        # turns the BaseChatMessage into a Sequence
-                        test_message = [test_message]
-                        
-                        ## this approach did not work because it only performed one action
-                        ## it will return a Response object
-                        # response_obj = await web_surfer.on_messages(test_message, cancellation_token)                        
-                        # print(f"Response Object: {repr(response)}")
-                        # if response.chat_message:
-                        #     response_content = response.chat_message.content   
-                        #     print(f"response: {response_content}")
-                                 
-                        # uses streaming to get ALL responses
-                        final_response = None
-                        async for response in web_surfer.on_messages_stream(test_message, cancellation_token):
-                            if isinstance(response, Response):
-                                # logs each step of the process
-                                if response.chat_message:
-                                    ## commented out to reduce clutter
-                                    await self._log_message_agentchat(
-                                        f"[SENTINEL] Web surfer step: {response.chat_message.content}",
-                                        metadata={"internal": "no", "type": "sentinel_debug"},
-                                    )
-                                    print("working") # just to show it is going through
-                            final_response = response
-
-                        #print(f"Final Response: {repr(final_response)}")
-
-
-                    # append the response's content to the message history
-                    if final_response and final_response.chat_message:
-                        content = ""
-                        
-                        if isinstance(final_response.chat_message, TextMessage):
-                            content = final_response.chat_message.content
-                        elif isinstance(final_response.chat_message, MultiModalMessage):
-                            # handles MultiModalMessage content which can be a string or list
-                            if isinstance(final_response.chat_message.content, str):
-                                content = final_response.chat_message.content
-                            elif isinstance(final_response.chat_message.content, list):
-                                # extracts only the string content from the list, ignore images
-                                for item in final_response.chat_message.content:
-                                    if isinstance(item, str):
-                                        content = item
-                                        break
-                                if not content:  # fallback if no string found
-                                    content = "Response received with non-text content"
-                        else:
-                            content = "No content available"
-
-                    print(f"Content: {content}")
-
-                    # TODO we also want to reset the state of the web surfer agent
-                    # in the test I am trying with, I asked to check when the repository became private
-                    # but the web surfer does not seem to refresh the page (so it doesn't see I privated it)
-                    # but it successfully completed the step when I refreshed the page and it saw it was private!
-                    self._state.message_history.append(
-                        TextMessage(
-                            content=content,
+                # this is a MultiModalMessage or TextMessage object
+                if final_response.chat_message:
+                    chat_message = final_response.chat_message
+                    print(f"\n\n\nFinal Response Chat: {chat_message}")
+                else:
+                    chat_message = TextMessage(
+                            content="No content available",
                             source=agent_name,
                         )
+                    print("No content.")
+
+                # appends the last agent message to the message history 
+                self._state.message_history.append(chat_message)
+
+
+                # TODO we also want to reset the state of the web surfer agent
+                # in the test I am trying with, I asked to check when the repository became private
+                # but the web surfer does not seem to refresh the page (so it doesn't see I privated it)
+                # but it successfully completed the step when I refreshed the page and it saw it was private!
+                    
+
+                # Check if condition is met
+                condition_met = False
+
+                # For integer condition, check if we've reached the required iterations
+                if isinstance(step.condition, int):
+                    condition_met = iteration >= step.condition
+
+                # For string condition, check with an LLM if the condition is met
+                else:
+                    # initializes empty context and adds the last message in the system
+                    context: List[LLMMessage] = []
+                    context.append(chat_message) # last agent message
+
+                    # checks if the previous message suffices the condition
+                    context.append(
+                        UserMessage(
+                            content=f"Based on the above response, has the following condition been met? Condition: '{step.condition}'. Answer with yes or no.",
+                            source=self._name,
+                        )
                     )
-                       
 
-                # No Action Agent Check
-                elif agent_name == "no_action_agent":
-                    pass
+                    print("context being checked: ", context)
 
-                # Get the agent's response (last message in history)
-                if len(self._state.message_history) > 0:
-                    last_message = self._state.message_history[-1]
-                    response_content = ""
+                    # sends the condition check (the 2 messages) to an LLM
+                    response = await self._model_client.create(
+                        context, cancellation_token=cancellation_token
+                    )
+                    response_text = str(response.content).strip()
+                    condition_met = (
+                        "yes" in response_text.lower()
+                        and "no" not in response_text.lower()
+                    )
 
-                    if isinstance(last_message, TextMessage):  # only text
-                        response_content = last_message.content
-                    elif isinstance(last_message, MultiModalMessage) and isinstance(
-                        last_message.content, str
-                    ):
-                        response_content = last_message.content
-                    else:
-                        response_content = "Unexpected message type or content"
-
-                    # Check if condition is met
-                    condition_met = False
-
-                    # For integer condition, check if we've reached the required iterations
-                    if isinstance(step.condition, int):
-                        condition_met = iteration >= step.condition
-                    else:
-                        # For string condition, check with an LLM if the condition is met
-
-                        # initializes empty context and adds the last message in the system
-                        context: List[LLMMessage] = []
-                        context.append(SystemMessage(content=response_content))
-
-                        # checks if the previous message suffices the condition
-                        context.append(
-                            UserMessage(
-                                content=f"Based on the above response, has the following condition been met? Condition: '{step.condition}'. Answer with yes or no.",
-                                source=self._name,
-                            )
-                        )
-
-                        print("context being checked: ", context)
-
-                        # sends the condition check (the 2 messages) to an LLM
-                        response = await self._model_client.create(
-                            context, cancellation_token=cancellation_token
-                        )
-                        response_text = str(response.content).strip()
-                        condition_met = (
-                            "yes" in response_text.lower()
-                            and "no" not in response_text.lower()
-                        )
-
-                    # If condition met, return to complete the step
-                    if condition_met:
-                        await self._log_message_agentchat(
-                            f"[SENTINEL] Condition met: {step.condition}, proceed to next step if there is any.",
-                            metadata={"internal": "no", "type": "sentinel_complete"},
-                        )
-                        return
+                # If condition met, return to complete the step
+                if condition_met:
+                    await self._log_message_agentchat(
+                        f"[SENTINEL] Condition met: {step.condition}, proceed to next step if there is any.",
+                        metadata={"internal": "no", "type": "sentinel_complete"},
+                    )
+                    return
 
                 # Sleep before the next check
                 await self._log_message_agentchat(
