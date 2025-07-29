@@ -1311,7 +1311,17 @@ class Orchestrator(BaseGroupChatManager):
         # gets the instruction that the agent will perform
         step_details = step.details
 
-        # TODO save state, check if it has attribute first
+        # saves the initial state of the agent
+        # TODO we might want to move this inside the while loop
+        # and only save the state after first iter
+        # if iteration == 1, save state
+        initial_agent_state = None
+        can_save_load = hasattr(agent, "save_state") and hasattr(agent, "load_state") #type: ignore
+        if can_save_load:
+            if agent_name == self._web_agent_topic:
+                initial_agent_state = await agent.save_state(save_browser=False)
+            else:
+                initial_agent_state = await agent.save_state()
 
         while True:
             try:
@@ -1322,7 +1332,9 @@ class Orchestrator(BaseGroupChatManager):
                 # increases iteration count
                 iteration += 1
 
-                # TODO load state here check if it has attribute, do not load the web state
+                # loads the initial state of the agent
+                if can_save_load and initial_agent_state is not None:
+                    await agent.load_state(initial_agent_state)
 
                 # creates a BaseChatMessage instance and turns into a sequence
                 test_message = TextMessage(
@@ -1382,8 +1394,6 @@ class Orchestrator(BaseGroupChatManager):
                             source=self._name,
                         )
                     )
-
-                    print("context being checked: ", context)
 
                     # sends the condition check (the 2 messages) to an LLM
                     response = await self._model_client.create(
