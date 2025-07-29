@@ -2051,8 +2051,10 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
     def from_config(cls, config: WebSurferConfig) -> Self:
         return cls._from_config(config)
 
-    async def save_state(self) -> Mapping[str, Any]:
+    async def save_state(self, save_browser: bool = True) -> Mapping[str, Any]:
         """Save the current state of the WebSurfer.
+        Args:
+            save_browser (bool): Whether to save the browser state. Defaults to True.
 
         Returns:
             A dictionary containing the chat history and browser state
@@ -2066,8 +2068,11 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             return state.model_dump()
 
         assert self._context is not None
-        # Get the browser state and convert it to a dict
-        browser_state = await save_browser_state(self._context, self._page)
+
+        browser_state = None
+        if save_browser:
+            # Get the browser state and convert it to a dict
+            browser_state = await save_browser_state(self._context, self._page)
 
         # Create and return the WebSurfer state
         state = WebSurferState(
@@ -2077,7 +2082,8 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         return state.model_dump()
 
     async def load_state(self, state: Mapping[str, Any]) -> None:
-        """Load a previously saved state.
+        """
+        Load a previously saved state.
 
         Args:
             state: Dictionary containing the state to load
