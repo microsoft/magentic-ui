@@ -16,51 +16,64 @@ Magentic-UI is a **research prototype** of a human-centered interface powered by
 
   https://github.com/user-attachments/assets/7975fc26-1a18-4acb-8bf9-321171eeade7
 
-
+## 🚀 Quick Start
 
 Here's how you can get started with Magentic-UI:
 
-> **Note**: Before installing, please read the [pre-requisites](#-pre-requisites) carefully. Magentic-UI requires Docker to run, and if you are on Windows, you will need WSL2. We recommend using [uv](https://docs.astral.sh/uv/getting-started/installation/) for a quicker installation. If you are using Mac or Linux, you can skip the WSL2 step.
-
 ```bash
+# 1. Setup environment
 python3 -m venv .venv
 source .venv/bin/activate
 pip install magentic-ui --upgrade
-# export OPENAI_API_KEY=<YOUR API KEY>
+
+# 2. Set your API key
+export OPENAI_API_KEY="your-api-key-here"
+
+# 3. Launch Magentic-UI
 magentic-ui --port 8081
 ```
-If your port is 8081, you can then access Magentic-UI at <http://localhost:8081>.
 
+Then open <http://localhost:8081> in your browser to interact with Magentic-UI!
 
-If you are not able to setup Docker, you can run a limited version of Magentic-UI which does not have the ability to execute code, navigate files or display the browser in the interface with the command:
+> **Prerequisites**: Requires Docker and Python 3.10+. Windows users should use WSL2. See [detailed installation](#️-installation) for more info.
 
+## ✨ What's New
+
+- **File Upload Support**: Upload any file through the UI for analysis or modification
+- **MCP Agents**: Extend capabilities with your favorite MCP servers
+- **Easier Installation**: We have uploaded our docker containers to GHCR so you no longer need to build any containers! Installation time now is much quicker.
+
+## Alternative Usage Options
+
+**Without Docker** (limited functionality: no code execution):
 ```bash
 magentic-ui --run-without-docker --port 8081
 ```
 
-You can also run Magentic-UI in a command-line-interface:
+**Command Line Interface**:
 ```bash
 magentic-cli --work-dir PATH/TO/STORE/DATA
 ```
 
-To use Azure models or Ollama please install with the optional dependencies:
+**Custom LLM Clients**:
 ```bash
-# for Azure
-pip install magentic-ui[azure] 
-# for Ollama
+# Azure
+pip install magentic-ui[azure]
+
+# Ollama (local models)
 pip install magentic-ui[ollama]
 ```
 
-For further details on installation please read the   <a href="#%EF%B8%8F-installation">🛠️ Installation</a> section. For common installation issues and their solutions, please refer to the [troubleshooting document](TROUBLESHOOTING.md).
+For further details on installation please read the   <a href="#️-installation">🛠️ Installation</a> section. For common installation issues and their solutions, please refer to the [troubleshooting document](TROUBLESHOOTING.md). See advanced usage instructions with the command `magentic-ui --help`. 
 
 
 ## Quick Navigation:
 <p align="center">
   <a href="#-how-it-works">🟪 How it Works</a> &nbsp;|&nbsp;
-  <a href="#%EF%B8%8F-installation">🛠️ Installation</a> &nbsp;|&nbsp;
-  <a href="#%EF%B8%8F-troubleshooting">⚠️ Troubleshooting</a> &nbsp;|&nbsp; 
-  <a href="#-contributing">🤝 Contributing</a> &nbsp;|&nbsp;
-  <a href="#-license">📄 License</a>
+  <a href="#️-installation">🛠️ Installation</a> &nbsp;|&nbsp;
+  <a href="#troubleshooting">⚠️ Troubleshooting</a> &nbsp;|&nbsp; 
+  <a href="#contributing">🤝 Contributing</a> &nbsp;|&nbsp;
+  <a href="#license">📄 License</a>
 </p>
 
 ---
@@ -74,7 +87,7 @@ Magentic-UI is especially useful for web tasks that require actions on the web (
 
 The interface of Magentic-UI is displayed in the screenshot above and consists of two panels. The left side panel is the sessions navigator where users can create new sessions to solve new tasks, switch between sessions and check on session progress with the session status indicators (🔴 needs input, ✅ task done, ↺ task in progress).
 
-The right-side panel displays the session selected. This is where you can type your query to Magentic-UI alongside text and image attachments and observe detailed task progress as well as  interact with the agents. The session display itself is split in two panels: the left side is where Magentic-UI presents the plan, task progress and asks for action approvals, the right side is a browser view where you can see web agent actions in real time and interact with the browser. Finally, at the top of the session display is a progress bar that updates as Magentic-UI makes progress.
+The right-side panel displays the session selected. This is where you can type your query to Magentic-UI alongside any file attachments and observe detailed task progress as well as  interact with the agents. The session display itself is split in two panels: the left side is where Magentic-UI presents the plan, task progress and asks for action approvals, the right side is a browser view where you can see web agent actions in real time and interact with the browser. Finally, at the top of the session display is a progress bar that updates as Magentic-UI makes progress.
 
 
 The example below shows a step by step user interaction with Magentic-UI:
@@ -104,33 +117,6 @@ What differentiates Magentic-UI from other browser use offerings is its transpar
   ▶️ <em> Click to watch a video and learn more about Magentic-UI </em>
 </div>
 
-### ℹ️ Agentic Workflow
-
-Magentic-UI's underlying system is a team of specialized agents adapted from AutoGen's Magentic-One system illustrated in the figure below.
-
-<p align="center">
-  <img src="./docs/img/magenticui.jpg" alt="Magentic-UI" height="400">
-</p>
-
- The agents work together to create a modular system:
-
-- 🧑‍💼 **Orchestrator** is the lead agent, powered by a large language model (LLM), that performs co-planning with the user, decides when to ask the user for feedback, and delegates sub-tasks to the remaining agents to complete.  
-- 🌐 **WebSurfer** is an LLM agent equipped with a web browser that it can control. Given a request by the Orchestrator, it can click, type, scroll, and visit pages in multiple rounds to complete the request from the Orchestrator. This agent is a significant improvement over the AutoGen ``MultimodalWebSurfer``  in terms of the actions it can do (tab management, select options, file upload, multimodal queries).
-To learn more how this agent is built, follow along this [Tutorial: Building a Browser Use Agent From Scratch and with Magentic-UI
-](docs/tutorials/web_agent_tutorial_full.ipynb).
-- 💻 **Coder** is an LLM agent equipped with a Docker code-execution container. It can write and execute Python and shell commands and provide a response back to the Orchestrator.
-- 📁 **FileSurfer** is an LLM agent equipped with a Docker code-execution container and file-conversion tools from the MarkItDown package. It can locate files in the directory controlled by Magentic-UI, convert files to markdown, and answer questions about them.
-- 🧑 **UserProxy** is an agent that represents the user interacting with Magentic-UI. The Orchestrator can delegate work to the user instead of the other agents.
-
-To interact with Magentic-UI, **users can enter a text message and attach images**. In response, Magentic-UI creates a natural-language step-by-step plan with which users can interact through a plan-editing interface. **Users can add, delete, edit, regenerate steps, and write follow-up messages to iterate on the plan.** While the user editing the plan adds an upfront cost to the interaction, it can potentially save a significant amount of time in the agent executing the plan and increase its chance at success.
-
-The plan is stored inside the Orchestrator and is used to execute the task. **For each step of the plan, the Orchestrator determines which of the agents (WebSurfer, Coder, FileSurfer) or the user should complete the step.** Once that decision is made, the Orchestrator sends a request to one of the agents or the user and waits for a response. After the response is received, the Orchestrator decides whether that step is complete. If the step is complete, the Orchestrator moves on to the following step.
-
-**Once all steps are completed, the Orchestrator generates a final answer that is presented to the user.** If, while executing any of the steps, the Orchestrator decides that the plan is inadequate (for example, because a certain website is unreachable), the Orchestrator can replan with user permission and execute a new plan.
-
-All intermediate progress steps are clearly displayed to the user. Furthermore, the user can pause the execution of the plan and send additional requests or feedback. The user can also configure through the interface whether agent actions (e.g., clicking a button) require approval.
-
-
 ### Autonomous Evaluation
 
 To evaluate its autonomous capabilities, Magentic-UI has been tested against several benchmarks when running with o4-mini: [GAIA](https://huggingface.co/datasets/gaia-benchmark/GAIA) test set (42.52%), which assesses general AI assistants across reasoning, tool use, and web interaction tasks ; [AssistantBench](https://huggingface.co/AssistantBench) test set (27.60%), focusing on realistic, time-consuming web tasks; [WebVoyager](https://github.com/MinorJerry/WebVoyager) (82.2%), measuring end-to-end web navigation in real-world scenarios; and [WebGames](https://webgames.convergence.ai/) (45.5%), evaluating general-purpose web-browsing agents through interactive challenges.
@@ -141,8 +127,7 @@ To reproduce these experimental results, please see the following [instructions]
 If you're interested in reading more checkout our [blog post](https://www.microsoft.com/en-us/research/blog/magentic-ui-an-experimental-human-centered-web-agent/).
 
 ## 🛠️ Installation
-
-### 📝 Pre-Requisites
+### Pre-Requisites
 
 **Note**: If you're using Windows, we highly recommend using [WSL2](https://docs.microsoft.com/en-us/windows/wsl/install) (Windows Subsystem for Linux).
 
@@ -154,7 +139,7 @@ If using Docker Desktop, make sure it is set up to use WSL2:
 
 
 
-2. During the Installation step, you will need to set up your `OPENAI_API_KEY`. To use other models, review the [Custom Client Configuration](#Configuration) section below.
+2. During the Installation step, you will need to set up your `OPENAI_API_KEY`. To use other models, review the [Custom Client Configuration](#configuration) section below.
 
 3. You need at least [Python 3.10](https://www.python.org/downloads/) installed.
 
@@ -190,89 +175,23 @@ To run Magentic-UI, make sure that Docker is running, then run the following com
 magentic-ui --port 8081
 ```
 
-The first time that you run this command, it will take a while to build the Docker images -- go grab a coffee or something. The next time you run it, it will be much faster as it doesn't have to build the Docker again.
-
-If you have trouble building the dockers, please try to rebuild them with the command:
+>**Note**: Running this command for the first time will pull two docker images required for the Magentic-UI agents. If you encounter problems, you can build them directly with the following command:
 ```bash
-magentic-ui --rebuild-docker --port 8081
+cd docker
+sh build-all.sh
 ```
-If you face further issues, please refer to the [TROUBLESHOOTING.md](TROUBLESHOOTING.md) document.
+
+If you face issues with Docker, please refer to the [TROUBLESHOOTING.md](TROUBLESHOOTING.md) document.
 
 Once the server is running, you can access the UI at <http://localhost:8081>.
 
-
-You can also run a command line interface (CLI) for Magentic-UI with the command:
-
-```bash
-magentic-cli --work-dir PATH_TO_STORE_LOGS
-```
 
 ### Configuration
 
 #### Model Client Configuration
 
-If you want to use a different OpenAI key, or if you want to configure use with Azure OpenAI or Ollama, you can do so inside the UI by navigating to settings (top right icon) and changing model configuration with the format of the `config.yaml` file below. You can also create a `config.yaml` and import it inside the UI or point Magentic-UI to its path at startup time: 
-```bash
-magentic-ui --config path/to/config.yaml
-```
+If you want to use a different OpenAI key, or if you want to configure use with Azure OpenAI or Ollama, you can do so inside the UI by navigating to settings (top right icon) and changing model configuration.
 
-An example `config.yaml` for OpenAI is given below:
-
-```yaml
-# config.yaml
-
-######################################
-# Default OpenAI model configuration #
-######################################
-model_config: &client
-  provider: autogen_ext.models.openai.OpenAIChatCompletionClient
-  config:
-    model: gpt-4o
-    api_key: <YOUR API KEY>
-    max_retries: 10
-
-##########################
-# Clients for each agent #
-##########################
-orchestrator_client: *client
-coder_client: *client
-web_surfer_client: *client
-file_surfer_client: *client
-action_guard_client: *client
-```
-
-The corresponding configuration for Azure OpenAI is:
-
-```yaml
-# config.yaml
-
-######################################
-# Azure model configuration          #
-######################################
-model_config: &client
-  provider: AzureOpenAIChatCompletionClient
-  config:
-    model: gpt-4o
-    azure_endpoint: "<YOUR ENDPOINT>"
-    azure_deployment: "<YOUR DEPLOYMENT>"
-    api_version: "2024-10-21"
-    azure_ad_token_provider:
-      provider: autogen_ext.auth.azure.AzureTokenProvider
-      config:
-        provider_kind: DefaultAzureCredential
-        scopes:
-          - https://cognitiveservices.azure.com/.default
-    max_retries: 10
-
-##########################
-# Clients for each agent #
-##########################
-orchestrator_client: *client
-coder_client: *client
-web_surfer_client: *client
-file_surfer_client: *client
-action_guard_client: *client
-```
 
 #### MCP Server Configuration
 
@@ -322,7 +241,7 @@ git clone https://github.com/microsoft/magentic-ui.git
 cd magentic-ui
 ```
 
-#### 3. Install Magentic-UI's dependencies with uv:
+#### 3. Install Magentic-UI's dependencies with uv or your favorite package manager:
 
 ```bash
 # install uv through https://docs.astral.sh/uv/getting-started/installation/
@@ -357,11 +276,6 @@ yarn build
 magentic-ui --port 8081
 ```
 
->**Note**: Running this command for the first time will pull two docker images required for the Magentic-UI agents. If you encounter problems, you can build them directly with the following command:
-```bash
-cd docker
-sh build-all.sh
-```
 
 #### Running the UI from source
 
@@ -394,19 +308,22 @@ magentic-ui --port 8081
 The frontend from source will be available at <http://localhost:8000>, and the compiled frontend will be available at <http://localhost:8081>.
 
 
-## ⚠️ Troubleshooting
 
-If you were unable to get Magentic-UI running, do not worry! The first step is to make sure you have followed the steps outlined above, particularly with the [pre-requisites](#-pre-requisites).
+
+## Troubleshooting
+
+
+If you were unable to get Magentic-UI running, do not worry! The first step is to make sure you have followed the steps outlined above, particularly with the [pre-requisites](#pre-requisites).
 
 For common issues and their solutions, please refer to the [TROUBLESHOOTING.md](TROUBLESHOOTING.md) file in this repository. If you do not see your problem there, please open a `GitHub Issue`. 
 
-## 🤝 Contributing
+## Contributing
 
 This project welcomes contributions and suggestions. For information about contributing to Magentic-UI, please see our [CONTRIBUTING.md](CONTRIBUTING.md) guide, which includes current issues to be resolved and other forms of contributing.
 
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information, see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
-## 📄 License
+## License
 
 Microsoft, and any contributors, grant you a license to any code in the repository under the [MIT License](https://opensource.org/licenses/MIT). See the [LICENSE](LICENSE) file.
 
