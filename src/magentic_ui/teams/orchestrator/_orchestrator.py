@@ -1313,15 +1313,14 @@ class Orchestrator(BaseGroupChatManager):
 
         # saves the initial state of the agent
         # TODO we might want to move this inside the while loop
-        # and only save the state after first iter
-        # if iteration == 1, save state
+        # and only save the state when iteration == 1
         initial_agent_state = None
-        can_save_load = hasattr(agent, "save_state") and hasattr(agent, "load_state") #type: ignore
+        can_save_load = hasattr(agent, "save_state") and hasattr(agent, "load_state")  # type: ignore
         if can_save_load:
             if agent_name == self._web_agent_topic:
-                initial_agent_state = await agent.save_state(save_browser=False)
+                initial_agent_state = await agent.save_state(save_browser=False)  # type: ignore
             else:
-                initial_agent_state = await agent.save_state()
+                initial_agent_state = await agent.save_state()  # type: ignore
 
         while True:
             try:
@@ -1334,7 +1333,7 @@ class Orchestrator(BaseGroupChatManager):
 
                 # loads the initial state of the agent
                 if can_save_load and initial_agent_state is not None:
-                    await agent.load_state(initial_agent_state)
+                    await agent.load_state(initial_agent_state)  # type: ignore
 
                 # creates a BaseChatMessage instance and turns into a sequence
                 test_message = TextMessage(
