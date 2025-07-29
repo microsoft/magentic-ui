@@ -1282,8 +1282,6 @@ class Orchestrator(BaseGroupChatManager):
         # The agent tasked with this sentinel step
         agent_name = step.agent_name
 
-        print(self._agent_execution_names)
-
         # Validate agent exists
         valid_agent = False
         for participant_name in self._agent_execution_names:
@@ -1295,22 +1293,25 @@ class Orchestrator(BaseGroupChatManager):
                 f"Invalid agent: {agent_name}, participants are: {self._agent_execution_names}"
             )
 
-
         # Get the agent container
-        agent_container = (
-            await self._runtime.try_get_underlying_agent_instance(
-                AgentId(
-                    type=self._participant_name_to_topic_type[agent_name],
-                    key=self.id.key,
-                )
+        agent_container = await self._runtime.try_get_underlying_agent_instance(
+            AgentId(
+                type=self._participant_name_to_topic_type[agent_name],
+                key=self.id.key,
             )
         )
+
         if agent_container._agent is not None:  # type: ignore
-            # gets corresponding agent
-            agent = agent_container._agent
+            agent = agent_container._agent  # type: ignore
+        else:
+            raise ValueError(
+                f"Agent container for {agent_name} does not have a valid agent instance"
+            )
 
         # gets the instruction that the agent will perform
         step_details = step.details
+
+        # TODO save state, check if it has attribute first
 
         while True:
             try:
@@ -1320,7 +1321,9 @@ class Orchestrator(BaseGroupChatManager):
 
                 # increases iteration count
                 iteration += 1
-                
+
+                # TODO load state here check if it has attribute, do not load the web state
+
                 # creates a BaseChatMessage instance and turns into a sequence
                 test_message = TextMessage(
                     content=step_details,
@@ -1329,37 +1332,31 @@ class Orchestrator(BaseGroupChatManager):
                 test_message = [test_message]
 
                 # uses streaming to get ALL responses
-                final_response = None
-                async for response in agent.on_messages_stream(test_message, cancellation_token):
+                final_response: Optional[Any] = None
+                async for response in agent.on_messages_stream(  # type: ignore
+                    test_message, cancellation_token
+                ):
                     if isinstance(response, Response):
                         # logs each step of the process
                         if response.chat_message:
+                            chat_content = response.chat_message.content  # type: ignore
                             await self._log_message_agentchat(
-                                f"[SENTINEL] Web surfer step: {response.chat_message.content}",
+                                f"[SENTINEL] Web surfer step: {chat_content}",
                                 metadata={"internal": "no", "type": "sentinel_debug"},
                             )
-                    final_response = response
+                    final_response = response  # type: ignore
 
                 # this is a MultiModalMessage or TextMessage object
-                if final_response.chat_message:
-                    chat_message = final_response.chat_message
-                    print(f"\n\n\nFinal Response Chat: {chat_message}")
+                if final_response.chat_message:  # type: ignore
+                    chat_message_content = final_response.chat_message.content  # type: ignore
                 else:
-                    chat_message = TextMessage(
-                            content="No content available",
-                            source=agent_name,
-                        )
-                    print("No content.")
+                    chat_message_content = "No content available"
 
-                # appends the last agent message to the message history 
-                self._state.message_history.append(chat_message)
+                # appends the last agent message to the message history
+                # we dont want to polute the message history
+                # self._state.message_history.append(chat_message)
 
-
-                # TODO we also want to reset the state of the web surfer agent
-                # in the test I am trying with, I asked to check when the repository became private
-                # but the web surfer does not seem to refresh the page (so it doesn't see I privated it)
-                # but it successfully completed the step when I refreshed the page and it saw it was private!
-                    
+                # TODO we also want to find a way for the websurfer to refresh the page between checks
 
                 # Check if condition is met
                 condition_met = False
@@ -1372,7 +1369,11 @@ class Orchestrator(BaseGroupChatManager):
                 else:
                     # initializes empty context and adds the last message in the system
                     context: List[LLMMessage] = []
-                    context.append(chat_message) # last agent message
+                    last_response = UserMessage(  # type: ignore
+                        content=chat_message_content,  # type: ignore
+                        source=agent_name,
+                    )
+                    context.append(last_response)  # last agent message
 
                     # checks if the previous message suffices the condition
                     context.append(
@@ -1408,7 +1409,6 @@ class Orchestrator(BaseGroupChatManager):
                     metadata={"internal": "no", "type": "sentinel_sleep"},
                 )
                 await asyncio.sleep(step.sleep_duration)
-
 
             # exception
             except asyncio.CancelledError:
