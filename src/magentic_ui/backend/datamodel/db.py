@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, List, Optional, Union
 
 from autogen_core import ComponentModel
-from pydantic import field_serializer, model_validator
+from pydantic import field_serializer
 from sqlalchemy import ForeignKey, Integer
 from sqlmodel import JSON, Column, DateTime, Field, SQLModel, func
 
@@ -196,7 +196,9 @@ class Settings(SQLModel, table=True):
     )
 
     @field_serializer("config")
-    def serialize_config(self, value: Union[SettingsConfig, dict[str, Any]]) -> dict[str, Any]:
+    def serialize_config(
+        self, value: Union[SettingsConfig, dict[str, Any]]
+    ) -> dict[str, Any]:
         if isinstance(value, SettingsConfig):
             return value.model_dump()
         return value
