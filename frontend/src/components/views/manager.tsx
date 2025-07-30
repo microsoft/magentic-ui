@@ -17,6 +17,7 @@ import { getServerUrl } from "../utils";
 import { RunStatus } from "../types/datamodel";
 import ContentHeader from "../contentheader";
 import PlanList from "../features/Plans/PlanList";
+import McpServersList from "../features/McpServersConfig/McpServersList";
 
 interface SessionWebSocket {
   socket: WebSocket;
@@ -506,7 +507,12 @@ export const SessionManager: React.FC = () => {
             isSidebarOpen ? "ml-64" : "ml-0"
           }`}
         >
-          {activeSubMenuItem === "saved_plan" ? (
+          {
+          activeSubMenuItem === "mcp_servers" ? (
+            <div className="h-full overflow-hidden pl-4">
+              <McpServersList />
+            </div>
+          ) : activeSubMenuItem === "saved_plan" ? (
             <div className="h-full overflow-hidden pl-4">
               <PlanList
                 onTabChange={setActiveSubMenuItem}
