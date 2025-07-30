@@ -33,7 +33,7 @@ from ...agents import WebSurfer
 
 from ..datamodel.types import EnvironmentVariable, LLMCallEventMessage, TeamResult
 from ..datamodel.db import Run
-from ..utils.utils import get_modified_files, decompress_state
+from ..utils.utils import get_modified_files
 from ...tools.playwright.browser.utils import get_browser_resource_config
 
 
@@ -288,14 +288,18 @@ class TeamManager:
 
                 if state:
                     if isinstance(state, str):
-                        try:
-                            # Try to decompress if it's compressed
-                            state_dict = decompress_state(state)
-                            await self.team.load_state(state_dict)
-                        except Exception:
-                            # If decompression fails, assume it's a regular JSON string
-                            state_dict = json.loads(state)
-                            await self.team.load_state(state_dict)
+                        # Check if the string is empty or whitespace only
+                        if not state.strip():
+                            # Skip loading if state is empty
+                            pass
+                        else:
+                            try:
+                                state_dict = json.loads(state)
+                                await self.team.load_state(state_dict)
+                            except json.JSONDecodeError as json_error:
+                                # Log error and skip loading invalid JSON state
+                                logger.warning(f"Warning: Failed to load state - invalid JSON: {json_error}")
+
                     else:
                         await self.team.load_state(state)
 

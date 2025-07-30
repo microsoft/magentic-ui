@@ -35,7 +35,6 @@ from ...datamodel import (
     TeamResult,
 )
 from ...teammanager import TeamManager
-from ...utils.utils import compress_state
 
 logger = logging.getLogger(__name__)
 
@@ -230,9 +229,8 @@ class WebSocketManager:
                     # Save state to run
                     run = await self._get_run(run_id)
                     if run:
-                        # Use compress_state utility to compress the state
-                        state_dict = json.loads(message.state)
-                        run.state = compress_state(state_dict)
+                        # Store state as JSON string
+                        run.state = message.state
                         self.db_manager.upsert(run)
                     continue
 

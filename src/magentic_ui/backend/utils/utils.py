@@ -322,15 +322,3 @@ def copy_files_to_run_directory(
     return copied_files
 
 
-def compress_state(state: Dict[Any, Any]) -> str:
-    """Compress state dictionary to a base64 encoded string"""
-    state_json = json.dumps(state)
-    compressed = zlib.compress(state_json.encode("utf-8"))
-    return base64.b64encode(compressed).decode("utf-8")
-
-
-def decompress_state(compressed_state: str) -> Dict[Any, Any]:
-    """Decompress base64 encoded string back to state dictionary"""
-    compressed = base64.b64decode(compressed_state.encode("utf-8"))
-    decompressed = zlib.decompress(compressed)
-    return json.loads(decompressed.decode("utf-8"))
