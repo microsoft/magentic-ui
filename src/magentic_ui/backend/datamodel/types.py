@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Literal, Optional, Sequence
 from autogen_agentchat.base import TaskResult
 from autogen_agentchat.messages import BaseChatMessage, BaseTextChatMessage
 from autogen_core import ComponentModel
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, Field, field_serializer
 
 
 class MessageConfig(BaseModel):
@@ -89,7 +89,7 @@ class UISettings(BaseModel):
 class SettingsConfig(BaseModel):
     # Backend-specific settings only
     environment: List[EnvironmentVariable] = []
-    ui: UISettings = UISettings()
+    ui: UISettings = Field(default_factory=UISettings)
 
 
 # web request/response data models

@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, List, Optional, Union
 
 from autogen_core import ComponentModel
-from pydantic import field_serializer
+from pydantic import field_serializer, model_validator
 from sqlalchemy import ForeignKey, Integer
 from sqlmodel import JSON, Column, DateTime, Field, SQLModel, func
 
@@ -192,7 +192,7 @@ class Settings(SQLModel, table=True):
     user_id: Optional[str] = None
     version: Optional[str] = "0.0.1"
     config: Union[SettingsConfig, dict[str, Any]] = Field(
-        default_factory=SettingsConfig, sa_column=Column(JSON)
+        default_factory=lambda: SettingsConfig().model_dump(), sa_column=Column(JSON)
     )
 
     @field_serializer("config")
