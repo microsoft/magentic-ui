@@ -195,6 +195,12 @@ class Settings(SQLModel, table=True):
         default_factory=SettingsConfig, sa_column=Column(JSON)
     )
 
+    @field_serializer("config")
+    def serialize_config(self, value: Union[SettingsConfig, dict[str, Any]]) -> dict[str, Any]:
+        if isinstance(value, SettingsConfig):
+            return value.model_dump()
+        return value
+
 
 class Plan(SQLModel, table=True):
     __table_args__ = {"sqlite_autoincrement": True}
