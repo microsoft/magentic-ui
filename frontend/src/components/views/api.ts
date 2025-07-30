@@ -443,6 +443,19 @@ export class SettingsAPI {
     if (!data.status)
       throw new Error(data.message || "Failed to update settings");
   }
+
+  async getConfigInfo(): Promise<{ has_config_file: boolean; config_file_path: string | null; config_content: any }> {
+    const response = await fetch(
+      `${this.getBaseUrl()}/settings/config-info`,
+      {
+        headers: this.getHeaders(),
+      }
+    );
+    const data = await response.json();
+    if (!data.status)
+      throw new Error(data.message || "Failed to fetch config info");
+    return data.data;
+  }
 }
 
 export const teamAPI = new TeamAPI();
