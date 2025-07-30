@@ -3,7 +3,6 @@ import logging
 import traceback
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Sequence, Union
-import json
 
 from autogen_agentchat.base._task import TaskResult
 from autogen_agentchat.messages import (

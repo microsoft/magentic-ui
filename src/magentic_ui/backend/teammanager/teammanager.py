@@ -298,7 +298,9 @@ class TeamManager:
                                 await self.team.load_state(state_dict)
                             except json.JSONDecodeError as json_error:
                                 # Log error and skip loading invalid JSON state
-                                logger.warning(f"Warning: Failed to load state - invalid JSON: {json_error}")
+                                logger.warning(
+                                    f"Warning: Failed to load state - invalid JSON: {json_error}"
+                                )
 
                     else:
                         await self.team.load_state(state)

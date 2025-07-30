@@ -7,7 +7,6 @@ from autogen_core import Image
 from loguru import logger
 import shutil
 from typing import Optional
-import zlib
 
 
 def construct_task(
@@ -320,5 +319,3 @@ def copy_files_to_run_directory(
             print(f"Failed to copy file {file_info.get('name')}: {e}")
 
     return copied_files
-
-
