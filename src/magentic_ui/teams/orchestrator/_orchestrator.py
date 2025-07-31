@@ -1317,10 +1317,7 @@ class Orchestrator(BaseGroupChatManager):
         initial_agent_state = None
         can_save_load = hasattr(agent, "save_state") and hasattr(agent, "load_state")  # type: ignore
         if can_save_load:
-            if agent_name == self._web_agent_topic:
-                initial_agent_state = await agent.save_state(save_browser=False)  # type: ignore
-            else:
-                initial_agent_state = await agent.save_state()  # type: ignore
+            initial_agent_state = await agent.save_state()  # type: ignore
 
         while True:
             try:
@@ -1333,7 +1330,11 @@ class Orchestrator(BaseGroupChatManager):
 
                 # loads the initial state of the agent
                 if can_save_load and initial_agent_state is not None:
-                    await agent.load_state(initial_agent_state)  # type: ignore
+                    # if agent is web surfer, only load the chat history not the browser state
+                    if agent_name == self._web_agent_topic:
+                        await agent.load_state(initial_agent_state, load_browser=False)  # type: ignore
+                    else:
+                        await agent.load_state(initial_agent_state)  # type: ignore
 
                 # creates a BaseChatMessage instance and turns into a sequence
                 test_message = TextMessage(
@@ -1365,8 +1366,6 @@ class Orchestrator(BaseGroupChatManager):
 
                 # appends the last agent message to the message history
                 # we dont want to polute the message history
-                # self._state.message_history.append(chat_message)
-
                 # TODO we also want to find a way for the websurfer to refresh the page between checks
 
                 # Check if condition is met
@@ -1386,28 +1385,49 @@ class Orchestrator(BaseGroupChatManager):
                     )
                     context.append(last_response)  # last agent message
 
-                    # checks if the previous message suffices the condition
-                    context.append(
-                        UserMessage(
-                            content=f"Based on the above response, has the following condition been met? Condition: '{step.condition}'. Answer with yes or no.",
-                            source=self._name,
-                        )
+                    # gets the structured prompt for the condition check
+                    condition_check_message = UserMessage(
+                        content=ORCHESTRATOR_SENTINEL_CONDITION_CHECK_PROMPT.format(
+                            agent_response=chat_message_content,
+                            condition=step.condition,
+                        ),
+                        source=self._name,
                     )
+                    context.append(condition_check_message)
 
                     # sends the condition check (the 2 messages) to an LLM
                     response = await self._model_client.create(
                         context, cancellation_token=cancellation_token
                     )
                     response_text = str(response.content).strip()
-                    condition_met = (
-                        "yes" in response_text.lower()
-                        and "no" not in response_text.lower()
-                    )
+
+                    # Try to parse the response as JSON
+                    condition_met = False
+                    reason = None
+                    confidence = None
+                    try:
+                        parsed = json.loads(response_text)
+                        condition_met = bool(parsed.get("condition_met", False))
+                        reason = parsed.get("reason", None)
+                        confidence = parsed.get("confidence", None)
+                    except Exception:
+                        # fallback: try to infer from text
+                        condition_met = (
+                            "yes" in response_text.lower()
+                            and "no" not in response_text.lower()
+                        )
+                        reason = response_text
+                        confidence = None
 
                 # If condition met, return to complete the step
                 if condition_met:
+                    log_msg = f"[SENTINEL] Condition met: {step.condition}"
+                    if reason:
+                        log_msg += f"\nReason: {reason}"
+                    if confidence is not None:
+                        log_msg += f"\nConfidence: {confidence}"
                     await self._log_message_agentchat(
-                        f"[SENTINEL] Condition met: {step.condition}, proceed to next step if there is any.",
+                        log_msg,
                         metadata={"internal": "no", "type": "sentinel_complete"},
                     )
                     return

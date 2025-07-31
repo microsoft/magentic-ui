@@ -2081,7 +2081,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         )
         return state.model_dump()
 
-    async def load_state(self, state: Mapping[str, Any]) -> None:
+    async def load_state(self, state: Mapping[str, Any], load_browser: bool = True) -> None:
         """
         Load a previously saved state.
 
@@ -2094,8 +2094,8 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         # Update the chat history
         self._chat_history = web_surfer_state.chat_history
 
-        # Load the browser state if it exists
-        if web_surfer_state.browser_state is not None:
+        # Load the browser state if it exists and load_browser is True
+        if load_browser and web_surfer_state.browser_state is not None:
             assert self._context is not None
             await load_browser_state(self._context, web_surfer_state.browser_state)
 
