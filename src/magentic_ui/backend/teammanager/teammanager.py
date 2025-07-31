@@ -17,15 +17,12 @@ from typing import (
     Sequence,
     Union,
 )
-import aiofiles
-import yaml
 from loguru import logger
 from autogen_agentchat.base import ChatAgent, TaskResult, Team
 from autogen_agentchat.messages import AgentEvent, ChatMessage, TextMessage
 from autogen_core import EVENT_LOGGER_NAME, CancellationToken, ComponentModel
 from autogen_core.logging import LLMCallEvent
 from ...task_team import get_task_team
-from ...teams import GroupChat
 from ...types import RunPaths
 from ...magentic_ui_config import MagenticUIConfig, ModelClientConfigs
 from ...input_func import InputFuncType
@@ -73,17 +70,9 @@ class TeamManager:
     @staticmethod
     async def load_from_file(path: Union[str, Path]) -> Dict[str, Any]:
         """Load team configuration from JSON/YAML file"""
-        path = Path(path)
-        if not path.exists():
-            raise FileNotFoundError(f"Config file not found: {path}")
-
-        async with aiofiles.open(path) as f:  # type: ignore
-            content = await f.read()
-            if path.suffix == ".json":
-                return json.loads(content)
-            elif path.suffix in (".yml", ".yaml"):
-                return yaml.safe_load(content)
-            raise ValueError(f"Unsupported file format: {path.suffix}")
+        raise NotImplementedError(
+            "This method should be implemented in a subclass or replaced with actual loading logic."
+        )
 
     def prepare_run_paths(
         self,
@@ -178,19 +167,9 @@ class TeamManager:
     @staticmethod
     async def load_from_directory(directory: Union[str, Path]) -> List[Dict[str, Any]]:
         """Load all team configurations from a directory"""
-        directory = Path(directory)
-        configs: List[Dict[str, Any]] = []
-        valid_extensions = {".json", ".yaml", ".yml"}
-
-        for path in directory.iterdir():
-            if path.is_file() and path.suffix.lower() in valid_extensions:
-                try:
-                    config = await TeamManager.load_from_file(path)
-                    configs.append(config)
-                except Exception as e:
-                    logger.error(f"Failed to load {path}: {e}")
-
-        return configs
+        raise NotImplementedError(
+            "This method should be implemented in a subclass or replaced with actual loading logic."
+        )
 
     async def _create_team(
         self,
@@ -212,123 +191,93 @@ class TeamManager:
             playwright_port = -1
 
         try:
-            if not self.load_from_config:
-                # Logic here: we first see if the config file passed to magentic-ui has valid configs for all clients
-                # If Yes: this takes precedent over the UI LLM config and is passed to magentic-ui team
-                # If No: we disregard it and use the UI LLM config
-                model_client_from_config_file = ModelClientConfigs(
-                    orchestrator=self.config.get("orchestrator_client", None),
-                    web_surfer=self.config.get("web_surfer_client", None),
-                    coder=self.config.get("coder_client", None),
-                    file_surfer=self.config.get("file_surfer_client", None),
-                    action_guard=self.config.get("action_guard_client", None),
+            # Logic here: we first see if the config file passed to magentic-ui has valid configs for all clients
+            # If Yes: this takes precedent over the UI LLM config and is passed to magentic-ui team
+            # If No: we disregard it and use the UI LLM config
+            model_client_from_config_file = ModelClientConfigs(
+                orchestrator=self.config.get("orchestrator_client", None),
+                web_surfer=self.config.get("web_surfer_client", None),
+                coder=self.config.get("coder_client", None),
+                file_surfer=self.config.get("file_surfer_client", None),
+                action_guard=self.config.get("action_guard_client", None),
+            )
+            is_complete_config_from_file = all(
+                [
+                    model_client_from_config_file.orchestrator,
+                    model_client_from_config_file.web_surfer,
+                    model_client_from_config_file.coder,
+                    model_client_from_config_file.file_surfer,
+                    model_client_from_config_file.action_guard,
+                ]
+            )
+
+            if not is_complete_config_from_file:
+                logger.warning(
+                    "Using model client configurations from UI settings if (default is OpenAI) since no config file passed or config file incomplete."
                 )
-                is_complete_config_from_file = all(
-                    [
-                        model_client_from_config_file.orchestrator,
-                        model_client_from_config_file.web_surfer,
-                        model_client_from_config_file.coder,
-                        model_client_from_config_file.file_surfer,
-                        model_client_from_config_file.action_guard,
-                    ]
-                )
 
-                if not is_complete_config_from_file:
-                    logger.warning(
-                        "Using model client configurations from UI settings if (default is OpenAI) since no config file passed or config file incomplete."
-                    )
-
-                    config_params = {
-                        # Lowest priority defaults
-                        **self.config,  # type: ignore
-                        # Provided settings override defaults
-                        **settings_config,  # type: ignore,
-                        # These must always be set to the values computed above
-                        "playwright_port": playwright_port,
-                        "novnc_port": novnc_port,
-                        # Defer to self for inside_docker
-                        "inside_docker": self.inside_docker,
-                    }
-                else:
-                    config_params = {
-                        # Lowest priority defaults
-                        **self.config,  # type: ignore
-                        # Provided settings override defaults
-                        **settings_config,  # type: ignore,
-                        "model_client_configs": model_client_from_config_file,
-                        # These must always be set to the values computed above
-                        "playwright_port": playwright_port,
-                        "novnc_port": novnc_port,
-                        # Defer to self for inside_docker
-                        "inside_docker": self.inside_docker,
-                    }
-                if self.run_without_docker:
-                    config_params["run_without_docker"] = True
-                    # Allow browser_headless to be set by settings_config
-                else:
-                    if settings_config.get("run_without_docker", False):
-                        # Allow settings_config to set browser_headless
-                        pass
-                    else:
-                        config_params["browser_headless"] = False
-                magentic_ui_config = MagenticUIConfig(**config_params)  # type: ignore
-                self.team = cast(
-                    Team,
-                    await get_task_team(
-                        magentic_ui_config=magentic_ui_config,
-                        input_func=input_func,
-                        paths=paths,
-                    ),
-                )
-                if hasattr(self.team, "_participants"):
-                    for agent in cast(list[ChatAgent], self.team._participants):  # type: ignore
-                        if isinstance(agent, WebSurfer):
-                            novnc_port = agent.novnc_port
-                            playwright_port = agent.playwright_port
-
-                if state:
-                    if isinstance(state, str):
-                        # Check if the string is empty or whitespace only
-                        if not state.strip():
-                            # Skip loading if state is empty
-                            pass
-                        else:
-                            try:
-                                state_dict = json.loads(state)
-                                await self.team.load_state(state_dict)
-                            except json.JSONDecodeError as json_error:
-                                # Log error and skip loading invalid JSON state
-                                logger.warning(
-                                    f"Warning: Failed to load state - invalid JSON: {json_error}"
-                                )
-
-                    else:
-                        await self.team.load_state(state)
-
-                return self.team, novnc_port, playwright_port
-
-            if isinstance(team_config, (str, Path)):
-                config = await self.load_from_file(team_config)
-            elif isinstance(team_config, dict):
-                config = team_config
+                config_params = {
+                    **settings_config,  # type: ignore,
+                    # These must always be set to the values computed above
+                    "playwright_port": playwright_port,
+                    "novnc_port": novnc_port,
+                    # Defer to self for inside_docker
+                    "inside_docker": self.inside_docker,
+                }
             else:
-                config = team_config.model_dump()
-
-            # Load env vars into environment if provided
-            if env_vars:
-                logger.info("Loading environment variables")
-                for var in env_vars:
-                    os.environ[var.name] = var.value
-
-            self.team = cast(Team, GroupChat.load_component(config))
-
+                config_params = {
+                    **settings_config,  # type: ignore,
+                    # Override client configs
+                    "model_client_configs": model_client_from_config_file,
+                    # These must always be set to the values computed above
+                    "playwright_port": playwright_port,
+                    "novnc_port": novnc_port,
+                    # Defer to self for inside_docker
+                    "inside_docker": self.inside_docker,
+                }
+            if self.run_without_docker:
+                config_params["run_without_docker"] = True
+                # Allow browser_headless to be set by settings_config
+            else:
+                if settings_config.get("run_without_docker", False):
+                    # Allow settings_config to set browser_headless
+                    pass
+                else:
+                    config_params["browser_headless"] = False
+            magentic_ui_config = MagenticUIConfig(**config_params)  # type: ignore
+            self.team = cast(
+                Team,
+                await get_task_team(
+                    magentic_ui_config=magentic_ui_config,
+                    input_func=input_func,
+                    paths=paths,
+                ),
+            )
             if hasattr(self.team, "_participants"):
                 for agent in cast(list[ChatAgent], self.team._participants):  # type: ignore
-                    if hasattr(agent, "input_func"):
-                        agent.input_func = input_func  # type: ignore
                     if isinstance(agent, WebSurfer):
-                        novnc_port = agent.novnc_port or -1
-                        playwright_port = agent.playwright_port or -1
+                        novnc_port = agent.novnc_port
+                        playwright_port = agent.playwright_port
+
+            if state:
+                if isinstance(state, str):
+                    # Check if the string is empty or whitespace only
+                    if not state.strip():
+                        # Skip loading if state is empty
+                        pass
+                    else:
+                        try:
+                            state_dict = json.loads(state)
+                            await self.team.load_state(state_dict)
+                        except json.JSONDecodeError as json_error:
+                            # Log error and skip loading invalid JSON state
+                            logger.warning(
+                                f"Warning: Failed to load state - invalid JSON: {json_error}"
+                            )
+
+                else:
+                    await self.team.load_state(state)
+
             return self.team, novnc_port, playwright_port
         except Exception as e:
             logger.error(f"Error creating team: {e}")
