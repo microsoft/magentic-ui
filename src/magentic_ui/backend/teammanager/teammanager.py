@@ -211,30 +211,23 @@ class TeamManager:
                 ]
             )
 
-            if not is_complete_config_from_file:
-                logger.warning(
-                    "Using model client configurations from UI settings if (default is OpenAI) since no config file passed or config file incomplete."
-                )
+            # Common configuration parameters
+            config_params = {
+                **settings_config,  # type: ignore,
+                # These must always be set to the values computed above
+                "playwright_port": playwright_port,
+                "novnc_port": novnc_port,
+                # Defer to self for inside_docker
+                "inside_docker": self.inside_docker,
+            }
 
-                config_params = {
-                    **settings_config,  # type: ignore,
-                    # These must always be set to the values computed above
-                    "playwright_port": playwright_port,
-                    "novnc_port": novnc_port,
-                    # Defer to self for inside_docker
-                    "inside_docker": self.inside_docker,
-                }
+            # Override client configs if complete config from file is available
+            if is_complete_config_from_file:
+                config_params["model_client_configs"] = model_client_from_config_file
             else:
-                config_params = {
-                    **settings_config,  # type: ignore,
-                    # Override client configs
-                    "model_client_configs": model_client_from_config_file,
-                    # These must always be set to the values computed above
-                    "playwright_port": playwright_port,
-                    "novnc_port": novnc_port,
-                    # Defer to self for inside_docker
-                    "inside_docker": self.inside_docker,
-                }
+                logger.warning(
+                    "Using LLM client configurations from UI settings (default is OpenAI) since no config file passed or config file incomplete."
+                )
             if self.run_without_docker:
                 config_params["run_without_docker"] = True
                 # Allow browser_headless to be set by settings_config
