@@ -11,27 +11,43 @@ from ..deps import get_db
 router = APIRouter()
 
 
+def _get_or_create_settings(user_id: str, db) -> Settings:
+    """Get existing settings or create default ones for user_id"""
+    response = db.get(Settings, filters={"user_id": user_id})
+    if response.status and response.data:
+        return response.data[0]
+
+    # Create default settings
+    default_settings = Settings(user_id=user_id)
+    upsert_response = db.upsert(default_settings)
+    if not upsert_response.status:
+        raise HTTPException(status_code=500, detail=upsert_response.message)
+
+    return upsert_response.data
+
+
 @router.get("/")
 async def get_settings(user_id: str, db=Depends(get_db)) -> Dict:
     try:
-        response = db.get(Settings, filters={"user_id": user_id})
-        if not response.status or not response.data:
-            # create a default settings - let the model use its default factory
-            default_settings = Settings(user_id=user_id)
-            db.upsert(default_settings)
-            response = db.get(Settings, filters={"user_id": user_id})
-        # print(response.data[0])
-        return {"status": True, "data": response.data[0]}
+        settings = _get_or_create_settings(user_id, db)
+        return {"status": True, "data": settings}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/")
 async def update_settings(settings: Settings, db=Depends(get_db)) -> Dict:
-    response = db.upsert(settings)
-    if not response.status:
-        raise HTTPException(status_code=400, detail=response.message)
-    return {"status": True, "data": response.data}
+    try:
+        # Get existing settings to preserve the id
+        existing = _get_or_create_settings(settings.user_id, db)
+        settings.id = existing.id if hasattr(existing, "id") else existing["id"]
+
+        response = db.upsert(settings)
+        if not response.status:
+            raise HTTPException(status_code=400, detail=response.message)
+        return {"status": True, "data": response.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/config-info")

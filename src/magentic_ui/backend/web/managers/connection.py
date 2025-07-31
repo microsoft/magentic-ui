@@ -30,7 +30,6 @@ from ...datamodel import (
     Run,
     RunStatus,
     Settings,
-    SettingsConfig,
     TeamResult,
 )
 from ...teammanager import TeamManager
@@ -157,13 +156,7 @@ class WebSocketManager:
             assert run is not None, f"Run {run_id} not found in database"
             assert run.user_id is not None, f"Run {run_id} has no user ID"
 
-            # Get user Settings
-            user_settings = await self._get_settings(run.user_id)
-            env_vars = (
-                SettingsConfig(**user_settings.config).environment  # type: ignore
-                if user_settings
-                else None
-            )
+            env_vars = None
 
             settings_config["memory_controller_key"] = run.user_id
 
