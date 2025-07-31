@@ -213,54 +213,55 @@ class TeamManager:
 
         try:
             if not self.load_from_config:
-                # The settings_config dictionary provides the Model configs in a key `model_configs`
-                # But MagenticUIConfig expects `model_client_configs` so we need to update that here
-                settings_model_configs: Dict[str, Any] = {}
-                if "model_configs" in settings_config:
-                    try:
-                        settings_model_configs = yaml.safe_load(
-                            settings_config["model_configs"]
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            f"Error loading model configs from UI. Using defaults. Inner exception: {e}"
-                        )
-
-                # Use settings_config values if available, otherwise fall back to instance defaults (self.config)
-                model_client_configs = ModelClientConfigs(
-                    orchestrator=settings_model_configs.get(
-                        "orchestrator_client",
-                        self.config.get("orchestrator_client", None),
-                    ),
-                    web_surfer=settings_model_configs.get(
-                        "web_surfer_client",
-                        self.config.get("web_surfer_client", None),
-                    ),
-                    coder=settings_model_configs.get(
-                        "coder_client", self.config.get("coder_client", None)
-                    ),
-                    file_surfer=settings_model_configs.get(
-                        "file_surfer_client",
-                        self.config.get("file_surfer_client", None),
-                    ),
-                    action_guard=settings_model_configs.get(
-                        "action_guard_client",
-                        self.config.get("action_guard_client", None),
-                    ),
+                # Logic here: we first see if the config file passed to magentic-ui has valid configs for all clients
+                # If Yes: this takes precedent over the UI LLM config and is passed to magentic-ui team
+                # If No: we disregard it and use the UI LLM config
+                model_client_from_config_file = ModelClientConfigs(
+                    orchestrator=self.config.get("orchestrator_client", None),
+                    web_surfer=self.config.get("web_surfer_client", None),
+                    coder=self.config.get("coder_client", None),
+                    file_surfer=self.config.get("file_surfer_client", None),
+                    action_guard=self.config.get("action_guard_client", None),
+                )
+                is_complete_config_from_file = all(
+                    [
+                        model_client_from_config_file.orchestrator,
+                        model_client_from_config_file.web_surfer,
+                        model_client_from_config_file.coder,
+                        model_client_from_config_file.file_surfer,
+                        model_client_from_config_file.action_guard,
+                    ]
                 )
 
-                config_params = {
-                    # Lowest priority defaults
-                    **self.config,  # type: ignore
-                    # Provided settings override defaults
-                    **settings_config,  # type: ignore,
-                    "model_client_configs": model_client_configs,
-                    # These must always be set to the values computed above
-                    "playwright_port": playwright_port,
-                    "novnc_port": novnc_port,
-                    # Defer to self for inside_docker
-                    "inside_docker": self.inside_docker,
-                }
+                if not is_complete_config_from_file:
+                    logger.warning(
+                        "Using model client configurations from UI settings if (default is OpenAI) since no config file passed or config file incomplete."
+                    )
+
+                    config_params = {
+                        # Lowest priority defaults
+                        **self.config,  # type: ignore
+                        # Provided settings override defaults
+                        **settings_config,  # type: ignore,
+                        # These must always be set to the values computed above
+                        "playwright_port": playwright_port,
+                        "novnc_port": novnc_port,
+                        # Defer to self for inside_docker
+                        "inside_docker": self.inside_docker,
+                    }
+                else:
+                    config_params = {
+                        # Lowest priority defaults
+                        **self.config,  # type: ignore
+                        # Provided settings override defaults
+                        **settings_config,  # type: ignore,
+                        "model_client_configs": model_client_from_config_file,
+                        # These must always be set to the values computed above
+                        "playwright_port": playwright_port,
+                        "novnc_port": novnc_port,
+                        # Defer to self for inside_docker
+                        "inside_docker": self.inside_docker,
+                    }
                 if self.run_without_docker:
                     config_params["run_without_docker"] = True
                     # Allow browser_headless to be set by settings_config
@@ -271,7 +272,6 @@ class TeamManager:
                     else:
                         config_params["browser_headless"] = False
                 magentic_ui_config = MagenticUIConfig(**config_params)  # type: ignore
-
                 self.team = cast(
                     Team,
                     await get_task_team(
