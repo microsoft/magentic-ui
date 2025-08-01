@@ -1374,6 +1374,13 @@ class Orchestrator(BaseGroupChatManager):
                             )
 
                         final_response = response
+                    elif isinstance(response, TextMessage) or isinstance(
+                        response, MultiModalMessage
+                    ):
+                        await self._log_message_agentchat(
+                            content="not used",
+                            entire_message=response,
+                        )
                 # this is a MultiModalMessage or TextMessage object
                 assert (
                     final_response is not None
@@ -1429,6 +1436,13 @@ class Orchestrator(BaseGroupChatManager):
                     await self._log_message_agentchat(
                         log_msg,
                         metadata={"internal": "no", "type": "sentinel_complete"},
+                    )
+                    # inform orchestrator that the step is completed
+                    self._state.message_history.append(
+                        TextMessage(
+                            content=f"Sentinel step '{step.title}' completed successfully. Reason: {reason}",
+                            source="user",
+                        )
                     )
                     return
                 else:
