@@ -37,16 +37,21 @@ function normalizeConfig(config: any, hideAdvancedToggles?: boolean) {
 
 export const OpenAIModelConfigForm: React.FC<ModelConfigFormProps> = ({ onChange, onSubmit, value, hideAdvancedToggles }) => {
   const [form] = Form.useForm();
+  const baseUrl = Form.useWatch(['config', 'base_url'], form);
+
+  const shouldHideAdvanced = (config: any) => {
+    return hideAdvancedToggles && !(config?.base_url && config.base_url.trim() !== '');
+  };
 
   const handleValuesChange = (_: any, allValues: any) => {
     const mergedConfig = { ...DEFAULT_OPENAI.config, ...allValues.config };
-    const normalizedConfig = normalizeConfig(mergedConfig, hideAdvancedToggles);
+    const normalizedConfig = normalizeConfig(mergedConfig, shouldHideAdvanced(mergedConfig));
     const newValue = { ...DEFAULT_OPENAI, config: normalizedConfig };
     if (onChange) onChange(newValue);
   };
   const handleSubmit = () => {
     const mergedConfig = { ...DEFAULT_OPENAI.config, ...form.getFieldsValue().config };
-    const normalizedConfig = normalizeConfig(mergedConfig, hideAdvancedToggles);
+    const normalizedConfig = normalizeConfig(mergedConfig, shouldHideAdvanced(mergedConfig));
     const newValue = { ...DEFAULT_OPENAI, config: normalizedConfig };
     if (onSubmit) onSubmit(newValue);
   };
@@ -54,14 +59,14 @@ export const OpenAIModelConfigForm: React.FC<ModelConfigFormProps> = ({ onChange
 
   useEffect(() => {
     if (value) {
-      form.setFieldsValue(normalizeConfig(value, hideAdvancedToggles))
+      form.setFieldsValue(normalizeConfig(value, shouldHideAdvanced(value.config)))
     }
-  }, [value, form]);
+  }, [value, form, hideAdvancedToggles]);
 
   return (
     <Form
       form={form}
-      initialValues={normalizeConfig(value, hideAdvancedToggles)}
+      initialValues={normalizeConfig(value, shouldHideAdvanced(value?.config))}
       onFinish={handleSubmit}
       onValuesChange={handleValuesChange}
       layout="vertical"
@@ -81,7 +86,7 @@ export const OpenAIModelConfigForm: React.FC<ModelConfigFormProps> = ({ onChange
             <Form.Item label="Max Retries" name={["config", "max_retries"]} rules={[{ type: "number", min: 1, max: 20, message: "Enter a value between 1 and 20" }]}>
               <Input type="number" />
             </Form.Item>
-            {!hideAdvancedToggles && (
+            {!shouldHideAdvanced({ base_url: baseUrl }) && (
               <Flex gap="small" wrap justify="space-between">
                 <Form.Item label="Vision" name={["config", "model_info", "vision"]} valuePropName="checked">
                   <Switch />

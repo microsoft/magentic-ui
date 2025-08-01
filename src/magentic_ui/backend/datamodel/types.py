@@ -87,9 +87,8 @@ class UISettings(BaseModel):
 
 
 class SettingsConfig(BaseModel):
-    # Backend-specific settings only
-    environment: List[EnvironmentVariable] = []
-    ui: UISettings = UISettings()
+    # empty starting point
+    pass
 
 
 # web request/response data models

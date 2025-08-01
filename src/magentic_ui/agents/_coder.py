@@ -642,6 +642,7 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
         self._chat_history = []
         # Create message factory for deserialization.
         message_factory = MessageFactory()
+        self._chat_history = []
         for msg_data in state["chat_history"]:
             msg = message_factory.create(msg_data)
             assert isinstance(msg, BaseChatMessage)

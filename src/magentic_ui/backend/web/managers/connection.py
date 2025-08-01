@@ -3,7 +3,6 @@ import logging
 import traceback
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Sequence, Union
-import json
 
 from autogen_agentchat.base._task import TaskResult
 from autogen_agentchat.messages import (
@@ -31,11 +30,9 @@ from ...datamodel import (
     Run,
     RunStatus,
     Settings,
-    SettingsConfig,
     TeamResult,
 )
 from ...teammanager import TeamManager
-from ...utils.utils import compress_state
 
 logger = logging.getLogger(__name__)
 
@@ -159,13 +156,7 @@ class WebSocketManager:
             assert run is not None, f"Run {run_id} not found in database"
             assert run.user_id is not None, f"Run {run_id} has no user ID"
 
-            # Get user Settings
-            user_settings = await self._get_settings(run.user_id)
-            env_vars = (
-                SettingsConfig(**user_settings.config).environment  # type: ignore
-                if user_settings
-                else None
-            )
+            env_vars = None
 
             settings_config["memory_controller_key"] = run.user_id
 
@@ -230,9 +221,8 @@ class WebSocketManager:
                     # Save state to run
                     run = await self._get_run(run_id)
                     if run:
-                        # Use compress_state utility to compress the state
-                        state_dict = json.loads(message.state)
-                        run.state = compress_state(state_dict)
+                        # Store state as JSON string
+                        run.state = message.state
                         self.db_manager.upsert(run)
                     continue
 

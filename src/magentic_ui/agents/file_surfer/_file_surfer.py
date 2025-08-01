@@ -1,13 +1,14 @@
 import json
 from pathlib import Path
 import traceback
-from typing import List, Sequence, Tuple, AsyncGenerator, Optional, Dict, Any
+from typing import List, Sequence, Tuple, AsyncGenerator, Optional, Dict, Any, Mapping
 from datetime import datetime
 from loguru import logger
 import asyncio
 
 from autogen_agentchat.agents import BaseChatAgent
 from autogen_agentchat.base import Response
+from autogen_agentchat.state import BaseState
 from autogen_agentchat.messages import (
     BaseChatMessage,
     TextMessage,
@@ -25,7 +26,7 @@ from autogen_core.models import (
     UserMessage,
 )
 from autogen_core.model_context import TokenLimitedChatCompletionContext
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing_extensions import Self
 from autogen_core.code_executor import CodeExecutor
 from autogen_ext.code_executors.docker import DockerCommandLineCodeExecutor
@@ -67,6 +68,27 @@ class FileSurferConfig(BaseModel):
     description: str | None = None
     code_executor: ComponentModel | None = None
     use_local_executor: bool = False
+
+
+class FileSurferState(BaseState):
+    """
+    State class for saving and loading the FileSurfer's state.
+
+    Attributes:
+        chat_history (List[LLMMessage]): List of chat messages exchanged with the model.
+        type (str): The type of the state. Default: FileSurferState.
+        browser_path (str, optional): The current path of the file browser.
+        browser_title (str, optional): The current title/filename of the file browser.
+        viewport_current_page (int): The current page in the viewport.
+        approved_files (List[str]): List of previously approved file paths.
+    """
+
+    chat_history: List[LLMMessage] = []
+    type: str = Field(default="FileSurferState")
+    browser_path: str | None = None
+    browser_title: str | None = None
+    viewport_current_page: int = 0
+    approved_files: List[str] = []
 
 
 class FileSurfer(BaseChatAgent, Component[FileSurferConfig]):
@@ -607,6 +629,68 @@ class FileSurfer(BaseChatAgent, Component[FileSurferConfig]):
         )
 
         return (header, self._browser.viewport)
+
+    async def save_state(self) -> Mapping[str, Any]:
+        """
+        Save the current state of the FileSurfer.
+
+        Returns:
+            A dictionary containing the chat history and browser state
+        """
+        if not self.did_lazy_init:
+            state = FileSurferState(
+                chat_history=self._chat_history,
+                browser_path=None,  # No browser state when not initialized
+                browser_title=None,
+                viewport_current_page=0,
+                approved_files=list(self._approved_files),
+            )
+        else:
+            state = FileSurferState(
+                chat_history=self._chat_history,
+                browser_path=self._browser.path,
+                browser_title=self._browser.page_title,
+                viewport_current_page=self._browser.viewport_current_page,
+                approved_files=list(self._approved_files),
+            )
+        return state.model_dump()
+
+    async def load_state(self, state: Mapping[str, Any]) -> None:
+        """
+        Load a previously saved state.
+
+        Args:
+            state: Dictionary containing the state to load
+        """
+        # Validate and convert the state to a FileSurferState
+        file_surfer_state = FileSurferState.model_validate(state)
+
+        # Update the chat history
+        self._chat_history = file_surfer_state.chat_history
+
+        # Update approved files
+        self._approved_files = set(file_surfer_state.approved_files)
+
+        # Restore browser state if available and agent is initialized
+        if self.did_lazy_init and file_surfer_state.browser_path is not None:
+            # Restore browser path and page if possible
+            try:
+                await self._browser.open_path(file_surfer_state.browser_path)
+                # Try to navigate to the correct page in viewport
+                if file_surfer_state.viewport_current_page > 0:
+                    target_page = file_surfer_state.viewport_current_page
+                    current_page = self._browser.viewport_current_page
+                    if target_page != current_page:
+                        # Navigate to the correct page
+                        diff = target_page - current_page
+                        if diff > 0:
+                            for _ in range(diff):
+                                self._browser.page_down()
+                        else:
+                            for _ in range(-diff):
+                                self._browser.page_up()
+            except Exception as e:
+                logger.warning(f"Failed to restore browser state: {e}")
 
     async def close(self) -> None:
         """Close the FileSurfer agent."""

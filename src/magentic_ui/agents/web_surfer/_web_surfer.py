@@ -2096,6 +2096,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
 
         # Load the browser state if it exists and load_browser is True
         if load_browser and web_surfer_state.browser_state is not None:
+            await self.lazy_init()
             assert self._context is not None
             await load_browser_state(self._context, web_surfer_state.browser_state)
 
