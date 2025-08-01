@@ -52,6 +52,26 @@ ORCHESTRATOR_TASK_LEDGER_FULL_FORMAT = """
 """
 
 
+ORCHESTRATOR_SENTINEL_CONDITION_CHECK_PROMPT = """
+Based on the following agent response:
+
+{agent_response}
+
+Has the following condition been met?
+Condition: '{condition}'
+
+Please answer in the following structured JSON format:
+
+{{
+    "condition_met": true or false,  // true if the condition is met, false otherwise
+    "reason": "A concise explanation for your answer, referencing the agent response and the condition.",
+    "confidence": float (optional, between 0 and 1, your confidence in the answer)
+}}
+
+Only output the JSON object and nothing else.
+"""
+
+
 def get_orchestrator_system_message_planning(
     sentinel_tasks_enabled: bool = False,
 ) -> str:
@@ -368,7 +388,6 @@ def get_orchestrator_system_message_planning(
 
 
             Helpful tips:
-            - If the plan needs information from the user, try to get that information before creating the plan.
             - When creating the plan you only need to add a step to the plan if it requires a different agent to be completed, or if the step is very complicated and can be split into two steps.
             - Remember, there is no requirement to involve all team members -- a team member's particular expertise may not be needed for this task.
             - Aim for a plan with the least number of steps possible.
@@ -1045,4 +1064,19 @@ def validate_plan_json(
             # PlanStep does not require sleep_duration or condition
             if "title" not in item or "details" not in item or "agent_name" not in item:
                 return False
+    return True
+
+
+def validate_sentinel_condition_check_json(json_response: dict) -> bool:
+    """Validate the JSON response for the sentinel condition check."""
+    if not isinstance(json_response, dict):
+        return False
+    if "condition_met" not in json_response or not isinstance(json_response["condition_met"], bool):
+        return False
+    if "reason" not in json_response or not isinstance(json_response["reason"], str):
+        return False
+    if "confidence" in json_response and not (
+        isinstance(json_response["confidence"], float) or isinstance(json_response["confidence"], int)
+    ):
+        return False
     return True

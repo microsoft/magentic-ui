@@ -58,6 +58,8 @@ from ._prompts import (
     INSTRUCTION_AGENT_FORMAT,
     validate_ledger_json,
     validate_plan_json,
+    ORCHESTRATOR_SENTINEL_CONDITION_CHECK_PROMPT,
+    validate_sentinel_condition_check_json,
 )
 from ._utils import is_accepted_str, extract_json_from_string
 from loguru import logger as trace_logger
@@ -1330,7 +1332,6 @@ class Orchestrator(BaseGroupChatManager):
 
                 # loads the initial state of the agent
                 if can_save_load and initial_agent_state is not None:
-                    # if agent is web surfer, only load the chat history not the browser state
                     if agent_name == self._web_agent_topic:
                         await agent.load_state(initial_agent_state, load_browser=False)  # type: ignore
                     else:
@@ -1396,10 +1397,12 @@ class Orchestrator(BaseGroupChatManager):
                     context.append(condition_check_message)
 
                     # sends the condition check (the 2 messages) to an LLM
-                    response = await self._model_client.create(
+                    response_json = await self._model_client.create(
                         context, cancellation_token=cancellation_token
                     )
-                    response_text = str(response.content).strip()
+                    response_text = str(response_json.content).strip()
+
+                    print("response json: ", response_json)
 
                     # Try to parse the response as JSON
                     condition_met = False
@@ -1407,9 +1410,18 @@ class Orchestrator(BaseGroupChatManager):
                     confidence = None
                     try:
                         parsed = json.loads(response_text)
-                        condition_met = bool(parsed.get("condition_met", False))
-                        reason = parsed.get("reason", None)
-                        confidence = parsed.get("confidence", None)
+                        if validate_sentinel_condition_check_json(parsed):
+                            condition_met = parsed["condition_met"]
+                            reason = parsed["reason"]
+                            confidence = parsed.get("confidence", None)
+                        else:
+                            # fallback: try to infer from text
+                            condition_met = (
+                                "yes" in response_text.lower()
+                                and "no" not in response_text.lower()
+                            )
+                            reason = response_text
+                            confidence = None
                     except Exception:
                         # fallback: try to infer from text
                         condition_met = (
