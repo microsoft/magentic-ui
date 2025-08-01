@@ -69,17 +69,17 @@ Condition to Evaluate:
 '{condition}'
 
 PATTERNS THAT DO NOT MEET CONDITIONS:
-❌ Preparatory states: "Timer counting down", "System initializing", "Process starting"
-❌ Information discovery: "Found article about X", "Website discussing Y", "Documentation for Z"
-❌ Future indicators: "Will happen in 5 minutes", "Scheduled for tomorrow", "Expected soon"
-❌ Capability states: "Ready to detect", "Able to monitor", "Configured for"
-❌ Progress indicators: "50% complete", "In progress", "Currently processing"
+- Preparatory states: "Timer counting down", "System initializing", "Process starting"
+- Information discovery: "Found article about X", "Website discussing Y", "Documentation for Z"
+- Future indicators: "Will happen in 5 minutes", "Scheduled for tomorrow", "Expected soon"
+- Capability states: "Ready to detect", "Able to monitor", "Configured for"
+- Progress indicators: "50% complete", "In progress", "Currently processing"
 
 PATTERNS THAT MEET CONDITIONS:
-✅ Completion states: "Process finished", "Status: Complete", "Operation successful"
-✅ Present facts: "Current count is X", "Value now shows Y", "Status indicates Z"
-✅ Definitive events: "Event occurred", "Threshold reached", "Target achieved"
-✅ Clear evidence: "Confirmation received", "Result obtained", "Outcome verified"
+- Completion states: "Process finished", "Status: Complete", "Operation successful"
+- Present facts: "Current count is X", "Value now shows Y", "Status indicates Z"
+- Definitive events: "Event occurred", "Threshold reached", "Target achieved"
+- Clear evidence: "Confirmation received", "Result obtained", "Outcome verified"
 
 EVALUATION FRAMEWORK:
 1. PRESENT vs FUTURE: Does the response describe something that HAS happened (present/past) or WILL happen (future)?
@@ -94,7 +94,7 @@ Answer in this exact JSON format:
 {{
     "condition_met": true or false,
     "reason": "Detailed explanation referencing specific evidence from the agent response and why it does/doesn't meet the condition criteria",
-    "confidence": 0.95
+    "confidence": a float between 0 and 1 indicating your confidence in the evaluation
 }}
 
 Only output the JSON object and nothing else."""
