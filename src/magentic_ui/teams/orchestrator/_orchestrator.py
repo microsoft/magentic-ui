@@ -58,6 +58,8 @@ from ._prompts import (
     INSTRUCTION_AGENT_FORMAT,
     validate_ledger_json,
     validate_plan_json,
+)
+from ._sentinel_prompts import (
     ORCHESTRATOR_SENTINEL_CONDITION_CHECK_PROMPT,
     validate_sentinel_condition_check_json,
 )
@@ -356,7 +358,15 @@ class Orchestrator(BaseGroupChatManager):
         content: str,
         internal: bool = False,
         metadata: Optional[Dict[str, str]] = None,
+        entire_message: Optional[BaseChatMessage] = None,
     ) -> None:
+        if entire_message is not None:
+            await self.publish_message(
+                GroupChatMessage(message=entire_message),
+                topic_id=DefaultTopicId(type=self._output_topic_type),
+            )
+            await self._output_message_queue.put(entire_message)
+            return
         internal_str = "yes" if internal else "no"
         message = TextMessage(
             content=content,
@@ -1072,7 +1082,10 @@ class Orchestrator(BaseGroupChatManager):
             else []
         )
         completed_plan_str = "\n".join(
-            [f"COMPLETED STEP {i+1}: {step}" for i, step in enumerate(completed_steps)]
+            [
+                f"COMPLETED STEP {i + 1}: {step}"
+                for i, step in enumerate(completed_steps)
+            ]
         )
 
         # Add completed steps info to replan prompt
@@ -1338,40 +1351,39 @@ class Orchestrator(BaseGroupChatManager):
                         await agent.load_state(initial_agent_state)  # type: ignore
 
                 # creates a BaseChatMessage instance and turns into a sequence
-                test_message = TextMessage(
-                    content=step_details,
-                    source="user",
-                )
-                test_message = [test_message]
+                # TODO: provide more context about the task to agent
+                sentinel_task_agent_message = [
+                    TextMessage(
+                        content=step_details,
+                        source="user",
+                    )
+                ]
 
                 # uses streaming to get ALL responses
-                final_response: Optional[Any] = None
+                final_response: Optional[Response] = None
                 async for response in agent.on_messages_stream(  # type: ignore
-                    test_message, cancellation_token
+                    sentinel_task_agent_message, cancellation_token
                 ):
                     if isinstance(response, Response):
                         # logs each step of the process
                         if response.chat_message:
-                            chat_content = response.chat_message.content  # type: ignore
+                            chat_content = response.chat_message
                             await self._log_message_agentchat(
-                                f"[SENTINEL] Web surfer step: {chat_content}",
-                                metadata={"internal": "no", "type": "sentinel_debug"},
+                                content="dummy",
+                                entire_message=chat_content,
                             )
-                    final_response = response  # type: ignore
 
+                        final_response = response
                 # this is a MultiModalMessage or TextMessage object
-                if final_response.chat_message:  # type: ignore
-                    chat_message_content = final_response.chat_message.content  # type: ignore
-                else:
-                    chat_message_content = "No content available"
-
-                # appends the last agent message to the message history
-                # we dont want to polute the message history
-                # TODO we also want to find a way for the websurfer to refresh the page between checks
+                assert (
+                    final_response is not None
+                    and final_response.chat_message is not None
+                )
+                last_agent_message = final_response.chat_message
 
                 # Check if condition is met
-                condition_met = False
-
+                condition_met = None
+                reason = None
                 # For integer condition, check if we've reached the required iterations
                 if isinstance(step.condition, int):
                     condition_met = iteration >= step.condition
@@ -1380,16 +1392,21 @@ class Orchestrator(BaseGroupChatManager):
                 else:
                     # initializes empty context and adds the last message in the system
                     context: List[LLMMessage] = []
-                    last_response = UserMessage(  # type: ignore
-                        content=chat_message_content,  # type: ignore
-                        source=agent_name,
+                    assert isinstance(
+                        last_agent_message, MultiModalMessage | TextMessage
                     )
-                    context.append(last_response)  # last agent message
+                    context.append(
+                        UserMessage(
+                            content=last_agent_message.content,
+                            source=agent_name,
+                        )
+                    )
 
                     # gets the structured prompt for the condition check
+                    step_description: str = f"Step Title {step.title}, Step Instruction {step.details}, Step Condition {step.condition}, Agent Name {agent_name}"
                     condition_check_message = UserMessage(
                         content=ORCHESTRATOR_SENTINEL_CONDITION_CHECK_PROMPT.format(
-                            agent_response=chat_message_content,
+                            step_description=step_description,
                             condition=step.condition,
                         ),
                         source=self._name,
@@ -1397,59 +1414,30 @@ class Orchestrator(BaseGroupChatManager):
                     context.append(condition_check_message)
 
                     # sends the condition check (the 2 messages) to an LLM
-                    response_json = await self._model_client.create(
-                        context, cancellation_token=cancellation_token
+                    response_json = await self._get_json_response(
+                        context,
+                        validate_sentinel_condition_check_json,
+                        cancellation_token,
                     )
-                    response_text = str(response_json.content).strip()
-
-                    print("response json: ", response_json)
-
-                    # Try to parse the response as JSON
-                    condition_met = False
-                    reason = None
-                    confidence = None
-                    try:
-                        parsed = json.loads(response_text)
-                        if validate_sentinel_condition_check_json(parsed):
-                            condition_met = parsed["condition_met"]
-                            reason = parsed["reason"]
-                            confidence = parsed.get("confidence", None)
-                        else:
-                            # fallback: try to infer from text
-                            condition_met = (
-                                "yes" in response_text.lower()
-                                and "no" not in response_text.lower()
-                            )
-                            reason = response_text
-                            confidence = None
-                    except Exception:
-                        # fallback: try to infer from text
-                        condition_met = (
-                            "yes" in response_text.lower()
-                            and "no" not in response_text.lower()
-                        )
-                        reason = response_text
-                        confidence = None
-
+                    assert isinstance(response_json, dict)
+                    condition_met = response_json.get("condition_met", None)
+                    reason = response_json.get("reason", None)
                 # If condition met, return to complete the step
+
                 if condition_met:
-                    log_msg = f"[SENTINEL] Condition met: {step.condition}"
-                    if reason:
-                        log_msg += f"\nReason: {reason}"
-                    if confidence is not None:
-                        log_msg += f"\nConfidence: {confidence}"
+                    log_msg = f"Condition satisfied: {reason}."
                     await self._log_message_agentchat(
                         log_msg,
                         metadata={"internal": "no", "type": "sentinel_complete"},
                     )
                     return
-
-                # Sleep before the next check
-                await self._log_message_agentchat(
-                    f"[SENTINEL] Check #{iteration}: Sleeping for {step.sleep_duration}s",
-                    metadata={"internal": "no", "type": "sentinel_sleep"},
-                )
-                await asyncio.sleep(step.sleep_duration)
+                else:
+                    # Sleep before the next check
+                    await self._log_message_agentchat(
+                        f"(Check #{iteration}) Condition not satisfied: {reason} \n Sleeping for {step.sleep_duration}s before next check.",
+                        metadata={"internal": "no", "type": "sentinel_sleep"},
+                    )
+                    await asyncio.sleep(step.sleep_duration)
 
             # exception
             except asyncio.CancelledError:

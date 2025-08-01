@@ -52,54 +52,6 @@ ORCHESTRATOR_TASK_LEDGER_FULL_FORMAT = """
 """
 
 
-ORCHESTRATOR_SENTINEL_CONDITION_CHECK_PROMPT = """
-You are evaluating whether a specific condition has been ACTUALLY FULFILLED based on an agent's response.
-
-CRITICAL EVALUATION RULES:
-- Be EXTREMELY CONSERVATIVE when determining if a condition is met
-- Finding information ABOUT the condition is NOT the same as the condition being met
-- Future events, timers, or pending actions do NOT count as condition fulfillment
-- The condition must be CURRENTLY and DEFINITIVELY satisfied in the present moment
-- If there is ANY doubt or ambiguity, answer FALSE
-
-Agent Response:
-{agent_response}
-
-Condition to Evaluate:
-'{condition}'
-
-PATTERNS THAT DO NOT MEET CONDITIONS:
-- Preparatory states: "Timer counting down", "System initializing", "Process starting"
-- Information discovery: "Found article about X", "Website discussing Y", "Documentation for Z"
-- Future indicators: "Will happen in 5 minutes", "Scheduled for tomorrow", "Expected soon"
-- Capability states: "Ready to detect", "Able to monitor", "Configured for"
-- Progress indicators: "50% complete", "In progress", "Currently processing"
-
-PATTERNS THAT MEET CONDITIONS:
-- Completion states: "Process finished", "Status: Complete", "Operation successful"
-- Present facts: "Current count is X", "Value now shows Y", "Status indicates Z"
-- Definitive events: "Event occurred", "Threshold reached", "Target achieved"
-- Clear evidence: "Confirmation received", "Result obtained", "Outcome verified"
-
-EVALUATION FRAMEWORK:
-1. PRESENT vs FUTURE: Does the response describe something that HAS happened (present/past) or WILL happen (future)?
-2. FACT vs PREPARATION: Does the response show actual completion or just preparation/setup?
-3. DIRECT vs INDIRECT: Does the response directly confirm the condition or just provide related information?
-4. SPECIFIC vs GENERAL: Does the response give concrete evidence or vague indicators?
-
-CONSERVATIVE BIAS: When in doubt between "condition met" and "condition not met", always choose "condition not met". It's better to wait longer than to incorrectly complete a monitoring task.
-
-Answer in this exact JSON format:
-
-{{
-    "condition_met": true or false,
-    "reason": "Detailed explanation referencing specific evidence from the agent response and why it does/doesn't meet the condition criteria",
-    "confidence": a float between 0 and 1 indicating your confidence in the evaluation
-}}
-
-Only output the JSON object and nothing else."""
-
-
 def get_orchestrator_system_message_planning(
     sentinel_tasks_enabled: bool = False,
 ) -> str:
@@ -1092,19 +1044,4 @@ def validate_plan_json(
             # PlanStep does not require sleep_duration or condition
             if "title" not in item or "details" not in item or "agent_name" not in item:
                 return False
-    return True
-
-
-def validate_sentinel_condition_check_json(json_response: dict) -> bool:
-    """Validate the JSON response for the sentinel condition check."""
-    if not isinstance(json_response, dict):
-        return False
-    if "condition_met" not in json_response or not isinstance(json_response["condition_met"], bool):
-        return False
-    if "reason" not in json_response or not isinstance(json_response["reason"], str):
-        return False
-    if "confidence" in json_response and not (
-        isinstance(json_response["confidence"], float) or isinstance(json_response["confidence"], int)
-    ):
-        return False
     return True

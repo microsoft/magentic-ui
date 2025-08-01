@@ -2081,7 +2081,9 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         )
         return state.model_dump()
 
-    async def load_state(self, state: Mapping[str, Any], load_browser: bool = True) -> None:
+    async def load_state(
+        self, state: Mapping[str, Any], load_browser: bool = True
+    ) -> None:
         """
         Load a previously saved state.
 
