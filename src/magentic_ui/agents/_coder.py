@@ -639,7 +639,6 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
         """
         Load the state of the agent.
         """
-        self._chat_history = []
         # Create message factory for deserialization.
         message_factory = MessageFactory()
         self._chat_history = []
