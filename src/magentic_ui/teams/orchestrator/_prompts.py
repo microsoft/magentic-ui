@@ -368,6 +368,7 @@ def get_orchestrator_system_message_planning(
 
 
             Helpful tips:
+            - If the plan needs information from the user, try to get that information before creating the plan.
             - When creating the plan you only need to add a step to the plan if it requires a different agent to be completed, or if the step is very complicated and can be split into two steps.
             - Remember, there is no requirement to involve all team members -- a team member's particular expertise may not be needed for this task.
             - Aim for a plan with the least number of steps possible.
