@@ -189,11 +189,19 @@ class Settings(SQLModel, table=True):
         default_factory=datetime.now,
         sa_column=Column(DateTime(timezone=True), onupdate=func.now()),
     )  # pylint: disable=not-callable
-    user_id: Optional[str] = None
+    user_id: Optional[str] = Field(default=None, unique=True)
     version: Optional[str] = "0.0.1"
     config: Union[SettingsConfig, dict[str, Any]] = Field(
-        default_factory=SettingsConfig, sa_column=Column(JSON)
+        default_factory=lambda: SettingsConfig().model_dump(), sa_column=Column(JSON)
     )
+
+    @field_serializer("config")
+    def serialize_config(
+        self, value: Union[SettingsConfig, dict[str, Any]]
+    ) -> dict[str, Any]:
+        if isinstance(value, SettingsConfig):
+            return value.model_dump()
+        return value
 
 
 class Plan(SQLModel, table=True):

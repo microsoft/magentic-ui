@@ -136,7 +136,7 @@ def run_ui(
         appdir (str, optional): Path to the app directory where files are stored. Defaults to ~/.magentic_ui.
         database_uri (str, optional): Database URI to connect to. Defaults to None.
         upgrade_database (bool, optional): Whether to upgrade the database schema. Defaults to False.
-        config (str, optional): Path to the config file. Defaults to config.yaml if present.
+        config (str, optional): Path to the LLM config file. Defaults to config.yaml if present.
         run_without_docker (bool, optional): Run without docker. This will remove coder and filesurfer agents and disale live browser view. Defaults to False.
     """
     # Display a green, bold "Starting Magentic-UI" message
