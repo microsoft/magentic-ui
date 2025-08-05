@@ -11,6 +11,7 @@ import {
   Archive,
   MoreVertical,
   StopCircle,
+  Server,
 } from "lucide-react";
 import type { Session, RunStatus } from "../types/datamodel";
 import SubMenu from "../common/SubMenu";
@@ -211,6 +212,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="mb-4">
           <SubMenu
             items={[
+              {
+                id: "mcp_servers",
+                label: "MCP Servers",
+                icon: <Server className="w-4 h-4" />,
+              },
               {
                 id: "saved_plan",
                 label: "Saved Plans",
