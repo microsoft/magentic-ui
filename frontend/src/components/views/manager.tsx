@@ -72,8 +72,8 @@ export const SessionManager: React.FC = () => {
         setSession(data[0]);
       } else {
         if (data.length === 0) {
-          console.log(t("sessionManager.noSessionsFound"));
-          createDefaultSession();
+                console.log(t("sessionManager.noSessionsFound"));
+      createDefaultSession();
         }
       }
     } catch (error) {
@@ -301,11 +301,14 @@ export const SessionManager: React.FC = () => {
     fresh_socket: boolean = false,
     only_retrieve_existing_socket: boolean = false
   ): WebSocket | null => {
-    if (fresh_socket) {
+    console.log("getSessionSocket", sessionId, runId, fresh_socket, only_retrieve_existing_socket);
+    // 如果fresh_socket为true，并且sessionId不存在于sessionSockets中，则创建新的socket
+    const sessionExists = sessionId in sessionSockets;
+    if (fresh_socket && !sessionExists) {
       return setupWebSocket(sessionId, runId);
     } else {
       const existingSocket = sessionSockets[sessionId];
-
+      console.log("existingSocket", existingSocket);
       if (
         existingSocket?.socket.readyState === WebSocket.OPEN &&
         existingSocket.runId === runId
