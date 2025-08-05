@@ -69,7 +69,7 @@ const McpServersList: React.FC = () => {
 
     try {
       // Find the agent that contains this server
-      const updatedAgentConfigs = settings.mcp_agent_configs.map((agent: MCPAgentConfig) => {
+      const updatedAgentConfigs: MCPAgentConfig[] = settings.mcp_agent_configs.map((agent: MCPAgentConfig) => {
         if (agent.name === serverToDelete.agentName) {
           // Remove the server from this agent
           const updatedServers = agent.mcp_servers.filter(
@@ -82,9 +82,11 @@ const McpServersList: React.FC = () => {
           };
         }
         return agent;
+      }).filter((agent: MCPAgentConfig) => {
+        // Remove agents that have no servers left (since agents require at least one MCP server)
+        return agent.mcp_servers.length > 0
       });
 
-      // Update settings with the modified agent configs
       const updatedSettings = {
         ...settings,
         mcp_agent_configs: updatedAgentConfigs
@@ -96,9 +98,9 @@ const McpServersList: React.FC = () => {
       // Update local state
       setSettings(updatedSettings);
 
-      // Update the servers list
-      const updatedServers = mcpServers.filter(
-        (server) => !(server.agentName === serverToDelete.agentName && server.serverName === serverToDelete.serverName)
+      // Update the servers list - remove the deleted server
+      const updatedServers = mcpServers.filter((server) =>
+        !(server.agentName === serverToDelete.agentName && server.serverName === serverToDelete.serverName)
       );
       setMcpServers(updatedServers);
     } catch (error) {
