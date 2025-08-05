@@ -212,11 +212,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <SubMenu
             items={[
               {
-                id: "current_session",
-                label: "Current Session",
-                icon: <FileText className="w-4 h-4" />,
-              },
-              {
                 id: "saved_plan",
                 label: "Saved Plans",
                 icon: <Archive className="w-4 h-4" />,
