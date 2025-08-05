@@ -30,7 +30,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
               </div>
             </div>
             <h3 className="text-lg font-medium text-primary mb-4 text-center">
-              {t('security.spiritsCantSee')}
+              {t('security.cantSee')}
             </h3>
             <p className="text-base mb-4 text-primary">
               Please describe what you did when you are ready to hand back

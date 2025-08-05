@@ -86,7 +86,7 @@ const MagenticUILayout = ({
           </main>
         </ConfigProvider>
         <div className="text-sm text-primary mt-2 mb-2 text-center">
-          {t('messages.spiritsMistakes')}
+          {t('messages.mistakes')}
         </div>
       </div>
     </div>
