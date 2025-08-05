@@ -1,6 +1,7 @@
-import React from "react";
-import { Input } from "antd";
+import React, { useState } from "react";
+import { Rate, Input, message } from "antd";
 import { EyeOff } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../../../../components/common/Button";
 
 const { TextArea } = Input;
@@ -16,6 +17,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
   setUserFeedback,
   onSubmit,
 }) => {
+  const { t } = useTranslation();
   return (
     <div className="fixed inset-0 flex items-center pointer-events-none">
       {/* This container controls the position */}
@@ -28,7 +30,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
               </div>
             </div>
             <h3 className="text-lg font-medium text-primary mb-4 text-center">
-              Magentic-UI can't see what you do when you take control.
+              {t('security.spiritsCantSee')}
             </h3>
             <p className="text-base mb-4 text-primary">
               Please describe what you did when you are ready to hand back
@@ -51,7 +53,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
                 onClick={onSubmit}
                 className="font-medium shadow-md"
               >
-                Give control back to Magentic-UI
+                {t('security.giveControlBack')}
               </Button>
             </div>
           </div>

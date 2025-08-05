@@ -16,7 +16,7 @@ require("dotenv").config({
 const config: GatsbyConfig = {
   pathPrefix: process.env.PREFIX_PATH_VALUE || "",
   siteMetadata: {
-    title: `Magentic-UI`,
+    title: "Magentic UI",
     description: `Human-centered web agent interface`,
     siteUrl: `http://tbd.place`,
   },
@@ -31,7 +31,7 @@ const config: GatsbyConfig = {
     {
       resolve: "gatsby-plugin-manifest",
       options: {
-        icon: "src/images/icon.png",
+        icon: "src/assets/logo.svg",
       },
     },
     "gatsby-plugin-mdx",

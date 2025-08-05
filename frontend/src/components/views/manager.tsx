@@ -6,6 +6,7 @@ import React, {
   useMemo,
 } from "react";
 import { message, Spin } from "antd";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../hooks/store";
 import { appContext } from "../../hooks/provider";
 import { sessionAPI } from "./api";
@@ -28,6 +29,7 @@ type SessionWebSockets = {
 };
 
 export const SessionManager: React.FC = () => {
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<Session | undefined>();
@@ -70,12 +72,13 @@ export const SessionManager: React.FC = () => {
         setSession(data[0]);
       } else {
         if (data.length === 0) {
+          console.log(t("sessionManager.noSessionsFound"));
           createDefaultSession();
         }
       }
     } catch (error) {
       console.error("Error fetching sessions:", error);
-      messageApi.error("Error loading sessions");
+      messageApi.error(t("sessionManager.errorLoadingSessions"));
     } finally {
       setIsLoading(false);
     }
@@ -355,7 +358,7 @@ export const SessionManager: React.FC = () => {
       window.history.pushState({}, "", `?sessionId=${created.id}`);
     } catch (error) {
       console.error("Error creating default session:", error);
-      messageApi.error("Error creating default session");
+      messageApi.error(t("sessionManager.errorCreatingDefaultSession"));
     } finally {
       setIsLoading(false);
     }
