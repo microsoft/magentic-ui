@@ -44,7 +44,7 @@ export const SessionManager: React.FC = () => {
     [sessionId: number]: RunStatus;
   }>({});
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [activeSubMenuItem, setActiveSubMenuItem] = useState("current_session");
+  const [activeSubMenuItem, setActiveSubMenuItem] = useState("");
 
   const { user } = useContext(appContext);
   const { session, setSession, sessions, setSessions } = useConfigStore();
@@ -151,7 +151,6 @@ export const SessionManager: React.FC = () => {
   };
 
   const handleEditSession = (session?: Session) => {
-    setActiveSubMenuItem("current_session");
     setIsLoading(true);
     if (session) {
       setEditingSession(session);
@@ -197,7 +196,7 @@ export const SessionManager: React.FC = () => {
     if (!user?.email || !selectedSession.id) return;
 
     try {
-      setActiveSubMenuItem("current_session");
+      setActiveSubMenuItem("");
       setIsLoading(true);
       const data = await sessionAPI.getSession(selectedSession.id, user.email);
       if (!data) {
@@ -507,21 +506,19 @@ export const SessionManager: React.FC = () => {
             isSidebarOpen ? "ml-64" : "ml-0"
           }`}
         >
-          {activeSubMenuItem === "current_session" ? (
-            session && sessions.length > 0 ? (
-              <div className="pl-4">{chatViews}</div>
-            ) : (
-              <div className="flex items-center justify-center h-full text-secondary">
-                <Spin size="large" tip={"Loading..."} />
-              </div>
-            )
-          ) : (
+          {activeSubMenuItem === "saved_plan" ? (
             <div className="h-full overflow-hidden pl-4">
               <PlanList
                 onTabChange={setActiveSubMenuItem}
                 onSelectSession={handleSelectSession}
                 onCreateSessionFromPlan={handleCreateSessionFromPlan}
               />
+            </div>
+          ) : session && sessions.length > 0 ? (
+            <div className="pl-4">{chatViews}</div>
+          ) : (
+            <div className="flex items-center justify-center h-full text-secondary">
+              <Spin size="large" tip={"Loading..."} />
             </div>
           )}
         </div>
