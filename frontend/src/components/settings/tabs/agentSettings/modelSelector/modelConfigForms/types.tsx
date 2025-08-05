@@ -80,10 +80,21 @@ export const OllamaModelConfigSchema = z.object({
 
 export type OllamaModelConfig = z.infer<typeof OllamaModelConfigSchema>;
 
+export const AnthropicModelConfigSchema = z.object({
+  provider: z.literal("autogen_ext.models.anthropic.AnthropicChatCompletionClient"),
+  config: z.object({
+    model: z.string().min(1, "Model name is required."),
+    model_info: ModelInfoSchema.optional()
+  }).passthrough(),
+}).passthrough();
+
+export type AnthropicModelConfig = z.infer<typeof AnthropicModelConfigSchema>;
+
 export const ModelConfigSchema = z.discriminatedUnion("provider", [
   OpenAIModelConfigSchema,
   AzureModelConfigSchema,
-  OllamaModelConfigSchema
+  OllamaModelConfigSchema,
+  AnthropicModelConfigSchema
 ]);
 
 export type ModelConfig = z.infer<typeof ModelConfigSchema>;
