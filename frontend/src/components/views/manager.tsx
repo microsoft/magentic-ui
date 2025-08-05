@@ -151,7 +151,6 @@ export const SessionManager: React.FC = () => {
   };
 
   const handleEditSession = (session?: Session) => {
-    setActiveSubMenuItem("current_session");
     setIsLoading(true);
     if (session) {
       setEditingSession(session);
@@ -197,7 +196,7 @@ export const SessionManager: React.FC = () => {
     if (!user?.email || !selectedSession.id) return;
 
     try {
-      setActiveSubMenuItem("current_session");
+      setActiveSubMenuItem("");
       setIsLoading(true);
       const data = await sessionAPI.getSession(selectedSession.id, user.email);
       if (!data) {
