@@ -8,7 +8,7 @@ from autogen_agentchat.teams import RoundRobinGroupChat
 from magentic_ui.agents import WebSurfer
 from autogen_agentchat.agents import UserProxyAgent
 import logging
-
+import os
 
 from magentic_ui.tools.playwright import (
     HeadlessDockerPlaywrightBrowser,
@@ -66,7 +66,8 @@ async def main() -> None:
             bind_dir=Path("/tmp"),
             playwright_port=args.port,
             novnc_port=args.novnc_port,
-            inside_docker=False,
+            inside_docker=os.environ.get("INSIDE_DOCKER", "0").lower() == "1",
+            network_name=os.environ.get("NETWORK_NAME", "my-network"),
         )
         print(f"Browser remote view: {browser.vnc_address}?autoconnect=1")
     elif args.port != -1:

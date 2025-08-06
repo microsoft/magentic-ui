@@ -120,6 +120,7 @@ async def learn_plan(
                 "provider": "OpenAIChatCompletionClient",
                 "config": {
                     "model": "gpt-4o-2024-08-06",
+                    "base_url": os.environ.get("OPENAI_BASE_URL"),
                     "api_key": os.environ.get("OPENAI_API_KEY"),
                 },
                 "max_retries": 5,
@@ -206,8 +207,7 @@ async def learn_plan(
             memory_provider = MemoryControllerProvider(
                 internal_workspace_root=Path(os.environ.get("INTERNAL_WORKSPACE_ROOT")),
                 external_workspace_root=Path(os.environ.get("EXTERNAL_WORKSPACE_ROOT")),
-                inside_docker=os.environ.get("INSIDE_DOCKER", "false").lower()
-                == "true",
+                inside_docker=os.environ.get("INSIDE_DOCKER", "0").lower() == "1",
             )
             memory_controller = memory_provider.get_memory_controller(
                 user_id, model_client

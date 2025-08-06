@@ -32,6 +32,8 @@ The AI has no knowledge of the helpful hints.
 
 **INSTRUCTIONS:**
 
+IMPORTANT: Please respond in User Input Language unless the user specifically requests a different language.
+
 You need to provide a response to the AI's plan as the user.
 
 Case 1: If you believe the plan is perfect and will enable the AI to solve the task, respond with the following  string only: accept. The word "accept" only should be your response.
@@ -58,6 +60,8 @@ The AI will provide a plan for the task in the past messages.
 The AI has no knowledge of the answer to the task or the helpful hints. 
 
 **INSTRUCTIONS:**
+
+IMPORTANT: Please respond in User Input Language unless the user specifically requests a different language.
 
 You need to provide a response to the AI's plan as the user.
 
@@ -88,6 +92,9 @@ The above messages include steps the AI has taken to solve the task.
 The last message is a question the AI is asking you for help.
 
 **INSTRUCTIONS:**
+
+IMPORTANT: Please respond in User Input Language unless the user specifically requests a different language.
+
 Provide a response to the AI's question to help them solve the task.
 """
 
@@ -108,6 +115,9 @@ The above messages include steps the AI has taken to solve the task.
 The last message is a question the AI is asking you for help.
 
 **INSTRUCTIONS:**
+
+IMPORTANT: Please respond in User Input Language unless the user specifically requests a different language.
+
 Provide a response to the AI's question to help them solve the task.
 """
 
@@ -120,6 +130,8 @@ The task is: {task}
 The AI will provide a plan for the task in the past messages.
 
 **INSTRUCTIONS:**
+
+IMPORTANT: Please respond in User Input Language unless the user specifically requests a different language.
 
 You need to provide a response to the AI's plan as the user.
 
@@ -141,6 +153,9 @@ The above messages include steps the AI has taken to solve the task.
 The last message is a question the AI is asking you for help.
 
 **INSTRUCTIONS:**
+
+IMPORTANT: Please respond in User Input Language unless the user specifically requests a different language.
+
 Provide a response to the AI's question to help them solve the task. 
 """
 

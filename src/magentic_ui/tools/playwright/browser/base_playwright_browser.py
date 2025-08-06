@@ -166,14 +166,28 @@ class DockerPlaywrightBrowser(PlaywrightBrowser):
         """
         retries = 0
         while True:
-            self._container = await self.create_container()
             try:
+                self._container = await self.create_container()
                 await asyncio.to_thread(self._container.start)
                 break
             except DockerException as e:
-                # This throws an exception.. should we try/catch this as well?
-                # self._close_container()
-                # Try 3 times, then give up
+                # Handle container name conflict (409 error)
+                if "409" in str(e) and "already in use" in str(e):
+                    logger.warning(f"Container name conflict detected: {e}")
+                    # Try to find and reuse existing container
+                    if await self._try_reuse_existing_container():
+                        logger.info("Successfully reused existing container")
+                        break
+                    else:
+                        # If reuse fails, generate new address and retry
+                        self._generate_new_browser_address()
+                        logger.info(f"Generated new browser address: {self.browser_address}")
+                        retries += 1
+                        if retries >= 3:
+                            raise
+                        continue
+                
+                # Handle other container start failures
                 retries += 1
                 if retries >= 3:
                     raise
@@ -192,3 +206,55 @@ class DockerPlaywrightBrowser(PlaywrightBrowser):
         )
         logger.info("Connected to browser")
         self._context = await self._browser.new_context()
+
+    async def _try_reuse_existing_container(self) -> bool:
+        """
+        Try to reuse an existing container with the same name.
+        Returns True if successful, False otherwise.
+        """
+        try:
+            import docker
+            
+            client = docker.from_env()
+            
+            # Get expected container name
+            container_name = self._get_expected_container_name()
+            if not container_name:
+                return False
+            
+            # Try to find existing container
+            try:
+                existing_container = client.containers.get(container_name)
+                
+                # Check if container is running
+                if existing_container.status == 'running':
+                    logger.info(f"Found running container: {container_name}")
+                    self._container = existing_container
+                    return True
+                elif existing_container.status == 'exited':
+                    logger.info(f"Found stopped container: {container_name}, restarting...")
+                    existing_container.restart()  # type: ignore
+                    self._container = existing_container
+                    return True
+                else:
+                    logger.warning(f"Container {container_name} in unexpected state: {existing_container.status}")
+                    return False
+                    
+            except Exception as not_found_error:
+                # Handle container not found or other errors
+                if "not found" in str(not_found_error).lower():
+                    logger.info(f"Container {container_name} not found")
+                else:
+                    logger.warning(f"Error accessing container {container_name}: {not_found_error}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error while trying to reuse container: {e}")
+            return False
+    
+    def _get_expected_container_name(self) -> str:
+        """
+        Get the expected container name. Should be overridden by subclasses.
+        """
+        # This is a fallback implementation
+        return ""

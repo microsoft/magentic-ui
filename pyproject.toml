@@ -48,6 +48,9 @@ dependencies = [
     "pyyaml",
     "html2text",
     "psutil",
+    "opentelemetry-sdk>=1.34.1",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.34.1",
+    "opentelemetry-instrumentation-openai>=0.43.1",
 ]
 
 [project.urls]

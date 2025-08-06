@@ -119,8 +119,25 @@ export const fetchVersion = () => {
 };
 
 export const convertFilesToBase64 = async (files: RcFile[] = []) => {
+  // skip csv,xlsx, xls file base64 conversion
+  const skipFileExts = ["csv", "xlsx", "xls"];
+  const skipFiles = files.filter(file => skipFileExts.includes(file.name.split(".")[1]));
+  const uploadFiles = files.filter(file => !skipFileExts.includes(file.name.split(".")[1]));
+  if (skipFiles.length !== files.length) {
+    console.warn(`跳过文件的base64转换: ${skipFiles.map(f => f.name).join(', ')}`);
+  }
+
+  // skip large files, avoid memory issues
+  const maxSizeForBase64 = 5 * 1024 * 1024; // 5MB
+  const smallFiles = uploadFiles.filter(file => file.size <= maxSizeForBase64);
+  
+  if (smallFiles.length !== files.length) {
+    const largeFiles = files.filter(file => file.size > maxSizeForBase64);
+    console.warn(`跳过大文件的base64转换: ${largeFiles.map(f => f.name).join(', ')}`);
+  }
+  
   return Promise.all(
-    files.map(async (file) => {
+    smallFiles.map(async (file) => {
       return new Promise<{ name: string; content: string; type: string }>(
         (resolve, reject) => {
           const reader = new FileReader();

@@ -227,6 +227,34 @@ class Orchestrator(BaseGroupChatManager):
             ]
         )
         self._last_browser_metadata_hash = ""
+        
+        # Log team member information
+        trace_logger.info("=== Orchestrator Team Configuration ===")
+        trace_logger.info(f"Orchestrator Name: {self._name}")
+        trace_logger.info(f"Total Participants: {len(self._participant_names)}")
+        trace_logger.info(f"Autonomous Execution: {self._config.autonomous_execution}")
+        trace_logger.info(f"User Agent Topic: {self._user_agent_topic}")
+        trace_logger.info(f"Web Agent Topic: {self._web_agent_topic}")
+        
+        trace_logger.info("--- Original Participants ---")
+        for i, (name, desc) in enumerate(zip(
+            self._participant_names, 
+            self._participant_descriptions
+        )):
+            trace_logger.info(f"{i+1}. Name: {name}")
+            trace_logger.info(f"   Description: {desc}")
+        
+        trace_logger.info("--- Execution Participants (after filtering) ---")
+        for i, (name, desc) in enumerate(zip(
+            self._agent_execution_names, 
+            self._agent_execution_descriptions
+        )):
+            trace_logger.info(f"{i+1}. Name: {name}")
+            trace_logger.info(f"   Description: {desc}")
+        
+        trace_logger.info("--- Team Description ---")
+        trace_logger.info(f"Team Description:\n{self._team_description}")
+        trace_logger.info("=== End Team Configuration ===")
 
     def _get_system_message_planning(
         self,
@@ -489,14 +517,52 @@ class Orchestrator(BaseGroupChatManager):
                 "Failed to get a valid JSON response after multiple retries"
             )
         except Exception as e:
-            await self._log_message_agentchat(
-                f"Error in Orchestrator: {e}", internal=False
-            )
-            raise
+            # 检查是否是客户端连接错误
+            # check if the error is related to client connection error
+            if "client has been closed" in str(e) or "Connection error" in str(e):
+                error_msg = f"OpenAI 客户端连接错误: {str(e)}"
+                trace_logger.error(f"=== 客户端连接错误 ===")
+                trace_logger.error(error_msg)
+                trace_logger.exception("详细错误信息:")
+                
+                # 记录错误到聊天历史
+                # log the error to the chat history
+                await self._log_message_agentchat(
+                    f"系统连接错误: {error_msg}",
+                    internal=False,
+                    metadata={"internal": "no", "type": "connection_error"}
+                )
+                # 重新抛出异常，让上层处理
+                # re-raise the exception, let the upper layer handle it
+                raise
+            else:
+                # 其他类型的错误
+                # other types of errors
+                error_msg = f"Orchestrator 错误: {str(e)}"
+                trace_logger.error(f"=== Orchestrator 错误 ===")
+                trace_logger.error(error_msg)
+                trace_logger.exception("详细错误信息:")
+                
+                await self._log_message_agentchat(
+                    f"系统错误: {error_msg}",
+                    internal=False,
+                    metadata={"internal": "no", "type": "system_error"}
+                )
+                raise
 
     @rpc
     async def handle_start(self, message: GroupChatStart, ctx: MessageContext) -> None:  # type: ignore
         """Handle the start of a group chat by selecting a speaker to start the conversation."""
+        # Log task start with team configuration
+        trace_logger.info("=== Orchestrator Task Start ===")
+        trace_logger.info(f"Starting new task with {len(self._participant_names)} participants")
+        trace_logger.info(f"Available execution agents: {', '.join(self._agent_execution_names)}")
+        trace_logger.info(f"Planning mode: {'Cooperative' if self._config.cooperative_planning else 'Autonomous'}")
+        trace_logger.info(f"Autonomous execution: {self._config.autonomous_execution}")
+        if message.messages:
+            trace_logger.info(f"Initial messages count: {len(message.messages)}")
+        trace_logger.info("=== Task Start Complete ===")
+        
         # Check if the conversation has already terminated.
         if (
             self._termination_condition is not None
@@ -535,6 +601,29 @@ class Orchestrator(BaseGroupChatManager):
     async def handle_agent_response(  # type: ignore
         self, message: GroupChatAgentResponse, ctx: MessageContext
     ) -> None:
+        # Log agent response details
+        # 记录 agent 消息细节
+        agent_name = message.agent_response.chat_message.source
+        response_content = getattr(message.agent_response.chat_message, 'content', 'No content')
+        
+        trace_logger.info("=== Agent响应接收 ===")
+        trace_logger.info(f"响应Agent: {agent_name}")
+        trace_logger.info(f"响应内容长度: {len(str(response_content))} 字符")
+        trace_logger.info(f"响应内容预览: {str(response_content)[:200]}{'...' if len(str(response_content)) > 200 else ''}")
+        
+        # Log inner messages if any
+        # 记录 agent 消息细节
+        if message.agent_response.inner_messages is not None:
+            trace_logger.info(f"内部消息数量: {len(message.agent_response.inner_messages)}")
+            for i, inner_msg in enumerate(message.agent_response.inner_messages):
+                inner_content = getattr(inner_msg, 'content', 'No content')
+                trace_logger.info(f"  内部消息 {i+1}: {inner_msg.source} - {str(inner_content)[:100]}{'...' if len(str(inner_content)) > 100 else ''}")
+        
+        trace_logger.info(f"当前步骤索引: {self._state.current_step_idx}")
+        trace_logger.info(f"当前轮次: {self._state.n_rounds}")
+        trace_logger.info(f"规划模式: {self._state.in_planning_mode}")
+        trace_logger.info("=== Agent响应处理开始 ===")
+        
         delta: List[BaseChatMessage] = []
         if message.agent_response.inner_messages is not None:
             for inner_message in message.agent_response.inner_messages:
@@ -545,6 +634,8 @@ class Orchestrator(BaseGroupChatManager):
         if self._termination_condition is not None:
             stop_message = await self._termination_condition(delta)
             if stop_message is not None:
+                trace_logger.info("=== 终止条件满足 ===")
+                trace_logger.info(f"终止原因: {stop_message.content}")
                 await self._prepare_final_answer(
                     reason="Termination Condition Met.",
                     cancellation_token=ctx.cancellation_token,
@@ -554,19 +645,63 @@ class Orchestrator(BaseGroupChatManager):
                 # Stop the group chat and reset the termination conditions and turn count.
                 await self._termination_condition.reset()
                 return
-        await self._orchestrate_step(ctx.cancellation_token)
+        
+        trace_logger.info("=== 继续编排下一步 ===")
+        try:
+            await self._orchestrate_step(ctx.cancellation_token)
+        except Exception as e:
+            # 捕获编排步骤中的错误，避免程序崩溃
+            error_msg = f"编排步骤执行失败: {str(e)}"
+            trace_logger.error(f"=== 编排错误 ===")
+            trace_logger.error(error_msg)
+            trace_logger.exception("详细错误信息:")
+            
+            # 记录错误到聊天历史
+            await self._log_message_agentchat(
+                f"系统遇到错误: {error_msg}",
+                internal=False,
+                metadata={"internal": "no", "type": "error_message"}
+            )
+            
+            # 尝试恢复或结束任务
+            try:
+                await self._prepare_final_answer(
+                    reason=f"Error occurred: {error_msg}",
+                    cancellation_token=ctx.cancellation_token,
+                    force_stop=True,
+                )
+            except Exception as final_error:
+                trace_logger.error(f"准备最终答案时也发生错误: {final_error}")
+                # 即使最终答案准备失败，也不让程序崩溃
 
     async def _orchestrate_step(self, cancellation_token: CancellationToken) -> None:
         """Orchestrate the next step of the conversation."""
-        if self._state.is_paused:
-            # let user speak next if paused
-            await self._request_next_speaker(self._user_agent_topic, cancellation_token)
-            return
+        try:
+            if self._state.is_paused:
+                # let user speak next if paused
+                await self._request_next_speaker(self._user_agent_topic, cancellation_token)
+                return
 
-        if self._state.in_planning_mode:
-            await self._orchestrate_step_planning(cancellation_token)
-        else:
-            await self._orchestrate_step_execution(cancellation_token)
+            if self._state.in_planning_mode:
+                await self._orchestrate_step_planning(cancellation_token)
+            else:
+                await self._orchestrate_step_execution(cancellation_token)
+        except Exception as e:
+            # 捕获编排步骤中的错误，避免程序崩溃
+            error_msg = f"编排步骤执行失败: {str(e)}"
+            trace_logger.error(f"=== 编排步骤错误 ===")
+            trace_logger.error(error_msg)
+            trace_logger.exception("详细错误信息:")
+            
+            # 记录错误到聊天历史
+            await self._log_message_agentchat(
+                f"系统遇到错误: {error_msg}",
+                internal=False,
+                metadata={"internal": "no", "type": "error_message"}
+            )
+            
+            # 重新抛出异常，让上层处理
+            raise
 
     async def do_bing_search(self, query: str) -> str | None:
         try:
@@ -797,9 +932,15 @@ class Orchestrator(BaseGroupChatManager):
                     source=self._name,
                 )
             )
+            trace_logger.info("=== 开始获取JSON响应 ===")
+            for i, item in enumerate(context):
+                trace_logger.info(f"context[{i}]: {item.content}")
+            # trace_logger.info(f"prompt: {self._get_task_ledger_plan_prompt(self._team_description)}")
             plan_response = await self._get_json_response(
                 context, self._validate_plan_json, cancellation_token
             )
+            trace_logger.info("=== 获取JSON响应完成 ===")
+            trace_logger.info(f"plan_response: {plan_response}")
             if self._state.is_paused:
                 # let user speak next if paused
                 await self._request_next_speaker(
@@ -1019,6 +1160,19 @@ class Orchestrator(BaseGroupChatManager):
                 progress_ledger["instruction_or_question"]["answer"],
                 progress_ledger["instruction_or_question"]["agent_name"],
             )
+            
+            # Log task assignment details
+            trace_logger.info("=== 执行阶段任务分配 ===")
+            trace_logger.info(f"分配给Agent: {progress_ledger['instruction_or_question']['agent_name']}")
+            trace_logger.info(f"任务指令: {progress_ledger['instruction_or_question']['answer']}")
+            trace_logger.info(f"步骤标题: {self._state.plan[self._state.current_step_idx].title}")
+            trace_logger.info(f"步骤详情: {self._state.plan[self._state.current_step_idx].details}")
+            trace_logger.info(f"进度摘要: {progress_ledger.get('progress_summary', '无')}")
+            trace_logger.info(f"步骤完成状态: {progress_ledger['is_current_step_complete']['answer']}")
+            trace_logger.info(f"需要重新规划: {progress_ledger['need_to_replan']['answer']}")
+            trace_logger.info(f"完整指令内容: {new_instruction}")
+            trace_logger.info("=== 执行阶段任务分配完成 ===")
+        
             message_to_send = TextMessage(
                 content=new_instruction, source=self._name, metadata={"internal": "yes"}
             )

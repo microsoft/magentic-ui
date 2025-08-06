@@ -7,6 +7,8 @@ ORCHESTRATOR_SYSTEM_MESSAGE_EXECUTION = """
     The browser the web_surfer accesses is also controlled by the user.
     You have access to a team of agents who can help you answer questions and complete tasks.
 
+    IMPORTANT: Please respond in User Input Language unless the user specifically requests a different language.
+
     The date today is: {date_today}
 """
 
@@ -66,6 +68,7 @@ def get_orchestrator_system_message_planning(
     The browser the web_surfer accesses is also controlled by the user.
     You are primarily a planner, and so you can devise a plan to do anything. 
 
+    IMPORTANT: Please respond in User Input Language unless the user specifically requests a different language.
 
     The date today is: {date_today}
 
@@ -391,6 +394,7 @@ def get_orchestrator_system_message_planning_autonomous(
     The browser the web_surfer accesses is also controlled by the user.
     You are primarily a planner, and so you can devise a plan to do anything. 
 
+    IMPORTANT: Please respond in User Input Language unless the user specifically requests a different language.
 
     The date today is: {date_today}
 

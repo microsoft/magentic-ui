@@ -262,7 +262,8 @@ class MagenticUISimUserSystem(BaseSystem):
                 bind_dir=Path(output_dir),
                 playwright_port=playwright_port,
                 novnc_port=novnc_port,
-                inside_docker=False,
+                inside_docker=os.environ.get("INSIDE_DOCKER", "0").lower() == "1",
+                network_name=os.environ.get("NETWORK_NAME", "my-network"),
             )
 
             # Create action guard with default policy "never"

@@ -16,6 +16,7 @@ interface RunViewProps {
   run: Run;
   onSavePlan?: (plan: IPlanStep[]) => void;
   onPause?: () => void;
+  onTerminal?: () => void;
   onRegeneratePlan?: () => void;
   isDetailViewerMinimized: boolean;
   setIsDetailViewerMinimized: (minimized: boolean) => void;
@@ -43,6 +44,7 @@ const RunView: React.FC<RunViewProps> = ({
   run,
   onSavePlan,
   onPause,
+  onTerminal,
   onRegeneratePlan,
   isDetailViewerMinimized,
   setIsDetailViewerMinimized,
@@ -58,13 +60,13 @@ const RunView: React.FC<RunViewProps> = ({
   error,
   chatInputRef,
   onExecutePlan,
-  enable_upload = false,
+  enable_upload = true,
 }) => {
   const threadContainerRef = useRef<HTMLDivElement | null>(null);
   const [novncPort, setNovncPort] = useState<string | undefined>();
   const [detailViewerExpanded, setDetailViewerExpanded] = useState(false);
   const [detailViewerTab, setDetailViewerTab] = useState<
-    "screenshots" | "live"
+    "screenshots" | "live" | "files"
   >("live");
   const [hiddenMessageIndices, setHiddenMessageIndices] = useState<Set<number>>(
     new Set()
@@ -139,6 +141,15 @@ const RunView: React.FC<RunViewProps> = ({
     }
   }, [run.messages]);
 
+  // Effect to show DetailViewer when conversation starts
+  useEffect(() => {
+    // Show DetailViewer when there are messages (conversation has started)
+    if (run.messages.length > 0 && !showDetailViewer) {
+      setShowDetailViewer(true);
+      setIsDetailViewerMinimized(false);
+    }
+  }, [run.messages.length, showDetailViewer]);
+
   const isEditable =
     run.status === "awaiting_input" &&
     messageUtils.isPlanMessage(
@@ -156,6 +167,11 @@ const RunView: React.FC<RunViewProps> = ({
     titles: [],
     messageIndices: [],
   });
+
+  // Add state for tracking uploaded files
+  const [uploadedFiles, setUploadedFiles] = useState<RcFile[]>([]);
+  
+  // Debug uploaded files
 
   // Function to collect images from multimodal messages for browser steps
   const collectImagesFromMessages = (messages: Message[]) => {
@@ -543,6 +559,16 @@ const RunView: React.FC<RunViewProps> = ({
   const isPlanMsg =
     lastMessage && messageUtils.isPlanMessage(lastMessage.config.metadata);
 
+      // Handle file upload, automatically show file viewer
+    const handleFileUpload = (files: RcFile[]) => {
+      if (files.length > 0) {
+        setUploadedFiles(files);
+      setShowDetailViewer(true);
+      setDetailViewerExpanded(true);
+      setDetailViewerTab("files");
+    }
+  };
+
   // Smart scrolling for approval buttons: only scroll if user is near the bottom
   useEffect(() => {
     if (run.status === "awaiting_input" && buttonsContainerRef.current && threadContainerRef.current) {
@@ -686,9 +712,11 @@ const RunView: React.FC<RunViewProps> = ({
             runStatus={run.status}
             isPlanMessage={isPlanMsg}
             onPause={onPause}
+            onTerminal={onTerminal}
             enable_upload={enable_upload}
             inputRequest={run.input_request}
             onExecutePlan={onExecutePlan}
+            onFileUpload={handleFileUpload}
           />
         </div>
       </div>
@@ -730,11 +758,13 @@ const RunView: React.FC<RunViewProps> = ({
                 }
                 novncPort={novncPort}
                 onPause={onPause}
+                onTerminal={onTerminal}
                 runStatus={run.status}
                 activeTab={detailViewerTab}
                 onTabChange={setDetailViewerTab}
                 detailViewerContainerId={DETAIL_VIEWER_CONTAINER_ID}
                 onInputResponse={onInputResponse}
+                runId={Number(run.id)}
               />
             </div>
           </div>

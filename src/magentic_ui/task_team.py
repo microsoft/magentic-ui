@@ -1,20 +1,22 @@
+from opentelemetry import trace
 from typing import Any, Dict, List, Optional, Union
 
-from autogen_agentchat.agents import UserProxyAgent
+from autogen_agentchat.agents import UserProxyAgent, AssistantAgent
 from autogen_agentchat.base import ChatAgent
-from autogen_core import ComponentModel
+from autogen_core import ComponentModel, SingleThreadedAgentRuntime
 from autogen_core.models import ChatCompletionClient
 
-from .agents import USER_PROXY_DESCRIPTION, CoderAgent, FileSurfer, WebSurfer
+from .agents import USER_PROXY_DESCRIPTION, CoderAgent, FileSurfer, WebSurfer, ReportAgent, DeepSearchWebSurfer
 from .agents.mcp import McpAgent
 from .agents.users import DummyUserProxy, MetadataUserProxy
-from .agents.web_surfer import WebSurferConfig
+from .agents.web_surfer import WebSurferConfig, DeepSearchWebSurferConfig
 from .approval_guard import (
     ApprovalConfig,
     ApprovalGuard,
     ApprovalGuardContext,
     BaseApprovalGuard,
 )
+from .agents._tool_use_agent import get_user_preferences
 from .input_func import InputFuncType, make_agentchat_input_func
 from .learning.memory_provider import MemoryControllerProvider
 from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
@@ -23,13 +25,30 @@ from .teams.orchestrator.orchestrator_config import OrchestratorConfig
 from .tools.playwright.browser import get_browser_resource_config
 from .types import RunPaths
 from .utils import get_internal_urls
+from loguru import logger as trace_logger
 
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.instrumentation.openai import OpenAIInstrumentor
+import os
+
+# Set up telemetry span exporter.
+OPEN_TELEMETRY_URL = os.getenv("OPEN_TELEMETRY_URL", "http://localhost:4317")
+otel_exporter = OTLPSpanExporter(endpoint=OPEN_TELEMETRY_URL, insecure=True)
+span_processor = BatchSpanProcessor(otel_exporter)
+tracer_provider = TracerProvider(resource=Resource({"service.name": "spirits-agentchat"}))
+tracer_provider.add_span_processor(span_processor)
+trace.set_tracer_provider(tracer_provider)
+OpenAIInstrumentor().instrument()
 
 async def get_task_team(
     magentic_ui_config: Optional[MagenticUIConfig] = None,
     input_func: Optional[InputFuncType] = None,
     *,
     paths: RunPaths,
+    settings_config: Dict[str, Any] | None = None,
 ) -> GroupChat | RoundRobinGroupChat:
     """
     Creates and returns a GroupChat team with specified configuration.
@@ -80,7 +99,20 @@ async def get_task_team(
     model_client_file_surfer = get_model_client(
         magentic_ui_config.model_client_configs.file_surfer
     )
+    model_client_report = get_model_client(magentic_ui_config.model_client_configs.coder)  # Use coder model client for report agent
     browser_resource_config, _novnc_port, _playwright_port = (
+        get_browser_resource_config(
+            paths.external_run_dir,
+            magentic_ui_config.novnc_port,
+            magentic_ui_config.playwright_port,
+            magentic_ui_config.inside_docker,
+            headless=magentic_ui_config.browser_headless,
+            local=magentic_ui_config.browser_local
+            or magentic_ui_config.run_without_docker,
+            network_name=magentic_ui_config.network_name,
+        )
+    )
+    deep_search_browser_resource_config, _deep_search_novnc_port, _deep_search_playwright_port = (
         get_browser_resource_config(
             paths.external_run_dir,
             magentic_ui_config.novnc_port,
@@ -188,6 +220,37 @@ async def get_task_team(
                 approval_policy=approval_policy,
             ),
         )
+
+    # 如果启用了深度搜索模式，创建 DeepSearchWebSurfer
+    deep_search_web_surfer: DeepSearchWebSurfer | None = None
+    trace_logger.info(f"magentic_ui_config: {magentic_ui_config}")
+    if getattr(magentic_ui_config, 'enable_deep_search', True):
+        deep_search_config = DeepSearchWebSurferConfig(
+            name="deep_search_web_surfer",
+            model_client=websurfer_model_client,
+            browser=deep_search_browser_resource_config,
+            single_tab_mode=False,
+            max_actions_per_step=magentic_ui_config.max_actions_per_step,
+            url_statuses={key: "allowed" for key in orchestrator_config.allowed_websites}
+            if orchestrator_config.allowed_websites
+            else None,
+            url_block_list=get_internal_urls(magentic_ui_config.inside_docker, paths),
+            multiple_tools_per_call=magentic_ui_config.multiple_tools_per_call,
+            downloads_folder=str(paths.internal_run_dir),
+            debug_dir=str(paths.internal_run_dir),
+            animate_actions=True,
+            start_page=None,
+            use_action_guard=True,
+            to_save_screenshots=False,
+            max_pages_per_search=getattr(magentic_ui_config, 'max_pages_per_search', 5),
+            detailed_analysis=True,
+            save_search_history=True,
+            research_mode=True,
+        )
+
+        with ApprovalGuardContext.populate_context(approval_guard):
+            deep_search_web_surfer = DeepSearchWebSurfer.from_config(deep_search_config)
+
     with ApprovalGuardContext.populate_context(approval_guard):
         web_surfer = WebSurfer.from_config(websurfer_config)
     if websurfer_loop_team:
@@ -199,6 +262,7 @@ async def get_task_team(
         return team
     coder_agent: CoderAgent | None = None
     file_surfer: FileSurfer | None = None
+    report_agent: ReportAgent | None = None
     if not magentic_ui_config.run_without_docker:
         coder_agent = CoderAgent(
             name="coder_agent",
@@ -218,12 +282,29 @@ async def get_task_team(
             approval_guard=approval_guard,
         )
 
+        report_agent = ReportAgent(
+            name="report_agent",
+            model_client=model_client_report,
+            work_dir=paths.internal_run_dir,
+            model_context_token_limit=magentic_ui_config.model_context_token_limit,
+            approval_guard=approval_guard,
+        )
+
     # Setup any mcp_agents
     mcp_agents: List[McpAgent] = [
         # TODO: Init from constructor?
         McpAgent._from_config(config)  # type: ignore
         for config in magentic_ui_config.mcp_agent_configs
     ]
+
+    # set the external tool use agent
+    tool_use_agent_client = get_model_client(magentic_ui_config.model_client_configs.file_surfer)
+    tool_use_agent = AssistantAgent(
+        name="tool_use_agent",
+        description="An Agent that can use tools to get the user's personal data from the external world",
+        model_client=tool_use_agent_client,
+        tools=[get_user_preferences],
+    )
 
     if (
         orchestrator_config.memory_controller_key is not None
@@ -240,18 +321,38 @@ async def get_task_team(
     team_participants: List[ChatAgent] = [
         web_surfer,
         user_proxy,
+        tool_use_agent,
     ]
+
+    # 添加深度搜索网页浏览器（如果启用）
+    if deep_search_web_surfer is not None:
+        trace_logger.info("添加深度搜索网页浏览器")
+        team_participants.append(deep_search_web_surfer)
+
     if not magentic_ui_config.run_without_docker:
         assert coder_agent is not None
         assert file_surfer is not None
-        team_participants.extend([coder_agent, file_surfer])
+        assert report_agent is not None
+        team_participants.extend([coder_agent, file_surfer, report_agent])
     team_participants.extend(mcp_agents)
+    trace_logger.info(f"team_participants: {team_participants}")
 
-    team = GroupChat(
-        participants=team_participants,
-        orchestrator_config=orchestrator_config,
-        model_client=model_client_orch,
-        memory_provider=memory_provider,
-    )
-
+    tracer = trace.get_tracer("spirits-agentchat-run")
+    # 从 paths 提取最后一个 run_id 
+    run_id = paths.run_suffix.split("/")[-1]
+    server_url = "_" + settings_config.get("server_url", "localhost") if settings_config else "_localhost"
+    memory_controller_key = "_" + settings_config.get("memory_controller_key", "") if settings_config else ""
+    with tracer.start_as_current_span(f"run_team{server_url}{memory_controller_key}_{run_id}"):
+        runtime = SingleThreadedAgentRuntime(
+            tracer_provider=trace.NoOpTracerProvider(),  # Disable telemetry for runtime.
+        )
+        runtime.start()
+        team = GroupChat(
+            participants=team_participants,
+            orchestrator_config=orchestrator_config,
+            model_client=model_client_orch,
+            memory_provider=memory_provider,
+            runtime=runtime,
+        )
+        await team.lazy_init()
     return team

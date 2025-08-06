@@ -88,6 +88,12 @@ class HeadlessDockerPlaywrightBrowser(
         """
         return f"ws://{self._hostname}:{self._playwright_port}"
 
+    def _get_container_name(self) -> str:
+        """
+        Get the expected container name for this browser instance.
+        """
+        return f"magentic-ui-headless-browser_{self._playwright_port}"
+
     def _generate_new_browser_address(self) -> None:
         """
         Generate a new address for the Playwright browser. Used if the current address fails to connect.
@@ -102,6 +108,12 @@ class HeadlessDockerPlaywrightBrowser(
         )
         s.close()
         logger.info(f"Generated new browser address: {self.browser_address}")
+
+    def _get_expected_container_name(self) -> str:
+        """
+        Get the expected container name for this browser instance.
+        """
+        return f"magentic-ui-headless-browser_{self._playwright_port}"
 
     async def create_container(self) -> Container:
         """

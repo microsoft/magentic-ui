@@ -93,19 +93,21 @@ class WebSocketManager:
     async def connect(self, websocket: WebSocket, run_id: int) -> bool:
         try:
             await websocket.accept()
+            reconnect = run_id in self._connections
             self._connections[run_id] = websocket
             self._closed_connections.discard(run_id)
             # Initialize input queue for this connection
             self._input_responses[run_id] = asyncio.Queue()
 
-            await self._send_message(
-                run_id,
-                {
-                    "type": "system",
-                    "status": "connected",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                },
-            )
+            if not reconnect:
+                await self._send_message(
+                    run_id,
+                    {
+                        "type": "system",
+                        "status": "connected",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
 
             return True
         except Exception as e:
@@ -471,7 +473,7 @@ class WebSocketManager:
                 # We might want to force disconnect here if db update failed
                 # await self.disconnect(run_id)  # Optional
 
-    async def disconnect(self, run_id: int) -> None:
+    async def disconnect(self, run_id: int, stop_running: bool = True) -> None:
         """
         Clean up connection and associated resources
 
@@ -480,16 +482,18 @@ class WebSocketManager:
         """
         logger.info(f"Disconnecting run {run_id}")
 
-        # Mark as closed before cleanup to prevent any new messages
-        self._closed_connections.add(run_id)
-
         # Cancel any running tasks
-        await self.stop_run(run_id, "Connection closed")
+        if stop_running:
+            # Mark as closed before cleanup to prevent any new messages
+            self._closed_connections.add(run_id)
 
-        # Clean up resources
-        self._connections.pop(run_id, None)
-        self._cancellation_tokens.pop(run_id, None)
-        self._input_responses.pop(run_id, None)
+            # Cancel any running tasks
+            await self.stop_run(run_id, "Connection closed")
+
+            # Clean up resources
+            self._connections.pop(run_id, None)
+            self._cancellation_tokens.pop(run_id, None)
+            self._input_responses.pop(run_id, None)
 
     async def _send_message(self, run_id: int, message: Dict[str, Any]) -> None:
         """Send a message through the WebSocket with connection state checking
@@ -516,7 +520,7 @@ class WebSocketManager:
         except Exception as e:
             logger.error(f"Error sending message for run {run_id}: {e}, {message}")
             # Don't try to send error message here to avoid potential recursive loop
-            await self._update_run_status(run_id, RunStatus.ERROR, str(e))
+            await self._update_run_status(run_id, RunStatus.ERROR, str(e), send_message=False)
             await self.disconnect(run_id)
 
     async def _handle_stream_error(self, run_id: int, error: Exception) -> None:
@@ -527,6 +531,11 @@ class WebSocketManager:
             run_id (int): ID of the run
             error (Exception): Exception that occurred
         """
+        # check if the error is related to GroupChatError
+        if "GroupChatError" in str(error) or "Unhandled message in agent container" in str(error):
+            logger.warning(f"Ignoring GroupChatError in _handle_stream_error for run {run_id}: {error}")
+            return
+        
         if run_id not in self._closed_connections:
             error_result = TeamResult(
                 task_result=TaskResult(
@@ -639,7 +648,7 @@ class WebSocketManager:
         return response.data[0] if response.status and response.data else None
 
     async def _update_run_status(
-        self, run_id: int, status: RunStatus, error: Optional[str] = None
+        self, run_id: int, status: RunStatus, error: Optional[str] = None, send_message: bool = True
     ) -> None:
         """Update run status in database
 
@@ -654,6 +663,12 @@ class WebSocketManager:
             run.error_message = error
             self.db_manager.upsert(run)
         # send system message to client with status
+        if run_id in self._closed_connections or not send_message:
+            logger.warning(
+                f"run {run_id} is closed, not send system message"
+            )
+            return
+
         await self._send_message(
             run_id,
             {

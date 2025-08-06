@@ -28,6 +28,12 @@ import {
 } from "../../types/plan";
 import SampleTasks from "./sampletasks";
 import ProgressBar from "./progressbar";
+import {
+  PaperAirplaneIcon,
+  ExclamationTriangleIcon,
+  PauseCircleIcon,
+  CommandLineIcon, // 添加 Terminal 图标
+} from "@heroicons/react/24/outline";
 
 // Extend RunStatus for sidebar status reporting
 type SidebarRunStatus = BaseRunStatus | "final_answer_awaiting_input";
@@ -122,7 +128,7 @@ export default function ChatView({
 
   // Replace stepTitles state with currentPlan state
   const [currentPlan, setCurrentPlan] = React.useState<StepProgress["plan"]>();
-
+  
   // Create a Message object from AgentMessageConfig
   const createMessage = (
     config: AgentMessageConfig,
@@ -166,13 +172,13 @@ export default function ChatView({
 
         // Only load data if component is visible
         const latestRun = await loadSessionRun();
-
+        console.log("latestRun", latestRun);
         if (latestRun) {
           setCurrentRun(latestRun);
           setNoMessagesYet(latestRun.messages.length === 0);
 
           if (latestRun.id) {
-            setupWebSocket(latestRun.id, false, true);
+            setupWebSocket(latestRun.id, true, true);
           }
         } else {
           setError({
@@ -304,7 +310,9 @@ export default function ChatView({
             // Update the run status even when not visible
             onRunStatusChange(session.id, message.status as BaseRunStatus);
           }
-        } catch (error) {}
+        } catch (error) {
+          console.error("WebSocket message parsing error:", error);
+        }
       };
 
       activeSocket.addEventListener("message", messageHandler);
@@ -435,6 +443,68 @@ export default function ChatView({
       message:
         error instanceof Error ? error.message : "Unknown error occurred",
     });
+  };
+
+  // 上传文件到指定 run 目录的函数
+  const uploadFilesToRun = async (files: RcFile[], runId: string) => {
+    if (files.length === 0) return;
+
+    try {
+      // 显示上传进度
+      messageApi.loading({
+        content: "Uploading files",
+        key: 'uploadFiles',
+        duration: 0
+      });
+
+      // 逐个上传文件，显示进度
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        
+        // 更新进度消息
+        messageApi.loading({
+          content: `Uploading files (${i + 1}/${files.length}): ${file.name} (${fileSizeMB}MB)`,
+          key: 'uploadFiles',
+          duration: 0
+        });
+
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await fetch(`${getServerUrl()}/files/upload/${runId}`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to upload ${file.name}: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        if (!result.status) {
+          throw new Error(`Upload failed for ${file.name}: ${result.message}`);
+        }
+        
+        console.log(`Successfully uploaded: ${file.name} (${fileSizeMB}MB)`);
+      }
+
+      // 显示上传成功消息
+      messageApi.success({
+        content: "Files uploaded successfully",
+        key: 'uploadFiles',
+        duration: 2
+      });
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      messageApi.error({
+        content: "Failed to upload files",
+        key: 'uploadFiles',
+        duration: 3
+      });
+      // 重新抛出错误，让调用者知道上传失败
+      throw error;
+    }
   };
 
   const uploadFiles = async (files: RcFile[], runId: number) => {
@@ -661,6 +731,37 @@ export default function ChatView({
     }
   };
 
+  const handleTerminal = async () => {
+    console.log("activeSocketRef.current", activeSocketRef.current);
+    console.log("currentRun", currentRun);
+    if (!activeSocketRef.current || !currentRun) return;
+
+    try {
+      if (activeSocketRef.current.readyState !== WebSocket.OPEN) {
+        throw new Error("WebSocket connection not available");
+      }
+
+      activeSocketRef.current.send(
+        JSON.stringify({
+          type: "terminal_input",
+        })
+      );
+
+      console.log("Terminal input request sent");
+
+      setCurrentRun((current: Run | null) => {
+        if (!current) return null;
+        return {
+          ...current,
+          status: "stopped",
+        };
+      });
+    } catch (error) {
+      handleError(error);
+    }
+  };
+
+
   const handlePause = async () => {
     if (!activeSocketRef.current || !currentRun) return;
 
@@ -702,6 +803,8 @@ export default function ChatView({
   ) => {
     setError(null);
     setNoMessagesYet(false);
+
+    console.log("Running task:", query, files);
 
     try {
       // Make sure run is setup first
@@ -1073,7 +1176,7 @@ export default function ChatView({
       {contextHolder}
       <div className="flex flex-col h-full w-full">
         {/* Progress Bar - Sticky at top */}
-        <div className="progress-container" style={{ height: "3.5rem" }}>
+        <div className="progress-container" style={{ height: "1.5rem" }}>
           <div
             className="transition-opacity duration-300"
             style={{
@@ -1119,6 +1222,7 @@ export default function ChatView({
                     run={currentRun}
                     onSavePlan={handlePlanUpdate}
                     onPause={handlePause}
+                    onTerminal={handleTerminal}
                     onRegeneratePlan={handleRegeneratePlan}
                     isDetailViewerMinimized={isDetailViewerMinimized}
                     setIsDetailViewerMinimized={setIsDetailViewerMinimized}
@@ -1180,6 +1284,7 @@ export default function ChatView({
                   onPause={handlePause}
                   enable_upload={true}
                   onExecutePlan={handleExecutePlan}
+                  onTerminal={handleTerminal} // 添加 onTerminal prop
                 />
               </div>
               <SampleTasks

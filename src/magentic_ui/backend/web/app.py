@@ -22,6 +22,7 @@ from .routes import (
     teams,
     validation,
     ws,
+    files,
 )
 
 # Initialize application
@@ -153,6 +154,13 @@ api.include_router(
     settingsroute.router,
     prefix="/settings",
     tags=["settings"],
+    responses={404: {"description": "Not found"}},
+)
+
+api.include_router(
+    files.router,
+    prefix="/files",
+    tags=["files"],
     responses={404: {"description": "Not found"}},
 )
 

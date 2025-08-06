@@ -2,8 +2,10 @@ import {
   PaperAirplaneIcon,
   ExclamationTriangleIcon,
   PauseCircleIcon,
+  CommandLineIcon, // 添加 Terminal 图标
+  StopIcon, // 停止图标
 } from "@heroicons/react/24/outline";
-import * as React from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { appContext } from "../../../hooks/provider";
 import { IStatus } from "../../types/app";
 import {
@@ -30,6 +32,21 @@ import { planAPI } from "../api";
 import RelevantPlans from "./relevant_plans";
 import { IPlan } from "../../types/plan";
 import PlanView from "./plan";
+import { getServerUrl } from "../../utils";
+
+// Maximum file size in bytes (50MB)
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+// Allowed file types
+const ALLOWED_FILE_TYPES = [
+  "text/plain",
+  "text/csv",
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/svg+xml",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+];
 
 // Threshold for large text files (in characters)
 const LARGE_TEXT_THRESHOLD = 1500;
@@ -50,9 +67,11 @@ interface ChatInputProps {
   onPause?: () => void;
   enable_upload?: boolean;
   onExecutePlan?: (plan: IPlan) => void;
+  onTerminal?: () => void; // 添加 onTerminal prop
+  onFileUpload?: (files: RcFile[]) => void; // 添加文件上传回调
 }
 
-const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
+const ChatInput = React.memo(React.forwardRef<{ focus: () => void }, ChatInputProps>(
   (
     {
       onSubmit,
@@ -65,6 +84,8 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       onPause,
       enable_upload = false,
       onExecutePlan,
+      onTerminal, // 添加 onTerminal prop
+      onFileUpload, // 添加文件上传回调
     },
     ref
   ) => {
@@ -163,7 +184,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
             hasImageItem = true;
             const file = item.getAsFile();
 
-            if (file) {
+            if (file && file.size <= MAX_FILE_SIZE) {
               // Prevent the default paste behavior for images
               e.preventDefault();
 
@@ -188,8 +209,15 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
               // Add to file list
               setFileList((prev) => [...prev, uploadFile]);
 
+              // Call file upload callback
+              if (onFileUpload) {
+                onFileUpload([namedFile as RcFile]);
+              }
+
               // Show successful paste notification
-              message.success(`File pasted successfully`);
+              message.success("Image pasted successfully");
+            } else if (file && file.size > MAX_FILE_SIZE) {
+              message.error("File too large");
             }
           }
 
@@ -242,6 +270,11 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                 };
 
                 setFileList((prev) => [...prev, uploadFile]);
+
+                // Call file upload callback
+                if (onFileUpload) {
+                  onFileUpload([file as RcFile]);
+                }
 
                 // Notify user about the conversion
                 notificationApi.info({
@@ -340,6 +373,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
             setIsRelevantPlansVisible(false);
           }
         } catch (error) {
+          console.error("Error searching plans:", error);
         } finally {
           setIsSearching(false);
         }
@@ -368,12 +402,13 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       }
     };
 
-    const submitInternal = (
+    const submitInternal = async (
       query: string,
       files: RcFile[],
       accepted: boolean,
       doResetInput: boolean = true
     ) => {
+      // Submit with files directly (upload will happen after getting run.id)
       if (attachedPlan) {
         onSubmit(query, files, accepted, attachedPlan);
       } else {
@@ -408,6 +443,13 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       }
     };
 
+    const handleTerminal = () => {
+      console.log("handleTerminal", onTerminal);
+      if (onTerminal) {
+        onTerminal();
+      }
+    };
+
     const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
@@ -422,9 +464,29 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       },
     }));
 
-    // Add helper function for file addition
-    const handleFileAdd = (file: File): boolean => {
-      // Add file to fileList
+    // Add helper function for file validation and addition
+    const handleFileValidationAndAdd = (file: File): boolean => {
+      // Check file size
+      if (file.size > MAX_FILE_SIZE) {
+        message.error(`File too large: ${file.name}`);
+        return false;
+      }
+
+      // Check file type
+      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+        notificationApi.warning({
+          message: <span className="text-sm">Unsupported file type</span>,
+          description: (
+            <span className="text-sm text-secondary">
+              Unsupported file type: {file.name}
+            </span>
+          ),
+          duration: 8.5,
+        });
+        return false;
+      }
+
+      // Add valid file to fileList
       const uploadFile: UploadFile = {
         uid: `file-${Date.now()}-${file.name}`,
         name: file.name,
@@ -435,6 +497,12 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       };
 
       setFileList((prev) => [...prev, uploadFile]);
+      
+      // Call file upload callback
+      if (onFileUpload) {
+        onFileUpload([file as RcFile]);
+      }
+      
       return true;
     };
 
@@ -444,8 +512,11 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       multiple: true,
       fileList,
       beforeUpload: (file: RcFile) => {
-        handleFileAdd(file);
-        return false; // Prevent automatic upload
+        const result = handleFileValidationAndAdd(file);
+        if (result) {
+          return false; // Prevent automatic upload
+        }
+        return Upload.LIST_IGNORE;
       },
       onRemove: (file: UploadFile) => {
         setFileList(fileList.filter((item) => item.uid !== file.uid));
@@ -462,11 +533,11 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
     const getFileIcon = (file: UploadFile) => {
       const fileType = file.type || "";
       const fileName = file.name || "";
-
+      
       if (fileType.startsWith("image/")) {
         return <ImageIcon className="w-4 h-4" />;
       }
-
+      
       // Check for specific file types based on extension
       const extension = fileName.split(".").pop()?.toLowerCase();
       switch (extension) {
@@ -477,13 +548,15 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
           return <FileTextIcon className="w-4 h-4 text-blue-500" />;
         case "xls":
         case "xlsx":
-          return <FileTextIcon className="w-4 h-4 text-green-500" />;
+          return <div className="w-4 h-4 flex items-center justify-center text-green-600 font-bold text-xs">📈</div>;
+        case "csv":
+          return <div className="w-4 h-4 flex items-center justify-center text-green-600 font-bold text-xs">📊</div>;
         case "zip":
         case "rar":
         case "7z":
           return <FileTextIcon className="w-4 h-4 text-yellow-500" />;
         default:
-          return <FileTextIcon className="w-4 h-4" />;
+      return <FileTextIcon className="w-4 h-4" />;
       }
     };
 
@@ -511,7 +584,18 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       if (isInputDisabled || !enable_upload) return;
 
       const droppedFiles = Array.from(e.dataTransfer.files);
-      droppedFiles.forEach(handleFileAdd);
+      const validFiles: RcFile[] = [];
+      
+      droppedFiles.forEach((file) => {
+        if (handleFileValidationAndAdd(file)) {
+          validFiles.push(file as RcFile);
+        }
+      });
+      
+      // Call file upload callback
+      if (onFileUpload && validFiles.length > 0) {
+        onFileUpload(validFiles);
+      }
     };
 
     const handleUsePlan = (plan: IPlan) => {
@@ -751,7 +835,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                                   key={plan.id || plan.task}
                                   onClick={() => handleUsePlan(plan)}
                                 >
-                                  {plan.task}
+                                    {plan.task}
                                 </Menu.Item>
                               ))
                             )}
@@ -778,6 +862,23 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                   </div>
                 )}
 
+                {/* Stop Task button - show when task is awaiting input or in other non-active states */}
+                {(() => {
+                  const shouldShowStopButton = runStatus === "awaiting_input" || 
+                    (runStatus !== "connected" && runStatus !== "created" && runStatus !== "active" && runStatus !== "complete" && runStatus !== "error");
+                  return shouldShowStopButton && (
+                    <button
+                      type="button"
+                      onClick={handleTerminal}
+                      className="bg-orange-600 hover:bg-orange-700 text-white rounded flex justify-center items-center w-11 h-9 transition duration-300"
+                      title="Stop Task"
+                    >
+                      <StopIcon className="h-6 w-6" />
+                    </button>
+                  );
+                })()}
+
+                {/* Pause button - only show when task is active */}
                 {runStatus === "active" && (
                   <button
                     type="button"
@@ -787,19 +888,19 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                     <PauseCircleIcon className="h-6 w-6" />
                   </button>
                 )}
-                {
-                  <button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={isInputDisabled}
-                    className={`bg-magenta-800 transition duration-300 rounded flex justify-center items-center w-11 h-9 ${
-                      isInputDisabled
-                        ? "cursor-not-allowed"
-                        : "hover:bg-magenta-900"
-                    }`}
-                  >
-                    <PaperAirplaneIcon className="h-6 w-6 text-white" />
-                  </button>
+{
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={isInputDisabled}
+                  className={`bg-magenta-800 transition duration-300 rounded flex justify-center items-center w-11 h-9 ${
+                    isInputDisabled
+                      ? "cursor-not-allowed"
+                      : "hover:bg-magenta-900"
+                  }`}
+                >
+                  <PaperAirplaneIcon className="h-6 w-6 text-white" />
+                </button>
                 }
               </div>
             </div>
@@ -815,6 +916,6 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       </div>
     );
   }
-);
+));
 
 export default ChatInput;

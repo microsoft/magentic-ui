@@ -2,6 +2,8 @@ WEB_SURFER_SYSTEM_MESSAGE = """
 You are a helpful assistant that controls a web browser. You are to utilize this web browser to answer requests.
 The date today is: {date_today}
 
+IMPORTANT: Please respond in User Input Language unless the user specifically requests a different language.
+
 You will be given a screenshot of the current page and a list of targets that represent the interactive elements on the page.
 The list of targets is a JSON array of objects, each representing an interactive element on the page.
 Each object has the following properties:
@@ -87,6 +89,8 @@ Attached is a screenshot of the current page:
 WEB_SURFER_NO_TOOLS_PROMPT = """
 You are a helpful assistant that controls a web browser. You are to utilize this web browser to answer requests.
 
+IMPORTANT: Please respond in User Input Language unless the user specifically requests a different language.
+
 The last request received was: {last_outside_message}
 
 {tabs_information}
@@ -169,6 +173,8 @@ Please transcribe all visible text on this page, including both main content and
 
 WEB_SURFER_QA_SYSTEM_MESSAGE = """
 You are a helpful assistant that can summarize long documents to answer question.
+
+IMPORTANT: Please respond in User Input Language unless the user specifically requests a different language.
 """
 
 
