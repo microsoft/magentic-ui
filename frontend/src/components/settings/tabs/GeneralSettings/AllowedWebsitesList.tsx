@@ -1,7 +1,7 @@
 import React from "react";
-import { Input, Switch, Button, Flex, Tag, Tooltip } from "antd";
-import { InfoCircleOutlined } from "@ant-design/icons";
-import { Plus } from "lucide-react";
+import { Flex, Switch, Tooltip, Input, Button, List, Tag } from "antd";
+import { InfoCircleOutlined, PlusOutlined, DeleteOutlined } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 
 interface AllowedWebsitesListProps {
   config: any;
@@ -36,12 +36,14 @@ const AllowedWebsitesList: React.FC<AllowedWebsitesListProps> = ({
     handleUpdateConfig({ allowed_websites: updatedList });
   };
 
+  const { t } = useTranslation();
+
   return (
     <Flex vertical gap="small">
       <Flex align="center" justify="space-between" wrap gap="small">
         <Flex align="center" justify="start" gap="small">
-          Allowed Websites List
-          <Tooltip title="When enabled, Magentic-UI will only be able to visit websites you add to the list below.">
+          {t('generalSettings.allowedWebsites')}
+          <Tooltip title={t('generalSettings.allowedWebsitesTooltip')}>
             <InfoCircleOutlined className="text-secondary hover:text-primary cursor-help" />
           </Tooltip>
         </Flex>
@@ -72,7 +74,7 @@ const AllowedWebsitesList: React.FC<AllowedWebsitesListProps> = ({
                 onPressEnter={addWebsite}
                 // className="flex-1"
               />
-              <Button icon={<Plus size={16} />} onClick={addWebsite}>
+              <Button icon={<PlusOutlined size={16} />} onClick={addWebsite}>
                 Add
               </Button>
             </Flex>

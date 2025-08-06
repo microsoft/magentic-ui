@@ -5,6 +5,7 @@ import { planAPI } from "../../views/api";
 import PlanView from "../../views/chat/plan";
 import { getRelativeTimeString } from "../../views/atoms";
 import { IPlan, IPlanStep } from "../../types/plan";
+import { useTranslation } from "react-i18next";
 interface PlanCardProps {
   plan: IPlan;
   onUsePlan?: (plan: IPlan) => void;
@@ -24,6 +25,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
   isNew = false,
   onEditComplete,
 }) => {
+  const { t } = useTranslation();
   const [isHovering, setIsHovering] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(isNew);
   const [localSteps, setLocalSteps] = useState<IPlanStep[]>(plan.steps || []);
@@ -43,7 +45,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
         return;
       }
 
-      if (window.confirm(`Are you sure you want to delete "${plan.task}"?`)) {
+      if (window.confirm(t("planCard.confirmDelete", { task: plan.task }))) {
         await planAPI.deletePlan(plan.id, plan.user_id);
 
         if (onDeletePlan) {
@@ -162,26 +164,26 @@ const PlanCard: React.FC<PlanCardProps> = ({
           <div className="flex justify-between items-center">
             <span
               className="truncate max-w-[80%]"
-              title={plan.task || "Untitled Plan"}
+              title={plan.task || t("planCard.untitledPlan")}
             >
-              {plan.task || "Untitled Plan"}
+              {plan.task || t("planCard.untitledPlan")}
             </span>
             {isHovering && (
               <div className="flex items-center ml-2">
-                <Tooltip title="Export plan as JSON file">
+                <Tooltip title={t("planCard.exportPlanTooltip")}>
                   <button
                     className="bg-transparent border-none cursor-pointer mr-2"
                     onClick={handleExport}
-                    aria-label="Export plan"
+                    aria-label={t("planCard.exportPlan")}
                   >
                     <Download className="h-5 w-5 transition-colors" />
                   </button>
                 </Tooltip>
-                <Tooltip title="Delete this plan">
+                <Tooltip title={t("planCard.deletePlanTooltip")}>
                   <button
                     className="bg-transparent border-none cursor-pointer"
                     onClick={handleDelete}
-                    aria-label="Delete plan"
+                    aria-label={t("planCard.deletePlan")}
                   >
                     <Trash2 className="h-5 w-5 transition-colors" />
                   </button>
@@ -195,7 +197,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
         onMouseLeave={() => setIsHovering(false)}
         actions={[
           <div key="use" className="flex items-center justify-center h-full">
-            <Tooltip title="Create a new session with this plan loaded">
+            <Tooltip title={t("planCard.runPlanTooltip")}>
               <Button
                 type="text"
                 className="cursor-pointer flex items-center justify-center font-semibold transition-colors"
@@ -204,19 +206,19 @@ const PlanCard: React.FC<PlanCardProps> = ({
                 }}
               >
                 <PlayCircle className="h-4 w-4 mr-1" />
-                Run Plan
+                {t("planCard.runPlan")}
               </Button>
             </Tooltip>
           </div>,
           <div key="edit" className="flex items-center justify-center h-full">
-            <Tooltip title="Modify plan title and steps">
+            <Tooltip title={t("planCard.editPlanTooltip")}>
               <Button
                 type="text"
                 className="cursor-pointer flex items-center justify-center font-semibold transition-colors"
                 onClick={handleEdit}
               >
                 <Edit2 className="h-4 w-4 mr-1" />
-                Edit
+                {t("planCard.edit")}
               </Button>
             </Tooltip>
           </div>,
@@ -225,7 +227,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
         <div className="flex flex-col flex-grow justify-between">
           <div>
             <div className="mb-4">
-              <p className="text-sm">{steps.length} steps</p>
+              <p className="text-sm">{t("planCard.stepsCount", { count: steps.length })}</p>
             </div>
 
             <div className="space-y-2 min-h-[80px]">
@@ -234,12 +236,12 @@ const PlanCard: React.FC<PlanCardProps> = ({
                   key={idx}
                   className="text-xs border-l-2 border-gray-200 pl-2"
                 >
-                  {step.title || `Step ${idx + 1}`}
+                  {step.title || t("planCard.stepNumber", { number: idx + 1 })}
                 </div>
               ))}
               {steps.length > 3 && (
                 <div className="text-xs">
-                  + {steps.length - 3} more steps
+                  {t("planCard.moreSteps", { count: steps.length - 3 })}
                 </div>
               )}
             </div>
@@ -269,14 +271,14 @@ const PlanCard: React.FC<PlanCardProps> = ({
           <div>
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1">
-                Plan Title
+                {t("planCard.planTitle")}
               </label>
               <Input
                 type="text"
                 value={localTask}
                 onChange={(e) => setLocalTask(e.target.value)}
                 onPressEnter={() => handleSavePlan(localSteps, false)}
-                placeholder="Enter plan title"
+                placeholder={t("planCard.enterPlanTitle")}
               />
             </div>
             <PlanView

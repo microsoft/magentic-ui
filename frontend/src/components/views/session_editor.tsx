@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from "react";
 import { Modal, Form, message, Input, Button } from "antd";
 import type { FormProps } from "antd";
+import { useTranslation } from "react-i18next";
 import { SessionEditorProps } from "./types";
 import { Team } from "../types/datamodel";
 import { teamAPI } from "./api";
@@ -17,6 +18,7 @@ export const SessionEditor: React.FC<SessionEditorProps> = ({
   onCancel,
   isOpen,
 }) => {
+  const { t } = useTranslation();
   const [form] = Form.useForm();
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,7 +46,7 @@ export const SessionEditor: React.FC<SessionEditorProps> = ({
           const teamsData = await teamAPI.listTeams(userId);
           setTeams(teamsData);
         } catch (error) {
-          messageApi.error("Error loading teams");
+          messageApi.error(t("sessionEditor.errorLoadingTeams"));
           console.error("Error loading teams:", error);
         } finally {
           setLoading(false);
@@ -74,7 +76,7 @@ export const SessionEditor: React.FC<SessionEditorProps> = ({
         id: session?.id,
       });
       messageApi.success(
-        `Session ${session ? "updated" : "created"} successfully`
+        session ? t("sessionEditor.sessionUpdatedSuccessfully") : t("sessionEditor.sessionCreatedSuccessfully")
       );
     } catch (error) {
       if (error instanceof Error) {
@@ -86,7 +88,7 @@ export const SessionEditor: React.FC<SessionEditorProps> = ({
   const onFinishFailed: FormProps<FieldType>["onFinishFailed"] = (
     errorInfo: any
   ) => {
-    messageApi.error("Please check the form for errors");
+    messageApi.error(t("sessionEditor.pleaseCheckFormForErrors"));
     console.error("Form validation failed:", errorInfo);
   };
 
@@ -94,7 +96,7 @@ export const SessionEditor: React.FC<SessionEditorProps> = ({
 
   return (
     <Modal
-      title={session ? "Edit Session" : "Create Session"}
+      title={session ? t("sessionEditor.editSession") : t("sessionEditor.createSession")}
       open={isOpen}
       onCancel={onCancel}
       footer={null}
