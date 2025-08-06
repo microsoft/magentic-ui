@@ -878,6 +878,80 @@ def get_orchestrator_plan_prompt_json(sentinel_tasks_enabled: bool = False) -> s
     """
 
 
+def get_orchestrator_enhanced_plan_prompt_json() -> str:
+    return """
+    You have access to the following team members that can help you address the request each with unique expertise:
+
+    {team}
+
+    Remember, there is no requirement to involve all team members -- a team member's particular expertise may not be needed for this task.
+
+
+    {additional_instructions}
+
+    You are an expert in orchestrating multi-agent systems and designing agentic workflows. You specialize in translating user goals into structured, executable plans that involve multiple tools and agents. Your task is to generate a hierarchical plan that breaks down the user’s objective into clear steps and sub-steps, where each sub-step is a coherent unit of work that can be executed by a single agent.
+
+    You have already received the user query and the clarified answers to any ambiguities. Now, your job is to create a structured plan that can be used to orchestrate tool usage and agent behavior.
+
+    Each plan should:
+    - Be hierarchical: include high-level steps and their corresponding sub-steps.
+    - Ensure that all sub-steps under a step are logically grouped and can be executed by the same agent.
+    - Include a short description of the purpose of each step and sub-step.
+    - Be tool-aware: if a sub-step requires a specific tool (e.g., search, summarization, generation), mention it.
+    - Be executable: avoid vague or abstract actions. Be specific and actionable.
+
+    You must also include:
+    - Terms: Key concepts or domain-specific terms relevant to the task.
+    - Task: A concise summary of the goal and objective.
+    - Steps: A breakdown of the plan into steps and sub-steps.
+    - Title and Details for each step and sub-step.
+    - Agent Name: The agent responsible for executing each step or sub-step.
+    - Need_Plan: A boolean indicating whether a plan is needed (always true in this context).
+    - Response: A short natural language summary of the plan.
+    - Plan_Summary: A concise overview of the entire plan.
+
+    IMPORTANT NOTE: 
+    The environment you operate in can be very dynamic and at times you might face a situation where you are unable to make progress on the task due to several reasons. In such cases, you should try a couple of times to make progress on the task, and if you are still unable to make progress, you should create a new plan that addresses the failures in trying to complete the task previously. You should also try to avoid getting stuck in a loop and do not keep retrying too many times.
+    Also this is to be followed by all team members. So as you design the plan, ensure to add this instruction to all team members so that they too do not waste time trying to complete the task if they are unable to make progress on it, they they should return back to you for help
+
+    INPUT:
+    USER_QUERY:
+    {user_query}
+
+    OUTPUT FORMAT:
+    Return a JSON object with the following structure:
+
+    {{
+    "terms": ["term1", "term2", ...],
+    "task": "summary of the goal and objective",
+    "needs_plan": true,
+    "response": "Short natural language summary of the plan",
+    "plan_summary": "Concise overview of the plan",
+    "steps": {{
+        "Step 1": {{
+        "title": "Title of the step",
+        "details": "Purpose and scope of this step",
+        "agent_name": "Agent responsible for this step",
+        "substeps": {{
+            "1.1": {{
+            "title": "Title of the sub-step",
+            "details": "What this sub-step does",
+            "status": "Current state in plan, recap prev steps and highlights next steps"
+            }},
+            "1.2": {{
+            ...
+            }}
+        }}
+        }},
+        "Step 2": {{
+        ...
+        }}
+    }}
+    }}
+
+    DO NOT OUTPUT ANYTHING OTHER THAN THE JSON OBJECT."""
+
+
 def get_orchestrator_plan_replan_json(sentinel_tasks_enabled: bool = False) -> str:
     """Get the orchestrator replan prompt in JSON format, with optional SentinelPlanStep support."""
 
@@ -1045,4 +1119,14 @@ def validate_plan_json(
             # PlanStep does not require sleep_duration or condition
             if "title" not in item or "details" not in item or "agent_name" not in item:
                 return False
+    return True
+
+
+def validate_enhanced_plan_json(json_response: Dict[str, Any]) -> bool:
+    if not isinstance(json_response, dict):
+        return False
+    required_keys = ["terms", "task", "needs_plan", "response", "plan_summary", "steps"]
+    for key in required_keys:
+        if key not in json_response:
+            return False
     return True
