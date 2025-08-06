@@ -211,6 +211,34 @@ class TeamManager:
                 ]
             )
 
+            # MCP agents have two sources: config.yaml and frontend settings
+            # Configurations with the same name in frontend settings will be overridden by config.yaml
+            # Therefore, it's better not to have duplicate MCP agent names between them
+            mcp_agent_config_from_config_file:List[Dict[str, Any]] = self.config.get("mcp_agent_configs", None)
+            # Get mcp_agent_configs from frontend settings
+            settings_mcp_configs = settings_config.get("mcp_agent_configs", [])
+                        
+            # If there are MCP configurations in config file, merge them
+            if mcp_agent_config_from_config_file:
+                # Get list of agent names from config file
+                config_agent_names = [x.get("name") for x in mcp_agent_config_from_config_file]
+                
+                # Filter out agents from frontend settings that have duplicate names with config file
+                if settings_mcp_configs:
+                    settings_mcp_configs = [
+                        x for x in settings_mcp_configs 
+                        if x.get("name") not in config_agent_names
+                    ]
+                
+                # Merge configurations: frontend settings + config file configurations
+                merged_mcp_configs = settings_mcp_configs + mcp_agent_config_from_config_file
+            else:
+                # If no MCP configurations in config file, use only frontend settings
+                merged_mcp_configs = settings_mcp_configs
+            
+            # Update mcp_agent_configs in settings_config
+            settings_config["mcp_agent_configs"] = merged_mcp_configs
+
             # Common configuration parameters
             config_params = {
                 **settings_config,  # type: ignore,
