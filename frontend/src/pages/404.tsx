@@ -1,4 +1,5 @@
-import * as React from "react"
+import React from "react";
+import { useTranslation } from "react-i18next";
 import { Link, HeadFC, PageProps } from "gatsby"
 
 const containerStyle: React.CSSProperties = {
@@ -46,6 +47,7 @@ const linkStyle: React.CSSProperties = {
 }
 
 const NotFoundPage: React.FC<PageProps> = () => {
+  const { t } = useTranslation();
   return (
     <main style={containerStyle}>
       <h1 style={headingStyle}>404</h1>
@@ -66,4 +68,7 @@ const NotFoundPage: React.FC<PageProps> = () => {
 
 export default NotFoundPage
 
-export const Head: HeadFC = () => <title>Page Not Found | Magentic-UI </title>
+export const Head: HeadFC = () => {
+  const { t } = useTranslation();
+  return <title>{t('errors.pageNotFoundTitle')}</title>
+}
