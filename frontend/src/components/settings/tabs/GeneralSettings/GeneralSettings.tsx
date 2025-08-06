@@ -41,6 +41,9 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                 <SunFilled className="w-6 h-6" />
               )}
         </button>
+      </Flex>
+      <Divider style={{ margin: "0px" }} />
+      <Flex align="center" justify="space-between">
         <span>{t('language.language')}</span>
         <Select
           value={language}
