@@ -3,12 +3,14 @@ import ReactDOM from "react-dom";
 import { X } from "lucide-react";
 import BrowserIframe from "./browser_iframe";
 import { Button } from "antd";
+import { useTranslation } from "react-i18next";
 interface BrowserModalProps {
   isOpen: boolean;
   onClose: () => void;
   novncPort?: string;
   title?: string;
   onPause?: () => void;
+  onTerminal?: () => void;
   runStatus?: string;
   onControlHandover?: () => void;
   isControlMode?: boolean;
@@ -22,6 +24,7 @@ const BrowserModal: React.FC<BrowserModalProps> = (props) => {
     novncPort,
     title = "Browser View",
     onPause,
+    onTerminal,
     runStatus,
     onControlHandover,
     isControlMode = false,
@@ -29,6 +32,7 @@ const BrowserModal: React.FC<BrowserModalProps> = (props) => {
   } = props;
   const [modalRoot, setModalRoot] = useState<HTMLElement | null>(null);
   const modalIframeId = "modal-browser-iframe";
+  const { t } = useTranslation();
 
   useEffect(() => {
     // Look for existing modal root
@@ -93,7 +97,7 @@ const BrowserModal: React.FC<BrowserModalProps> = (props) => {
                   className="font-medium shadow-md flex justify-center items-center"
                   size="large"
                 >
-                  Give control back to Magentic-UI 
+                  {t('security.giveControlBack')}
                 </Button>
               )}
             </div>

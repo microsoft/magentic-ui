@@ -4,6 +4,7 @@ import { useConfigStore } from "../hooks/store";
 import "antd/dist/reset.css";
 import { ConfigProvider, theme } from "antd";
 import { SessionManager } from "./views/manager";
+import { useTranslation } from "react-i18next";
 
 const classNames = (...classes: (string | undefined | boolean)[]) => {
   return classes.filter(Boolean).join(" ");
@@ -33,6 +34,7 @@ const MagenticUILayout = ({
   const { sidebar } = useConfigStore();
   const { isExpanded } = sidebar;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const { t } = useTranslation();
 
   // Mimic sign-in: if no user or user.email, set default user and localStorage
   React.useEffect(() => {
@@ -84,8 +86,7 @@ const MagenticUILayout = ({
           </main>
         </ConfigProvider>
         <div className="text-sm text-primary mt-2 mb-2 text-center">
-          Magentic-UI can make mistakes. Please monitor its work and intervene if
-          necessary.
+          {t('messages.mistakes')}
         </div>
       </div>
     </div>

@@ -1,10 +1,10 @@
 import React, { } from "react";
 import MCPAgentForm from "./MCPAgentForm";
-import { List, Divider, Flex } from "antd";
+import { List, Divider, Flex, Typography } from "antd";
 import { Button as MagenticButton } from "../../../../common/Button";
 import { MCPAgentConfig } from "./types";
 import { DEFAULT_OPENAI } from "../modelSelector/modelConfigForms/OpenAIModelConfigForm";
-import { Typography } from "antd";
+import { useTranslation } from "react-i18next";
 import { SettingsTabProps } from "../../../types";
 import { ModelConfig } from "../modelSelector/modelConfigForms/types";
 
@@ -25,6 +25,7 @@ export interface MCPAgentsSettingsProps extends SettingsTabProps {
 
 const MCPAgentsSettings: React.FC<MCPAgentsSettingsProps> = ({ config, handleUpdateConfig, defaultModel, advanced }) => {
   const value = config?.mcp_agent_configs || [];
+  const { t } = useTranslation();
 
   const handleAgentChange = (idx: number, updated: MCPAgentConfig) => {
     const updatedAgents = value.map((a, i) => (i === idx ? updated : a));
@@ -43,7 +44,7 @@ const MCPAgentsSettings: React.FC<MCPAgentsSettingsProps> = ({ config, handleUpd
   return (
     <Flex vertical gap="small">
       <Typography.Text>
-        Extend Magentic-UI's capabilities by adding custom agents that connect to local or remote Model Context Protocol (MCP) Servers!
+        {t('agentSettings.mcpAgentsDescription')}
       </Typography.Text>
       <Typography.Text>
         Any number of agents are supported, and each agent requires at least one MCP Server.

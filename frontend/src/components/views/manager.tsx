@@ -6,6 +6,7 @@ import React, {
   useMemo,
 } from "react";
 import { message, Spin } from "antd";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../hooks/store";
 import { appContext } from "../../hooks/provider";
 import { sessionAPI } from "./api";
@@ -28,6 +29,7 @@ type SessionWebSockets = {
 };
 
 export const SessionManager: React.FC = () => {
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<Session | undefined>();
@@ -70,12 +72,13 @@ export const SessionManager: React.FC = () => {
         setSession(data[0]);
       } else {
         if (data.length === 0) {
-          createDefaultSession();
+                console.log(t("sessionManager.noSessionsFound"));
+      createDefaultSession();
         }
       }
     } catch (error) {
       console.error("Error fetching sessions:", error);
-      messageApi.error("Error loading sessions");
+      messageApi.error(t("sessionManager.errorLoadingSessions"));
     } finally {
       setIsLoading(false);
     }
@@ -298,11 +301,14 @@ export const SessionManager: React.FC = () => {
     fresh_socket: boolean = false,
     only_retrieve_existing_socket: boolean = false
   ): WebSocket | null => {
-    if (fresh_socket) {
+    console.log("getSessionSocket", sessionId, runId, fresh_socket, only_retrieve_existing_socket);
+    // 如果fresh_socket为true，并且sessionId不存在于sessionSockets中，则创建新的socket
+    const sessionExists = sessionId in sessionSockets;
+    if (fresh_socket && !sessionExists) {
       return setupWebSocket(sessionId, runId);
     } else {
       const existingSocket = sessionSockets[sessionId];
-
+      console.log("existingSocket", existingSocket);
       if (
         existingSocket?.socket.readyState === WebSocket.OPEN &&
         existingSocket.runId === runId
@@ -355,7 +361,7 @@ export const SessionManager: React.FC = () => {
       window.history.pushState({}, "", `?sessionId=${created.id}`);
     } catch (error) {
       console.error("Error creating default session:", error);
-      messageApi.error("Error creating default session");
+      messageApi.error(t("sessionManager.errorCreatingDefaultSession"));
     } finally {
       setIsLoading(false);
     }

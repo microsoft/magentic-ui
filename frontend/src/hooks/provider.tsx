@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { getLocalStorage, setLocalStorage } from "../components/utils";
 import { message } from "antd";
+import { useTranslation } from "react-i18next";
 
 export interface IUser {
   name: string;
@@ -17,6 +18,8 @@ export interface AppContextType {
   cookie_name: string;
   darkMode: string;
   setDarkMode: any;
+  language: "zh-CN" | "en-US";
+  setLanguage: any;
 }
 
 const cookie_name = "coral_app_cookie_";
@@ -25,11 +28,18 @@ export const appContext = React.createContext<AppContextType>(
   {} as AppContextType
 );
 const Provider = ({ children }: any) => {
+  const { i18n } = useTranslation();
+  
+  // theme config
   const storedValue = getLocalStorage("darkmode", false);
   const [darkMode, setDarkMode] = useState(
     storedValue === null ? "dark" : storedValue === "dark" ? "dark" : "light"
   );
-
+  // language config
+  const storedLanguage = getLocalStorage("language", false);
+  const [language, setLanguageState] = useState<"zh-CN" | "en-US">(
+    storedLanguage === null ? "zh-CN" : (storedLanguage === "zh-CN" || storedLanguage === "en-US") ? storedLanguage : "zh-CN"
+  );
   const logout = () => {
     // setUser(null);
     // eraseCookie(cookie_name);
@@ -41,6 +51,17 @@ const Provider = ({ children }: any) => {
     setDarkMode(darkMode);
     setLocalStorage("darkmode", darkMode, false);
   };
+
+  const updateLanguage = (language: "zh-CN" | "en-US") => {
+    setLanguageState(language);
+    setLocalStorage("language", language, false);
+    i18n.changeLanguage(language);
+  };
+
+  // 初始化语言
+  React.useEffect(() => {
+    i18n.changeLanguage(language);
+  }, [i18n, language]);
 
   // Modify logic here to add your own authentication
   const initUser = {
@@ -78,6 +99,8 @@ const Provider = ({ children }: any) => {
         cookie_name,
         darkMode,
         setDarkMode: updateDarkMode,
+        language,
+        setLanguage: updateLanguage,
       }}
     >
       {children}
