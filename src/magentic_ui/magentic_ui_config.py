@@ -117,3 +117,11 @@ class MagenticUIConfig(BaseModel):
     run_without_docker: bool = False
     browser_headless: bool = False
     network_name: str = "my-network"
+    # 深度搜索相关配置
+    # deep search related configurations
+    # 是否启用深度搜索功能
+    # whether to enable deep search functionality
+    enable_deep_search: bool = True  
+    # 每次搜索访问的最大页面数
+    # maximum number of pages to visit per search
+    max_pages_per_search: int = 3  

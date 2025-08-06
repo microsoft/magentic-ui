@@ -1,4 +1,5 @@
 import asyncio
+import os
 from pathlib import Path
 import shutil
 import tempfile
@@ -17,6 +18,7 @@ from autogen_core.models import (
 )
 from pydantic import BaseModel
 from typing_extensions import Self
+from loguru import logger as trace_logger
 
 from autogen_agentchat.agents import BaseChatAgent
 from autogen_core.code_executor import CodeBlock, CodeExecutor
@@ -336,6 +338,9 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
     You are helpful assistant.
     In addition to responding with text you can write code and execute code that you generate.
     The date today is: {date_today}
+    The files in the run directory are: {files}
+
+    IMPORTANT: Please respond in User Input Language unless the user specifically requests a different language.
 
     Rules to follow for Code:
     - Generate py or sh code blocks in the order you'd like your code to be executed.
@@ -399,6 +404,7 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
         else:
             self._work_dir = Path(work_dir)
             self._cleanup_work_dir = False
+        trace_logger.info(f"CoderAgent init work_dir: {self._work_dir}, bind_dir: {bind_dir}, code_executor: {code_executor}, use_local_executor: {use_local_executor}")
         if code_executor:
             self._code_executor = code_executor
         elif use_local_executor:
@@ -407,12 +413,13 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
             from .._docker import PYTHON_IMAGE
 
             name = f"{name}-{uuid.uuid4()}"
+            trace_logger.info(f"Creating Docker code executor with name: {name}, work_dir: {self._work_dir}, bind_dir: {bind_dir}")
             self._code_executor = DockerCommandLineCodeExecutor(
                 container_name=name,
                 image=PYTHON_IMAGE,
                 work_dir=self._work_dir,
                 bind_dir=bind_dir,
-                delete_tmp_files=True,
+                delete_tmp_files=False,
             )
 
     async def lazy_init(self) -> None:
@@ -504,8 +511,12 @@ class CoderAgent(BaseChatAgent, Component[CoderAgentConfig]):
 
         monitor_pause_task = asyncio.create_task(monitor_pause())
 
+        # Get the list of files in the run directory
+        files = os.listdir(self._work_dir)
+
         system_prompt_coder = self.system_prompt_coder_template.format(
-            date_today=datetime.now().strftime("%Y-%m-%d")
+            date_today=datetime.now().strftime("%Y-%m-%d"),
+            files=files
         )
 
         try:

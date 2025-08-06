@@ -1,8 +1,11 @@
 # /api/runs routes
+import os
 from typing import Dict, List
 from datetime import datetime
+from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from loguru import logger
 
@@ -69,6 +72,47 @@ async def create_run(
 
 # We might want to add these endpoints:
 
+@router.get("/download")
+async def download_file(file_path: str):
+    """
+    下载文件接口
+    
+    Args:
+        file_path: 文件路径，相对于 /app/workspace/ 目录
+        
+    Returns:
+        FileResponse: 文件下载响应
+    """
+    try:
+        # 解码URL编码的文件路径
+        decoded_path = unquote(file_path)
+        
+        # 构建完整文件路径，确保在workspace目录下
+        workspace_path = os.environ.get("INTERNAL_WORKSPACE_ROOT", "./workspace")
+        full_file_path = os.path.join(workspace_path, decoded_path.lstrip("/"))
+        
+        # 检查文件是否存在
+        if not os.path.exists(full_file_path):
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # 检查是否为文件（不是目录）
+        if not os.path.isfile(full_file_path):
+            raise HTTPException(status_code=400, detail="Path is not a file")
+        
+        # 获取文件名用于下载
+        filename = os.path.basename(full_file_path)
+        
+        # 返回文件下载响应
+        return FileResponse(
+            path=str(full_file_path),
+            filename=filename,
+            media_type='application/octet-stream'
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.get("/{run_id}")
 async def get_run(run_id: int, db=Depends(get_db)) -> Dict:

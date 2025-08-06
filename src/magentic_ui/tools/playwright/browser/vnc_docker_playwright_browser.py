@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 import secrets
 import socket
+import random
 from autogen_core import Component
 import docker
 from docker.models.containers import Container
@@ -102,10 +103,23 @@ class VncDockerPlaywrightBrowser(
         self._docker_name = f"magentic-ui-vnc-browser_{self._playwright_websocket_path}_{self._novnc_port}"
 
     def _get_available_port(self) -> tuple[int, socket.socket]:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind(("127.0.0.1", 0))
-        port = s.getsockname()[1]
-        return port, s
+        min_port = 10000
+        max_port = 20000
+        # 生成随机端口列表，避免总是从最小端口开始
+        # generate a random port list to avoid always starting from the minimum port
+        port_range = list(range(min_port, max_port + 1))
+        random.shuffle(port_range)
+        
+        for port in port_range:
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.bind(("127.0.0.1", port))
+                port = s.getsockname()[1]
+                return port, s
+            except Exception as e:
+                logger.warning(f"Failed to bind port {port}: {e}")
+                continue
+        raise RuntimeError("No available port found")
 
     # TODO: This is a temporary solution to avoid port conflicts. Ideally we should allow docker to tell us which sockets to use
     def _generate_new_browser_address(self) -> None:
@@ -122,6 +136,12 @@ class VncDockerPlaywrightBrowser(
         self._docker_name = f"magentic-ui-vnc-browser_{self._playwright_websocket_path}_{self._novnc_port}"
         playwright_sock.close()
         novnc_sock.close()
+
+    def _get_expected_container_name(self) -> str:
+        """
+        Get the expected container name for this browser instance.
+        """
+        return self._docker_name
 
     @property
     def browser_address(self) -> str:

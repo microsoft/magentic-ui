@@ -144,6 +144,8 @@ class FileSurfer(BaseChatAgent, Component[FileSurferConfig]):
 
     When given a user query, use available functions to help the user with their request.
     The date today is: {date_today}
+    
+    IMPORTANT: Please respond in User Input Language unless the user specifically requests a different language.
     """
 
     def __init__(

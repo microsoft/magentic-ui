@@ -1,6 +1,7 @@
 import socket
 from pathlib import Path
 from typing import Tuple
+import random
 from autogen_core import ComponentModel
 
 from .base_playwright_browser import PlaywrightBrowser
@@ -13,10 +14,23 @@ def get_available_port() -> tuple[int, socket.socket]:
     """
     Get an available port on the local machine.
     """
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(("127.0.0.1", 0))
-    port = s.getsockname()[1]
-    return port, s
+    min_port = 10000
+    max_port = 20000
+    # 生成随机端口列表，避免总是从最小端口开始
+    # generate a random port list to avoid always starting from the minimum port
+    port_range = list(range(min_port, max_port + 1))
+    random.shuffle(port_range)
+    
+    for port in port_range:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.bind(("127.0.0.1", port))
+            port = s.getsockname()[1]
+            return port, s
+        except Exception as e:
+            print(f"Failed to bind port {port}: {e}")
+            continue
+    raise RuntimeError("No available port found")
 
 
 def _get_docker_browser_resource_config(

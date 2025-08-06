@@ -216,6 +216,7 @@ def run_ui(
 
     # Set Docker-related environment variables
     env_vars["INSIDE_DOCKER"] = "0"
+    env_vars["NETWORK_NAME"] = "my-network"
     env_vars["EXTERNAL_WORKSPACE_ROOT"] = appdir
     env_vars["INTERNAL_WORKSPACE_ROOT"] = appdir
     env_vars["RUN_WITHOUT_DOCKER"] = str(run_without_docker)

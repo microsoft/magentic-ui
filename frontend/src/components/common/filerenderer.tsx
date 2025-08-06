@@ -125,10 +125,12 @@ const FileModal: React.FC<FileModalProps> = ({
 
   useEffect(() => {
     if (file) {
-      const fileUrl =
-        getServerUrl().replace("/api", "") +
-        `/${file.short_path || file.path || file.name}`;
-      setDownloadUrl(fileUrl);
+      // Build the file path and make sure to use the correct path format
+      const filePath = file.short_path || file.path || file.name;
+      
+      // Use the new download interface
+      const downloadUrl = `${getServerUrl()}/runs/download?file_path=${encodeURIComponent(filePath)}`;
+      setDownloadUrl(downloadUrl);
     } else {
       setDownloadUrl(null);
     }
@@ -212,7 +214,7 @@ const FileModal: React.FC<FileModalProps> = ({
         <div className="flex flex-col">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
               <p className="mt-4 text-gray-600">Processing large file...</p>
             </div>
           ) : processedContent === null ? (
@@ -317,10 +319,8 @@ const ImageThumbnail = memo<{ file: FileInfo }>(({ file }) => {
     const loadThumbnail = async () => {
       try {
         setIsLoading(true);
-        const fileUrl =
-          getServerUrl().replace("/api", "") +
-          `/${file.short_path || file.path || file.name}`;
-
+        const filePath = file.short_path || file.path || file.name;
+        const fileUrl = `${getServerUrl()}/runs/download?file_path=${encodeURIComponent(filePath)}`;
         setThumbnailUrl(fileUrl);
         setIsLoading(false);
       } catch (error) {
@@ -370,13 +370,15 @@ const DownloadButton = memo<{ file: FileInfo }>(({ file }) => {
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent opening the modal
 
-    const fileUrl =
-      getServerUrl().replace("/api", "") +
-      `/${file.short_path || file.path || file.name}`;
+    // Build the file path and make sure to use the correct path format
+    const filePath = file.short_path || file.path || file.name;
+    
+    // Use the new download interface
+    const downloadUrl = `${getServerUrl()}/runs/download?file_path=${encodeURIComponent(filePath)}`;
 
     // Create a temporary anchor element
     const link = document.createElement("a");
-    link.href = fileUrl;
+    link.href = downloadUrl;
     link.download = file.name; // Set the download filename
     link.target = "_blank"; // Open in new tab to prevent page navigation
     document.body.appendChild(link);
@@ -480,9 +482,8 @@ const RenderFile: React.FC<RenderFileProps> = ({ message }) => {
     setFileContent(null); // Reset content before loading new file
 
     // Construct the proper URL path for web access
-    const fileUrl =
-      getServerUrl().replace("/api", "") +
-      `/${file.short_path || file.path || file.name}`;
+    const filePath = file.short_path || file.path || file.name;
+    const fileUrl = `${getServerUrl()}/runs/download?file_path=${encodeURIComponent(filePath)}`;
 
     // For images and PDFs, just use the URL directly
     if (file.type === "image" || file.type === "pdf") {

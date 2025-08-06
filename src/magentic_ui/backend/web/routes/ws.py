@@ -1,7 +1,9 @@
 # api/ws.py
 import asyncio
 import json
+import os
 from datetime import datetime
+import time
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from loguru import logger
@@ -39,7 +41,10 @@ async def run_websocket(
     if not connected:
         await websocket.close(code=4002, reason="Failed to establish connection")
         return
-
+    # 用于监控操作记录，如果超过时间没有收到消息，则主动关闭链接
+    last_action_time = time.time()
+    max_idle_time = 7200
+    stop_running = False
     try:
         logger.info(f"WebSocket connection established for run {run_id}")
 
@@ -51,8 +56,35 @@ async def run_websocket(
                 if message.get("type") == "start":
                     # Handle start message
                     logger.info(f"Received start request for run {run_id}")
+                    
+                    # Save uploaded files to run directory
+                    files = message.get("files")
+                    if files:
+                        try:
+                            # Get run info to build the path
+                            run_response = db.get(
+                                Run, filters={"id": run_id}, return_json=False
+                            )
+                            if run_response.status and run_response.data:
+                                run_data = run_response.data[0] if isinstance(run_response.data, list) else run_response.data
+                                run_suffix = os.path.join(
+                                    "files",
+                                    "user",
+                                    str(run_data.user_id or "unknown_user"),
+                                    str(run_data.session_id or "unknown_session"),
+                                    str(run_data.id or "unknown_run"),
+                                )
+                                run_dir = str(ws_manager.internal_workspace_root / run_suffix)
+                                
+                                # Save files to disk
+                                from ...utils.utils import save_uploaded_files
+                                save_uploaded_files(files, run_dir)
+                        except Exception as e:
+                            logger.warning(f"Failed to save uploaded files: {e}")
+                    
                     task = construct_task(
-                        query=message.get("task"), files=message.get("files")
+                        query=message.get("task"), 
+                        files=files
                     )
                     team_config = message.get("team_config")
                     settings_config = message.get("settings_config")
@@ -100,6 +132,18 @@ async def run_websocket(
                 elif message.get("type") == "resume":
                     logger.info(f"Received resume request for run {run_id}")
                     await ws_manager.resume_run(run_id)
+                elif message.get("type") == "terminal_input":
+                    logger.info(f"Received terminal input request for run {run_id}")
+                    terminal_reason = message.get("terminal_reason") or "User request cancellation"
+                    await ws_manager.stop_run(run_id, reason=terminal_reason)
+                    stop_running = True
+                    break
+                elif time.time() - last_action_time > max_idle_time:
+                    logger.warning(f"No action received for run {run_id} in {max_idle_time} seconds, closing connection")
+                    stop_running = True
+                    break
+                else:
+                    last_action_time = time.time()
             except json.JSONDecodeError:
                 logger.warning(f"Invalid JSON received: {raw_message}")
                 await websocket.send_json(
@@ -114,5 +158,6 @@ async def run_websocket(
         logger.info(f"WebSocket disconnected for run {run_id}")
     except Exception as e:
         logger.error(f"WebSocket error: {str(e)}")
+        stop_running = True
     finally:
-        await ws_manager.disconnect(run_id)
+        await ws_manager.disconnect(run_id, stop_running=stop_running)

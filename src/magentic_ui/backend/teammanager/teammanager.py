@@ -22,6 +22,8 @@ from autogen_agentchat.base import ChatAgent, TaskResult, Team
 from autogen_agentchat.messages import AgentEvent, ChatMessage, TextMessage
 from autogen_core import EVENT_LOGGER_NAME, CancellationToken, ComponentModel
 from autogen_core.logging import LLMCallEvent
+
+from magentic_ui.agents.web_surfer._deep_search_web_surfer import DeepSearchWebSurfer
 from ...task_team import get_task_team
 from ...types import RunPaths
 from ...magentic_ui_config import MagenticUIConfig, ModelClientConfigs
@@ -244,13 +246,15 @@ class TeamManager:
                     magentic_ui_config=magentic_ui_config,
                     input_func=input_func,
                     paths=paths,
+                    settings_config=settings_config,
                 ),
             )
             if hasattr(self.team, "_participants"):
                 for agent in cast(list[ChatAgent], self.team._participants):  # type: ignore
-                    if isinstance(agent, WebSurfer):
+                    if isinstance(agent, WebSurfer) and not isinstance(agent, DeepSearchWebSurfer):
                         novnc_port = agent.novnc_port
                         playwright_port = agent.playwright_port
+                        break
 
             if state:
                 if isinstance(state, str):

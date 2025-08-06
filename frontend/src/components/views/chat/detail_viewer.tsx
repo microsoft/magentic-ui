@@ -10,6 +10,7 @@ import { ClickableImage } from "../atoms";
 import BrowserIframe from "./DetailViewer/browser_iframe";
 import BrowserModal from "./DetailViewer/browser_modal";
 import FullscreenOverlay from "./DetailViewer/fullscreen_overlay"; // Import our new component
+import FilesViewer from "./DetailViewer/FilesViewer";
 import { IPlan } from "../../types/plan";
 import { useSettingsStore } from "../../store";
 import { RcFile } from "antd/es/upload";
@@ -37,6 +38,7 @@ interface DetailViewerProps {
   onIndexChange: (index: number) => void;
   novncPort?: string;
   onPause?: () => void;
+  onTerminal?: () => void;
   runStatus?: string;
   activeTab?: TabType;
   onTabChange?: (tab: TabType) => void;
@@ -47,9 +49,10 @@ interface DetailViewerProps {
     accepted?: boolean,
     plan?: IPlan
   ) => void;
+  runId?: number;
 }
 
-type TabType = "screenshots" | "live";
+type TabType = "screenshots" | "live" | "files";
 
 const DetailViewer: React.FC<DetailViewerProps> = ({
   images,
@@ -59,11 +62,13 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
   onIndexChange,
   novncPort,
   onPause,
+  onTerminal,
   runStatus,
   activeTab: controlledActiveTab,
   onTabChange,
   detailViewerContainerId,
   onInputResponse,
+  runId,
 }) => {
   const [internalActiveTab, setInternalActiveTab] = useState<TabType>("live");
   const activeTab = controlledActiveTab ?? internalActiveTab;
@@ -190,8 +195,11 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
     }
 
     // Use server_url from config if set, otherwise default to localhost
-    const serverHost = config.server_url || "localhost";
-
+    let serverHost = config.server_url || "localhost";
+    if (serverHost == "localhost") {
+      serverHost = window.location.hostname;
+    }
+    
     return (
       <div className="flex-1 w-full h-full flex flex-col">
         {viewMode === "iframe" ? (
@@ -241,6 +249,23 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
     );
   }, [novncPort, viewMode, runStatus, onPause, isControlMode, config.server_url]);
 
+  const renderFilesTab = () => {
+    if (!runId) {
+      return (
+        <div className="flex-1 w-full h-full min-h-0 flex items-center justify-center">
+          <p>Run ID not available</p>
+        </div>
+      );
+    }
+
+    return (
+      <FilesViewer
+        runId={runId}
+        className="h-full"
+      />
+    );
+  };
+
   return (
     <>
       <div
@@ -270,6 +295,16 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
             >
               Live View
             </button>
+            <button
+              className={`px-6 py-2 font-medium rounded-t-lg transition-colors ${
+                activeTab === "files"
+                  ? "bg-secondary text-primary border-2 border-b-0 border-primary"
+                  : "text-secondary hover:text-primary hover:bg-secondary/10"
+              }`}
+              onClick={() => handleTabChange("files")}
+            >
+              Files
+            </button>
           </div>
 
           <div className="flex gap-2">
@@ -298,7 +333,14 @@ const DetailViewer: React.FC<DetailViewerProps> = ({
         </div>
 
         <div className="flex-1 flex flex-col min-h-0">
-          {activeTab === "screenshots" ? renderScreenshotsTab() : renderLiveTab}
+          {activeTab === "screenshots" 
+            ? renderScreenshotsTab() 
+            : activeTab === "live" && !novncPort
+            ? renderLiveTab 
+            : activeTab === "files"
+            ? renderFilesTab()
+            : renderScreenshotsTab() // 默认显示 screenshots
+          }
         </div>
       </div>
 

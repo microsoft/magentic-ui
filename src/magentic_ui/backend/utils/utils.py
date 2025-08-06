@@ -114,6 +114,45 @@ def construct_task(
     return messages_return
 
 
+def save_uploaded_files(files: List[Dict[str, Any]], run_dir: str) -> None:
+    """
+    Save uploaded files to the specified run directory.
+    
+    Args:
+        files (List[Dict[str, Any]]): List of file objects with properties name, content, and type
+        run_dir (str): Directory to save the files
+    """
+    if not files:
+        return
+        
+    try:
+        os.makedirs(run_dir, exist_ok=True)
+        
+        for file in files:
+            try:
+                file_name = file.get('name', 'unknown.file')
+                file_path = os.path.join(run_dir, file_name)
+                
+                if file.get("type", "").startswith("image/"):
+                    # Save image file
+                    image_data = base64.b64decode(file["content"])
+                    with open(file_path, "wb") as f:
+                        f.write(image_data)
+                    logger.info(f"Saved image file: {file_path}")
+                else:
+                    # Save text file
+                    text_content = base64.b64decode(file["content"]).decode("utf-8")
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        f.write(text_content)
+                    logger.info(f"Saved text file: {file_path}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to save file {file.get('name', 'unknown.file')}: {str(e)}")
+                
+    except Exception as e:
+        logger.error(f"Failed to create run directory {run_dir}: {str(e)}")
+
+
 def get_file_type(file_path: str) -> str:
     """
     Get file type determined by the file extension. If the file extension is not
