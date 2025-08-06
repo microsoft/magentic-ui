@@ -127,10 +127,6 @@ const PlanList: React.FC<PlanListProps> = ({
       if (onCreateSessionFromPlan && sessionResponse.id) {
         onCreateSessionFromPlan(sessionResponse.id, `${t('plans.planPrefix')}: ${plan.task}`, plan);
       }
-
-      if (onTabChange) {
-        onTabChange("current_session");
-      }
     } catch (error) {
       console.error("Error using plan:", error);
       message.error({

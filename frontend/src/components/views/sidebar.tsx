@@ -11,6 +11,7 @@ import {
   Archive,
   MoreVertical,
   StopCircle,
+  Server,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Session, RunStatus } from "../types/datamodel";
@@ -215,9 +216,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <SubMenu
             items={[
               {
-                id: "current_session",
-                label: t('sidebar.currentSession'),
-                icon: <FileText className="w-4 h-4" />,
+                id: "mcp_servers",
+                label: "MCP Servers",
+                icon: <Server className="w-4 h-4" />,
               },
               {
                 id: "saved_plan",
