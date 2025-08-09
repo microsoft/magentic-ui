@@ -1,12 +1,11 @@
 import React from "react";
 import { Input, Form, Tooltip, Collapse, Flex } from "antd";
-import { SseServerParams } from "./types";
+import { SseServerParams } from "../types";
 
 const SseServerForm: React.FC<{
     value: SseServerParams;
-    idx: number;
-    onValueChanged: (idx: number, updated: SseServerParams) => void;
-}> = ({ value, idx, onValueChanged }) => {
+    onValueChanged: (updated: SseServerParams) => void;
+}> = ({ value, onValueChanged }) => {
     const sseUrlError = !value.url || value.url.trim() === '';
 
     return (
@@ -18,7 +17,7 @@ const SseServerForm: React.FC<{
                         value={value.url}
                         status={sseUrlError ? 'error' : ''}
                         onChange={e =>
-                            onValueChanged(idx, {
+                            onValueChanged({
                                 ...value,
                                 url: e.target.value,
                             })
@@ -36,7 +35,7 @@ const SseServerForm: React.FC<{
                                 try {
                                     val = JSON.parse(e.target.value);
                                 } catch { }
-                                onValueChanged(idx, {
+                                onValueChanged({
                                     ...value,
                                     headers: val,
                                 });
@@ -48,7 +47,7 @@ const SseServerForm: React.FC<{
                             type="number"
                             value={value.timeout}
                             onChange={e =>
-                                onValueChanged(idx, {
+                                onValueChanged({
                                     ...value,
                                     timeout: Number(e.target.value),
                                 })
@@ -60,7 +59,7 @@ const SseServerForm: React.FC<{
                             type="number"
                             value={value.sse_read_timeout}
                             onChange={e =>
-                                onValueChanged(idx, {
+                                onValueChanged({
                                     ...value,
                                     sse_read_timeout: Number(e.target.value),
                                 })

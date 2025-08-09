@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ModelConfigSchema } from "./tabs/agentSettings/modelSelector/modelConfigForms/types";
-import { MCPAgentConfigSchema } from "./tabs/agentSettings/mcpAgentsSettings/types";
+import { MCPAgentConfigSchema } from "../features/McpServersConfig/types";
 
 export const GeneralSettingsSchema = z.object({
   cooperative_planning: z.boolean(),

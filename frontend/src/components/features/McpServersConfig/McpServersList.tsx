@@ -1,12 +1,31 @@
 import React, { useEffect, useState } from "react";
 import { settingsAPI } from "../../views/api";
 import { appContext } from "../../../hooks/provider";
-import { MCPAgentConfig } from "../../settings/tabs/agentSettings/mcpAgentsSettings/types";
-import { Typography, Spin, Alert, Empty } from "antd";
+import { Typography, Spin, Alert, Empty, Card, Button } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
 import McpServerCard from "./McpServerCard";
-import { MCPServerInfo } from "./types";
+import McpConfigModal from "./McpConfigModal";
+import { MCPAgentConfig, MCPServerInfo, NamedMCPServerConfig, NamedMCPServerConfigSchema, MCPAgentConfigSchema } from "./types";
 
 const { Title, Text } = Typography;
+
+// Add MCP Server Card Component
+const AddMcpServerCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <Card
+    className="h-full border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 transition-colors cursor-pointer bg-gray-50 dark:bg-gray-800"
+    onClick={onClick}
+  >
+    <div className="flex flex-col items-center justify-center h-full py-8">
+      <PlusOutlined className="text-4xl text-gray-400 dark:text-gray-500 mb-4" />
+      <Title level={4} className="text-gray-600 dark:text-gray-400 mb-2">
+        Add MCP Server
+      </Title>
+      <Text className="text-gray-500 dark:text-gray-500 text-center">
+        Connect new capabilities to your agent
+      </Text>
+    </div>
+  </Card>
+);
 
 const McpServersList: React.FC = () => {
   const { user } = React.useContext(appContext);
@@ -14,6 +33,31 @@ const McpServersList: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [mcpServers, setMcpServers] = useState<MCPServerInfo[]>([]);
   const [settings, setSettings] = useState<any>(null);
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [editingServer, setEditingServer] = useState<MCPServerInfo | undefined>();
+
+  // Helper function: Extract MCP servers from agent configurations
+  const extractMcpServers = (agents: MCPAgentConfig[]): MCPServerInfo[] => {
+    const serversList: MCPServerInfo[] = [];
+
+    agents.forEach((agent) => {
+      agent.mcp_servers.forEach((server: NamedMCPServerConfig) => {
+        serversList.push({
+          agentName: agent.name,
+          agentDescription: agent.description,
+          serverName: server.server_name,
+          serverType: server.server_params.type,
+          serverParams: server.server_params,
+          connectionStatus: server.connection_status ? {
+            isConnected: server.connection_status.is_connected,
+            toolsFound: server.connection_status.tools_found,
+          } : undefined,
+        });
+      });
+    });
+
+    return serversList;
+  };
 
   useEffect(() => {
     const fetchMCPServers = async () => {
@@ -31,23 +75,9 @@ const McpServersList: React.FC = () => {
         const settings = await settingsAPI.getSettings(user.email);
         setSettings(settings);
 
-        // Extract MCP servers from settings
         const mcpAgentConfigs: MCPAgentConfig[] = settings.mcp_agent_configs || [];
 
-        // Flatten all MCP servers from all agents
-        const servers: MCPServerInfo[] = [];
-
-        mcpAgentConfigs.forEach((agent) => {
-          agent.mcp_servers.forEach((server) => {
-            servers.push({
-              agentName: agent.name,
-              agentDescription: agent.description,
-              serverName: server.server_name,
-              serverType: server.server_params.type,
-              serverParams: server.server_params,
-            });
-          });
-        });
+        const servers = extractMcpServers(mcpAgentConfigs);
 
         setMcpServers(servers);
       } catch (err) {
@@ -109,6 +139,134 @@ const McpServersList: React.FC = () => {
     }
   };
 
+  const handleEditServer = (server: MCPServerInfo) => {
+    setEditingServer(server);
+    setIsConfigModalOpen(true);
+  };
+
+  const handleCloseConfigModal = () => {
+    setIsConfigModalOpen(false);
+    setEditingServer(undefined);
+  };
+
+  const handleAddServer = () => {
+    setEditingServer(undefined); // Clear any editing state
+    setIsConfigModalOpen(true);
+  };
+
+  // Helper function: Update a specific server within an existing agent
+  const updateServer = (existingAgent: MCPAgentConfig, editingServer: MCPServerInfo, newServerConfig: any): MCPAgentConfig => {
+    const updatedServers = existingAgent.mcp_servers.map((server: any) => {
+      if (server.server_name === editingServer.serverName) {
+        return newServerConfig;
+      }
+      return server;
+    });
+
+    return {
+      ...existingAgent,
+      name: newServerConfig.agentName || existingAgent.name,
+      description: newServerConfig.agentDescription || existingAgent.description,
+      mcp_servers: updatedServers
+    };
+  };
+
+  const editServer = (formData: any, settings: any, editingServer: MCPServerInfo) => {
+    const updatedAgents = settings.mcp_agent_configs.map((existingAgent: MCPAgentConfig) => {
+      if (existingAgent.name === editingServer.agentName) {
+        return updateServer(existingAgent, editingServer, formData.serverConfig);
+      }
+      return existingAgent;
+    });
+
+    return updatedAgents;
+  };
+
+  const addAgent = (formData: any, settings: any) => {
+    return [...(settings.mcp_agent_configs || []), formData];
+  };
+
+  const handleSaveServer = async (formData: any) => {
+    if (!user?.email || !settings) {
+      console.error("User not authenticated or settings not loaded");
+      return;
+    }
+
+    try {
+      // Validate server configuration before saving
+      if (formData.serverConfig) {
+        const validationResult = NamedMCPServerConfigSchema.safeParse(formData.serverConfig);
+        if (!validationResult.success) {
+          throw new Error(`Server validation failed: ${validationResult.error.errors.map(err => err.message).join(', ')}`);
+        }
+      }
+
+      // Validate complete agent configuration if it's a new agent
+      if (!editingServer && formData.name) {
+        const agentValidationResult = MCPAgentConfigSchema.safeParse(formData);
+        if (!agentValidationResult.success) {
+          throw new Error(`Agent validation failed: ${agentValidationResult.error.errors.map(err => err.message).join(', ')}`);
+        }
+      }
+
+      const updatedAgents = editingServer
+        ? editServer(formData, settings, editingServer)
+        : addAgent(formData, settings);
+
+      const updatedSettings = { ...settings, mcp_agent_configs: updatedAgents };
+      await settingsAPI.updateSettings(user.email, updatedSettings);
+      setSettings(updatedSettings);
+
+      const serversList = extractMcpServers(updatedSettings.mcp_agent_configs);
+      setMcpServers(serversList);
+
+      handleCloseConfigModal();
+    } catch (error) {
+      console.error("Failed to save MCP server:", error);
+      setError(error instanceof Error ? error.message : "Failed to save MCP server");
+    }
+  };
+
+  const handleUpdateConnectionStatus = async (serverName: string, connectionStatus: any) => {
+    if (!user?.email || !settings) {
+      console.error("User not authenticated or settings not loaded");
+      return;
+    }
+
+    try {
+      // Find the agent that contains this server and update its connection status
+      const updatedAgents = settings.mcp_agent_configs.map((agent: MCPAgentConfig) => {
+        const updatedMcpServers = agent.mcp_servers.map((server: NamedMCPServerConfig) => {
+          if (server.server_name === serverName) {
+            return {
+              ...server,
+              connection_status: {
+                is_connected: connectionStatus.isConnected,
+                tools_found: connectionStatus.toolsFound,
+              },
+            };
+          }
+          return server;
+        });
+
+        return {
+          ...agent,
+          mcp_servers: updatedMcpServers,
+        };
+      });
+
+      const updatedSettings = { ...settings, mcp_agent_configs: updatedAgents };
+      await settingsAPI.updateSettings(user.email, updatedSettings);
+      setSettings(updatedSettings);
+
+      const serversList = extractMcpServers(updatedSettings.mcp_agent_configs);
+      setMcpServers(serversList);
+    } catch (error) {
+      console.error("Failed to update connection status:", error);
+      setError(error instanceof Error ? error.message : "Failed to update connection status");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="p-4">
@@ -142,22 +300,34 @@ const McpServersList: React.FC = () => {
       </Text>
 
       {mcpServers.length === 0 ? (
-        <Empty
-          description="No MCP servers configured"
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <AddMcpServerCard onClick={handleAddServer} />
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {mcpServers.map((server, index) => (
+          {mcpServers.map((server, index) => {
+            return (
             <McpServerCard
               key={`${server.agentName}-${server.serverName}-${index}`}
               server={server}
               index={index}
+              onEdit={handleEditServer}
               onDelete={handleDeleteServer}
             />
-          ))}
+          )})}
+          <AddMcpServerCard onClick={handleAddServer} />
         </div>
       )}
+
+      {/* Configuration Modal */}
+      <McpConfigModal
+        isOpen={isConfigModalOpen}
+        onClose={handleCloseConfigModal}
+        server={editingServer}
+        onSave={handleSaveServer}
+        onUpdateConnectionStatus={handleUpdateConnectionStatus}
+        existingServerNames={mcpServers.map(server => server.serverName)}
+      />
     </div>
   );
 };
