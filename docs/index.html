@@ -114,10 +114,14 @@
             })
             .then(markdown => {
                 // Fix relative image paths to point to GitHub
-                const fixedMarkdown = markdown.replace(
-                    /!\[([^\]]*)\]\((?!https?:\/\/)([^)]+)\)/g,
-                    '![$1](https://raw.githubusercontent.com/microsoft/magentic-ui/main/$2)'
-                );
+                let fixedMarkdown = markdown
+                    // Fix Markdown image syntax: ![alt](path)
+                    .replace(/!\[([^\]]*)\]\((?!https?:\/\/)([^)]+)\)/g, '![$1](https://raw.githubusercontent.com/microsoft/magentic-ui/main/$2)')
+                    // Fix HTML img tags: <img src="path">
+                    .replace(/<img([^>]+)src="(?!https?:\/\/)([^"]+)"/g, '<img$1src="https://raw.githubusercontent.com/microsoft/magentic-ui/main/$2"')
+                    // Convert GitHub video URLs to embedded video players
+                    .replace(/https:\/\/github\.com\/user-attachments\/assets\/([a-f0-9-]+)/g, 
+                        '<video controls width="100%" style="max-width: 800px;"><source src="https://github.com/user-attachments/assets/$1" type="video/mp4">Your browser does not support the video tag.</video>');
                 
                 const html = marked.parse(fixedMarkdown);
                 document.getElementById('loading').style.display = 'none';
