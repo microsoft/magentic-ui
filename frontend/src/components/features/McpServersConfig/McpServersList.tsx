@@ -12,7 +12,7 @@ const { Title, Text } = Typography;
 // Add MCP Server Card Component
 const AddMcpServerCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
   <Card
-    className="h-full border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 transition-colors cursor-pointer bg-gray-50 dark:bg-gray-800"
+    className="h-full border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-gray-400 transition-colors cursor-pointer bg-gray-50"
     onClick={onClick}
   >
     <div className="flex flex-col items-center justify-center h-full py-8">
@@ -295,7 +295,7 @@ const McpServersList: React.FC = () => {
   return (
     <div className="p-4">
       <Title level={2}>MCP Servers</Title>
-      <Text className="text-gray-600 dark:text-gray-400 mb-4 block">
+      <Text className="text-gray-600 dark:text-gray-300 mb-4 block">
         Manage Model Context Protocol servers to extend your agent's capabilities
       </Text>
 
