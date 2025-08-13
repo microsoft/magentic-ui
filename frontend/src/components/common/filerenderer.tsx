@@ -8,6 +8,7 @@ import {
   X,
   Download,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import MarkdownRenderer from "./markdownrender";
 import { ClickableImage } from "../views/atoms";
 import { AgentMessageConfig } from "../types/datamodel";
@@ -98,6 +99,7 @@ const FileModal: React.FC<FileModalProps> = ({
   file,
   content,
 }) => {
+  const { t } = useTranslation();
   const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
   const modalRef = React.useRef<HTMLDivElement>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
@@ -188,7 +190,7 @@ const FileModal: React.FC<FileModalProps> = ({
       return (
         <div className="flex flex-col items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-          <p className="mt-4 text-gray-600">Loading file content...</p>
+          <p className="mt-4 text-gray-600">{t("fileRenderer.loadingFileContent")}</p>
         </div>
       );
     }
@@ -212,11 +214,11 @@ const FileModal: React.FC<FileModalProps> = ({
         <div className="flex flex-col">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-              <p className="mt-4 text-gray-600">Processing large file...</p>
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            <p className="mt-4 text-gray-600">{t("fileRenderer.processingLargeFile")}</p>
             </div>
           ) : processedContent === null ? (
-            <div className="p-4 text-gray-500">No content available</div>
+            <div className="p-4 text-gray-500">{t("fileRenderer.noContentAvailable")}</div>
           ) : (
             <MarkdownRenderer
               content={processedContent}
@@ -244,8 +246,8 @@ const FileModal: React.FC<FileModalProps> = ({
     // For unknown file types, show a message
     return (
       <div className="p-4 text-center">
-        <p>Unable to preview this file type.</p>
-        <p>Filename: {file.name}</p>
+        <p>{t("fileRenderer.unableToPreviewFileType")}</p>
+        <p>{t("fileRenderer.filename")}: {file.name}</p>
       </div>
     );
   };
@@ -271,7 +273,7 @@ const FileModal: React.FC<FileModalProps> = ({
                 href={downloadUrl}
                 download={file.name}
                 className="p-1 rounded-full hover:bg-gray-200 text-black flex items-center justify-center"
-                title="Download file"
+                title={t("fileRenderer.downloadFile")}
                 onClick={(e) => e.stopPropagation()}
               >
                 <Download size={18} />
@@ -287,7 +289,7 @@ const FileModal: React.FC<FileModalProps> = ({
             <button
               onClick={onClose}
               className="p-1 rounded-full hover:bg-gray-200 text-black"
-              title="Close"
+              title={t("fileRenderer.close")}
             >
               <X size={18} />
             </button>
@@ -367,6 +369,7 @@ ImageThumbnail.displayName = "ImageThumbnail";
 
 // Add this new component for the download button
 const DownloadButton = memo<{ file: FileInfo }>(({ file }) => {
+  const { t } = useTranslation();
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent opening the modal
 
@@ -388,7 +391,7 @@ const DownloadButton = memo<{ file: FileInfo }>(({ file }) => {
     <button
       onClick={handleDownload}
       className="absolute top-2 right-2 p-1.5 rounded-full bg-white/90 hover:bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-      title="Download file"
+      title={t("fileRenderer.downloadFile")}
     >
       <Download size={16} className="text-gray-700" />
     </button>
