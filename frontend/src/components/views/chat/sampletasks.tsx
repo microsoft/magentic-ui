@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 interface SampleTasksProps {
   onSelect: (task: string) => void;
 }
 
-const SAMPLE_TASKS = [
-  "When does the post office near me close today?",
-  "Find the latest publications from the the Microsoft Research AI Frontiers Lab on Human-Agent interaction",
-  "Which commit of Microsoft/markitdown repo introduced MCP support?",
-  "Can you make a Markdown file with python that summarizes the Microsoft AutoGen repo?",
-  "Order me a custom pizza from Tangle Town Pub with sausage, pineapple, and black olives",
-  "Search arXiv for the latest papers on computer use agents",
-];
-
 const SampleTasks: React.FC<SampleTasksProps> = ({ onSelect }) => {
+  const { t } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(false);
   const [windowWidth, setWindowWidth] = useState(0);
+
+  // 使用 i18n 翻译的示例任务
+  const SAMPLE_TASKS = [
+    t("sampleTasks.guangzhouWeather"),
+    t("sampleTasks.postOfficeHours"),
+    t("sampleTasks.microsoftResearchPapers"),
+    t("sampleTasks.markitdownMCPCommit"),
+    t("sampleTasks.autogenSummaryPython"),
+    t("sampleTasks.customPizzaOrder"),
+    t("sampleTasks.arxivComputerAgents")
+  ];
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -39,7 +43,7 @@ const SampleTasks: React.FC<SampleTasksProps> = ({ onSelect }) => {
   return (
     <div className="mb-6">
       <div className="mt-4 mb-2 text-sm opacity-70 text-secondary">
-        or try a sample task from below{" "}
+        {t("sampleTasks.orTrySampleTask")}{" "}
       </div>
       <div className="flex flex-col gap-2 w-full">
         <div className="inline-flex flex-wrap justify-center gap-2 w-full">
@@ -60,7 +64,7 @@ const SampleTasks: React.FC<SampleTasksProps> = ({ onSelect }) => {
             onClick={() => setIsExpanded(!isExpanded)}
             type="button"
           >
-            {isExpanded ? "Show less..." : "Show more sample tasks..."}
+            {isExpanded ? t("sampleTasks.showLess") : t("sampleTasks.showMore")}
           </button>
         )}
       </div>
