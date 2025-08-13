@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magentic-UI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.4.0/github-markdown-light.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+        }
+        .markdown-body {
+            box-sizing: border-box;
+            min-width: 200px;
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 45px;
+        }
+        @media (max-width: 767px) {
+            .markdown-body {
+                padding: 15px;
+            }
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+        .error {
+            text-align: center;
+            padding: 50px;
+            color: #d73a49;
+        }
+        /* GitHub-style header */
+        .header {
+            background-color: #24292f;
+            color: white;
+            padding: 16px 0;
+            margin-bottom: 32px;
+        }
+        .header-content {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 0 45px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .header a {
+            color: #7d8590;
+            text-decoration: none;
+        }
+        .header a:hover {
+            color: white;
+        }
+        @media (max-width: 767px) {
+            .header-content {
+                padding: 0 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>Magentic-UI</h1>
+            <span>•</span>
+            <a href="https://github.com/microsoft/magentic-ui">View on GitHub</a>
+            <span>•</span>
+            <a href="https://github.com/microsoft/magentic-ui/releases">Releases</a>
+        </div>
+    </div>
+    
+    <article class="markdown-body">
+        <div id="loading" class="loading">Loading README...</div>
+        <div id="content" style="display: none;"></div>
+        <div id="error" class="error" style="display: none;">
+            <h2>Error loading README</h2>
+            <p>Please visit the <a href="https://github.com/microsoft/magentic-ui">GitHub repository</a> to view the latest content.</p>
+        </div>
+    </article>
+    
+    <script>
+        // Configure marked options
+        marked.setOptions({
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    return hljs.highlight(code, { language: lang }).value;
+                } else {
+                    return hljs.highlightAuto(code).value;
+                }
+            },
+            breaks: true,
+            gfm: true
+        });
+
+        // Fetch and display README content
+        fetch('https://raw.githubusercontent.com/microsoft/magentic-ui/main/README.md')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch README');
+                }
+                return response.text();
+            })
+            .then(markdown => {
+                // Fix relative image paths to point to GitHub
+                let fixedMarkdown = markdown
+                    // Fix Markdown image syntax: ![alt](path)
+                    .replace(/!\[([^\]]*)\]\((?!https?:\/\/)([^)]+)\)/g, '![$1](https://raw.githubusercontent.com/microsoft/magentic-ui/main/$2)')
+                    // Fix HTML img tags: <img src="path">
+                    .replace(/<img([^>]+)src="(?!https?:\/\/)([^"]+)"/g, '<img$1src="https://raw.githubusercontent.com/microsoft/magentic-ui/main/$2"')
+                    // Convert GitHub video URLs to embedded video players
+                    .replace(/https:\/\/github\.com\/user-attachments\/assets\/([a-f0-9-]+)/g, 
+                        '<video controls width="100%" style="max-width: 800px;"><source src="https://github.com/user-attachments/assets/$1" type="video/mp4">Your browser does not support the video tag.</video>');
+                
+                const html = marked.parse(fixedMarkdown);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+                document.getElementById('content').innerHTML = html;
+                
+                // Initialize syntax highlighting
+                hljs.highlightAll();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+            });
+    </script>
+</body>
+</html>
