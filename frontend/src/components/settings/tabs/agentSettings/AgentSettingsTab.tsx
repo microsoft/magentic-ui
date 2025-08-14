@@ -6,40 +6,14 @@ import ModelSelector, {
 import { DEFAULT_OPENAI } from "./modelSelector/modelConfigForms/OpenAIModelConfigForm";
 import { SettingsTabProps } from "../../types";
 import { ModelConfig } from "./modelSelector/modelConfigForms/types";
-import MCPAgentsSettings from "./mcpAgentsSettings/MCPAgentsSettings";
 import { SwitchChangeEventHandler } from "antd/es/switch";
 import { settingsAPI } from "../../../views/api";
 import { Prism, SyntaxHighlighterProps } from "react-syntax-highlighter";
 import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { useDefaultModel } from "../../hooks/useDefaultModel";
+import { MODEL_CLIENT_CONFIGS } from "../../utils/modelUtils";
 
 const SyntaxHighlighter = Prism as any as React.FC<SyntaxHighlighterProps>;
-
-export const MODEL_CLIENT_CONFIGS = {
-  orchestrator: {
-    value: "orchestrator",
-    label: "Orchestrator",
-    defaultValue: DEFAULT_OPENAI,
-  },
-  web_surfer: {
-    value: "web_surfer",
-    label: "Web Surfer",
-    defaultValue: DEFAULT_OPENAI,
-  },
-  coder: { value: "coder", label: "Coder", defaultValue: DEFAULT_OPENAI },
-  file_surfer: {
-    value: "file_surfer",
-    label: "File Surfer",
-    defaultValue: DEFAULT_OPENAI,
-  },
-  action_guard: {
-    value: "action_guard",
-    label: "Action Guard",
-    defaultValue:
-      PROVIDER_FORM_MAP[DEFAULT_OPENAI.provider].presets[
-      "gpt-4.1-nano-2025-04-14"
-      ],
-  },
-};
 
 type ModelClientKey = keyof typeof MODEL_CLIENT_CONFIGS;
 
@@ -54,36 +28,7 @@ const AgentSettingsTab: React.FC<SettingsTabProps> = ({
   const [configFilePath, setConfigFilePath] = useState<string | null>(null);
   const [configContent, setConfigContent] = useState<any>(null);
 
-  // Initialize defaultModel from config or detect common model
-  const initializeDefaultModel = () => {
-    // If we have a stored default_model, use it
-    if ((config as any).default_model) {
-      return (config as any).default_model;
-    }
-
-    // Otherwise, try to detect if all agents use the same model
-    const configs = config.model_client_configs;
-    if (configs) {
-      const firstConfig = configs[Object.keys(MODEL_CLIENT_CONFIGS)[0]];
-      const allSame = Object.values(MODEL_CLIENT_CONFIGS).every(({ value }) => {
-        const agentConfig = configs[value];
-        return (
-          agentConfig &&
-          JSON.stringify(agentConfig) === JSON.stringify(firstConfig)
-        );
-      });
-
-      if (allSame && firstConfig) {
-        return firstConfig;
-      }
-    }
-
-    return undefined;
-  };
-
-  const [defaultModel, setDefaultModel] = useState<ModelConfig | undefined>(
-    initializeDefaultModel()
-  );
+  const { defaultModel, setDefaultModel } = useDefaultModel();
 
   // Handler for individual model config changes
   const handleEachModelConfigChange = (key: ModelClientKey, value: any) => {
@@ -226,17 +171,6 @@ const AgentSettingsTab: React.FC<SettingsTabProps> = ({
           )}
         </>
       )}
-
-      <Collapse>
-        <Collapse.Panel key={1} header="Custom Agents">
-          <MCPAgentsSettings
-            config={config}
-            defaultModel={defaultModel}
-            advanced={advanced}
-            handleUpdateConfig={handleUpdateConfig}
-          />
-        </Collapse.Panel>
-      </Collapse>
     </Flex>
   );
 };
