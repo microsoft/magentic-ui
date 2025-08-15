@@ -6,6 +6,7 @@ import datetime
 from typing import Optional, Dict, Any, Callable
 from magentic_ui.eval.core import run_evaluate_benchmark_func, evaluate_benchmark_func
 from systems.magentic_ui_sim_user_system import MagenticUISimUserSystem
+from systems.magentic_ui_system import MagenticUIAutonomousSystem
 from magentic_ui.eval.systems import LLMSystem
 from magentic_ui.eval.benchmarks import WebVoyagerBenchmark
 from magentic_ui.eval.benchmark import Benchmark
@@ -99,14 +100,17 @@ def run_system_evaluation(
     benchmark_constructor: Optional[Callable[..., Benchmark]] = None
     if args.dataset == "WebVoyager":
         # Download the dataset (only needed once)
+        # client = ChatCompletionClient.load_component(
+        #     {
+        #         "provider": "OpenAIChatCompletionClient",
+        #         "config": {
+        #             "model": "gpt-4o-2024-08-06",
+        #         },
+        #         "max_retries": 10,
+        #     }
+        # )
         client = ChatCompletionClient.load_component(
-            {
-                "provider": "OpenAIChatCompletionClient",
-                "config": {
-                    "model": "gpt-4o-2024-08-06",
-                },
-                "max_retries": 10,
-            }
+            config['gpt4o_client']
         )
 
         def create_benchmark(data_dir="WebVoyager", name="WebVoyager"):
@@ -165,18 +169,31 @@ def run_system_sim_user(args: argparse.Namespace, system_name: str) -> None:
             endpoint_config=config.get("model_client") if config else None,
         )
     else:
-        system = MagenticUISimUserSystem(
-            simulated_user_type=args.simulated_user_type,
+        # system = MagenticUISimUserSystem(
+        #     simulated_user_type=args.simulated_user_type,
+        #     endpoint_config_orch=config.get("orchestrator_client") if config else None,
+        #     endpoint_config_websurfer=config.get("web_surfer_client") if config else None,
+        #     endpoint_config_coder=config.get("coder_client") if config else None,
+        #     endpoint_config_file_surfer=config.get("file_surfer_client")
+        #     if config
+        #     else None,
+        #     endpoint_config_user_proxy=config.get("user_proxy_client") if config else None,
+        #     web_surfer_only=args.web_surfer_only,
+        #     how_helpful_user_proxy=args.how_helpful_user_proxy,
+        #     dataset_name=args.dataset,
+        #     browser_headless=not args.browser_headful,
+        # )
+        system = MagenticUIAutonomousSystem(
             endpoint_config_orch=config.get("orchestrator_client") if config else None,
             endpoint_config_websurfer=config.get("web_surfer_client") if config else None,
             endpoint_config_coder=config.get("coder_client") if config else None,
             endpoint_config_file_surfer=config.get("file_surfer_client")
             if config
             else None,
-            endpoint_config_user_proxy=config.get("user_proxy_client") if config else None,
             web_surfer_only=args.web_surfer_only,
-            how_helpful_user_proxy=args.how_helpful_user_proxy,
             dataset_name=args.dataset,
+            use_local_browser=args.use_local_browser,
+            sentinel_tasks=args.sentinel_tasks,
         )
 
     run_system_evaluation(args, system, system_name, config)
