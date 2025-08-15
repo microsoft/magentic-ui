@@ -250,8 +250,8 @@ def download_and_load_benchmark(
         if not os.path.exists(data_dir):
             needs_download = True
         else:
-            # For WebGames, check if test.jsonl exists
-            if benchmark_name == "WebGames":
+            # For WebGames and SentinelBench, check if test.jsonl exists
+            if benchmark_name in ["WebGames", "SentinelBench"]:
                 test_file = os.path.join(data_dir, "test.jsonl")
                 if not os.path.isfile(test_file):
                     needs_download = True
