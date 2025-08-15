@@ -1,6 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from ...types import Plan
 from typing import List, Literal, Optional, Union
+from ...magentic_ui_config import SentinelPlanConfig
 
 
 class OrchestratorConfig(BaseModel):
@@ -24,7 +25,7 @@ class OrchestratorConfig(BaseModel):
         memory_controller_key (str, optional): the key to retrieve the memory_controller for a particular user.
         max_replans (int, optional): Maximum number of replans allowed. Default: 3.
         no_overwrite_of_task (bool, optional): Whether to prevent the orchestrator from overwriting the task. Default: False.
-        sentinel_tasks (bool, optional): Whether to enable SentinelPlanStep functionality. Default: False.
+        sentinel_plan (SentinelPlanConfig, optional): Configuration for sentinel plan functionality. Default: SentinelPlanConfig().
     """
 
     cooperative_planning: bool = True
@@ -43,4 +44,4 @@ class OrchestratorConfig(BaseModel):
     memory_controller_key: Optional[str] = None
     max_replans: Union[int, None] = 3
     no_overwrite_of_task: bool = False
-    sentinel_tasks: bool = False
+    sentinel_plan: SentinelPlanConfig = Field(default_factory=SentinelPlanConfig)

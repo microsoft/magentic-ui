@@ -1,4 +1,3 @@
-import argparse
 import asyncio
 import json
 import logging
@@ -9,7 +8,9 @@ import types
 from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Literal, Optional, cast
+from typing_extensions import Annotated
 
+import typer
 import yaml
 from autogen_core import EVENT_LOGGER_NAME, CancellationToken
 from .cli import Console, PrettyConsole
@@ -23,7 +24,7 @@ from .task_team import get_task_team
 from loguru import logger
 
 from .agents.mcp._config import McpAgentConfig
-from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
+from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs, SentinelPlanConfig
 from .types import RunPaths
 from .utils import LLMCallFilter
 from ._docker import (
@@ -38,6 +39,9 @@ BOLD = "\033[1m"
 RESET = "\033[0m"
 MAGENTA = "\033[35m"
 GREEN = "\033[32m"
+
+# Create Typer app for CLI interface
+app = typer.Typer(help="Magentic-UI CLI")
 
 
 # Simple debug logging helper - no formatting, just output
@@ -135,7 +139,9 @@ async def get_team(
     use_pretty_ui: bool = True,
     run_without_docker: bool = False,
     browser_headless: bool = False,
+    browser_local: bool = False,
     sentinel_tasks: bool = False,
+    dynamic_sentinel_sleep: bool = False,
 ) -> None:
     log_debug("=== Starting get_team function ===", debug)
     log_debug(
@@ -254,9 +260,13 @@ async def get_team(
         hints=hints,
         answer=answer,
         inside_docker=inside_docker,
-        sentinel_tasks=sentinel_tasks,
+        sentinel_plan=SentinelPlanConfig(
+            enable_sentinel_steps=sentinel_tasks,
+            dynamic_sentinel_sleep=dynamic_sentinel_sleep,
+        ),
         run_without_docker=run_without_docker,
         browser_headless=browser_headless,
+        browser_local=browser_local,
     )
     log_debug(
         f"MagenticUIConfig created with planning={cooperative_planning}, execution={autonomous_execution}",
@@ -426,282 +436,270 @@ def display_magentic_ui_logo():
     print(magentic_logo)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Magentic-UI CLI")
-    parser.add_argument(
+@app.callback(invoke_without_command=True)
+def cli_main(
+    # Required arguments
+    work_dir: str = typer.Option(
+        ...,
         "--work-dir",
-        dest="work_dir",
-        type=str,
-        required=True,
         help="Working directory path: where the team will store its state and files (required)",
-    )
-    parser.add_argument(
+    ),
+    # Basic options
+    config: Optional[str] = typer.Option(
+        None,
         "--config",
-        dest="config",
-        type=str,
-        default=None,
         help="Path to the configuration file (default: 'config.yaml')",
-    )
-    parser.add_argument(
+    ),
+    run_without_docker: bool = typer.Option(
+        False,
         "--run-without-docker",
-        dest="run_without_docker",
-        action="store_true",
-        default=False,
         help="Run without docker. This will remove coder and filesurfer agents and disable live browser view.",
-    )
-    parser.add_argument(
-        "--headless",
-        dest="browser_headless",
-        action="store_true",
-        default=False,
-        help="Run browser in headless mode (default: False, browser runs with GUI)",
-    )
-    parser.add_argument(
+    ),
+    browser_headless: Annotated[
+        bool,
+        typer.Option(
+            "--headless",
+            help="Run browser in headless mode (default: False, browser runs with GUI)",
+        ),
+    ] = False,
+    browser_local: Annotated[
+        bool,
+        typer.Option(
+            "--local-browser",
+            help="Run browser locally on your machine instead of in Docker (default: False, uses Docker browser with noVNC)",
+        ),
+    ] = False,
+    debug: bool = typer.Option(
+        False,
         "--debug",
-        dest="debug",
-        action="store_true",
-        default=False,
         help="Enable debug mode to show internal messages and detailed agent interactions (default: disabled)",
-    )
-    parser.add_argument(
-        "--use-state",
-        dest="use_state",
-        action="store_true",
-        default=False,
-        help="Use and save the team state before and after running the task (default: always start fresh and do not use state)",
-    )
-
-    # Advanced options group
-    advanced = parser.add_argument_group("Advanced options")
-    advanced.add_argument(
-        "--disable-planning",
-        dest="cooperative_planning",
-        action="store_false",
-        default=True,
-        help="Disable co-planning mode (default: enabled), user will not be involved in the planning process",
-    )
-    advanced.add_argument(
+    ),
+    use_state: Annotated[
+        bool,
+        typer.Option(
+            "--use-state",
+            help="Use and save the team state before and after running the task (default: always start fresh and do not use state)",
+        ),
+    ] = False,
+    # Advanced planning options
+    cooperative_planning: Annotated[
+        bool,
+        typer.Option(
+            "--disable-planning/--enable-planning",
+            help="Disable co-planning mode (default: enabled), user will not be involved in the planning process",
+        ),
+    ] = True,
+    autonomous_execution: bool = typer.Option(
+        False,
         "--autonomous-execution",
-        dest="autonomous_execution",
-        action="store_true",
-        default=False,
         help="Enable autonomous execution mode (default: disabled), user will not be involved in the execution",
-    )
-    advanced.add_argument(
+    ),
+    autonomous: bool = typer.Option(
+        False,
         "--autonomous",
-        dest="autonomous",
-        action="store_true",
-        default=False,
         help="Enable autonomous mode (default: disabled), no co-planning and no human involvment in execution",
-    )
-    advanced.add_argument(
+    ),
+    # Task configuration
+    task: str = typer.Option(
+        "",
         "--task",
-        dest="task",
-        type=str,
-        default="",
         help="Specifies the initial task. If a plain string, use this input verbatim. If the string matches a filename, read the initial task from a file. Use '-' to read from stdin. (default: prompt's the user for the task)",
-    )
-    advanced.add_argument(
+    ),
+    final_answer_prompt: str = typer.Option(
+        "",
         "--final-answer-prompt",
-        dest="final_answer_prompt",
-        type=str,
-        default="",
         help="Overrides the final answer prompt used to summarize the conversation. If a plain string, use this input verbatim. If the string matches a filename, read the prompt from a file. (default: use orchestrator's built-in prompt)",
-    )
-    advanced.add_argument(
+    ),
+    # Infrastructure options
+    internal_workspace_root: Optional[str] = typer.Option(
+        None,
         "--internal-root",
-        dest="internal_workspace_root",
-        type=str,
-        default=None,
         help="Deprecated: Internal workspace root directory path (default: use INTERNAL_WORKSPACE_ROOT environment variable)",
-    )
-    advanced.add_argument(
+    ),
+    external_workspace_root: Optional[str] = typer.Option(
+        None,
         "--external-root",
-        dest="external_workspace_root",
-        type=str,
-        default=None,
         help="Deprecated: External workspace root directory path (default: use EXTERNAL_WORKSPACE_ROOT environment variable)",
-    )
-    advanced.add_argument(
+    ),
+    playwright_port: int = typer.Option(
+        -1,
         "--playwright-port",
-        dest="playwright_port",
-        type=int,
-        default=-1,
         help="Port to run the Playwright browser on (default: -1 means use default port)",
-    )
-    advanced.add_argument(
+    ),
+    novnc_port: int = typer.Option(
+        -1,
         "--novnc-port",
-        dest="novnc_port",
-        type=int,
-        default=-1,
         help="Port to run the noVNC server on (default: -1 means use default port)",
-    )
-    advanced.add_argument(
+    ),
+    inside_docker: bool = typer.Option(
+        False,
         "--inside-docker",
-        dest="inside_docker",
-        action="store_true",
-        default=False,
         help="Deprecated:Indicates if running inside docker container (default: False)",
-    )
-    advanced.add_argument(
+    ),
+    # User proxy options
+    user_proxy_type: Optional[str] = typer.Option(
+        None,
         "--user-proxy-type",
-        dest="user_proxy_type",
-        type=str,
-        choices=["dummy", "metadata"],
-        default=None,
         help="Type of user proxy agent to use for simulations ('dummy', 'metadata', or None for default; default: None)",
-    )
-    advanced.add_argument(
+    ),
+    metadata_task: Optional[str] = typer.Option(
+        None,
         "--metadata-task",
-        dest="metadata_task",
-        type=str,
-        default=None,
         help="Task description for metadata user proxy (required if user-proxy-type is 'metadata')",
-    )
-    advanced.add_argument(
+    ),
+    metadata_hints: Optional[str] = typer.Option(
+        None,
         "--metadata-hints",
-        dest="metadata_hints",
-        type=str,
-        default=None,
         help="Task hints for metadata user proxy (required if user-proxy-type is 'metadata')",
-    )
-    advanced.add_argument(
+    ),
+    metadata_answer: Optional[str] = typer.Option(
+        None,
         "--metadata-answer",
-        dest="metadata_answer",
-        type=str,
-        default=None,
         help="Task answer for metadata user proxy (required if user-proxy-type is 'metadata')",
-    )
-    advanced.add_argument(
+    ),
+    # Logging and monitoring
+    llmlog_dir: Optional[str] = typer.Option(
+        None,
         "--llmlog-dir",
-        dest="llmlog_dir",
-        type=str,
         help="Directory path to save LLM call logs (if not provided, LLM logging is disabled)",
-    )
-    advanced.add_argument(
+    ),
+    action_policy: str = typer.Option(
+        "never",
         "--action-policy",
-        dest="action_policy",
-        type=str,
-        default="never",
         help="ActionGuard policy ('always', 'never', 'auto-conservative', 'auto-permissive'; default: never)",
-    )
-    advanced.add_argument(
+    ),
+    mcp_agents_file: Optional[str] = typer.Option(
+        None,
         "--mcp-agents-file",
-        dest="mcp_agents_file",
-        type=str,
-        default=None,
         help="Path to a .yaml file containing configuration compatible with MagenticUIConfig.mcp_agents",
-    )
-    advanced.add_argument(
-        "--old-cli",
-        dest="use_pretty_ui",
-        action="store_false",
-        default=True,
-        help="Use the old console without fancy formatting (default: use pretty terminal)",
-    )
-    advanced.add_argument(
+    ),
+    use_pretty_ui: Annotated[
+        bool,
+        typer.Option(
+            "--pretty-cli/--old-cli",
+            help="Use the old console without fancy formatting (default: use pretty terminal)",
+        ),
+    ] = True,
+    sentinel_tasks: bool = typer.Option(
+        False,
         "--sentinel-tasks",
-        dest="sentinel_tasks",
-        action="store_true",
-        default=False,
         help="Use sentinel tasks to guide the agent's behavior (default: False)",
-    )
-    args = parser.parse_args()
-    log_debug(f"Command line arguments parsed: debug={args.debug}", args.debug)
+    ),
+    dynamic_sentinel_sleep: bool = typer.Option(
+        False,
+        "--dynamic-sentinel-sleep",
+        help="Enable dynamic sleep duration adaptation for sentinel tasks (only available when --sentinel-tasks is enabled, default: False)",
+    ),
+) -> None:
+    """
+    Magentic-UI CLI: A command-line interface for multi-agent task execution.
+
+    Run tasks using a team of AI agents with web browsing, coding, and file manipulation capabilities.
+    """
+    log_debug(f"Command line arguments parsed: debug={debug}", debug)
 
     # Show summary of important arguments when debug is enabled
-    if args.debug:
-        log_debug(f"Cooperative planning: {args.cooperative_planning}", args.debug)
-        log_debug(f"Autonomous execution: {args.autonomous_execution}", args.debug)
-        log_debug(f"Autonomous mode: {args.autonomous}", args.debug)
-        log_debug(f"Use state: {args.use_state}", args.debug)
-        log_debug(f"Task specified: {bool(args.task)}", args.debug)
-        log_debug(f"Action policy: {args.action_policy}", args.debug)
-        log_debug(f"Inside Docker: {args.inside_docker}", args.debug)
-        log_debug(f"Work directory: {args.work_dir}", args.debug)
-        log_debug(f"Config file: {args.config}", args.debug)
-        log_debug(f"User proxy type: {args.user_proxy_type}", args.debug)
-        log_debug(f"LLM log directory: {args.llmlog_dir}", args.debug)
-        log_debug(f"Sentinel tasks: {args.sentinel_tasks}", args.debug)
-        log_debug(
-            f"Console mode: {'Pretty' if args.use_pretty_ui else 'Old'}", args.debug
-        )
-        log_debug(f"Browser headless: {args.browser_headless}", args.debug)
+    if debug:
+        log_debug(f"Cooperative planning: {cooperative_planning}", debug)
+        log_debug(f"Autonomous execution: {autonomous_execution}", debug)
+        log_debug(f"Autonomous mode: {autonomous}", debug)
+        log_debug(f"Use state: {use_state}", debug)
+        log_debug(f"Task specified: {bool(task)}", debug)
+        log_debug(f"Action policy: {action_policy}", debug)
+        log_debug(f"Inside Docker: {inside_docker}", debug)
+        log_debug(f"Work directory: {work_dir}", debug)
+        log_debug(f"Config file: {config}", debug)
+        log_debug(f"User proxy type: {user_proxy_type}", debug)
+        log_debug(f"LLM log directory: {llmlog_dir}", debug)
+        log_debug(f"Sentinel tasks: {sentinel_tasks}", debug)
+        log_debug(f"Dynamic sentinel sleep: {dynamic_sentinel_sleep}", debug)
+        log_debug(f"Console mode: {'Pretty' if use_pretty_ui else 'Old'}", debug)
+        log_debug(f"Browser headless: {browser_headless}", debug)
+        log_debug(f"Browser local: {browser_local}", debug)
 
     # Validate user proxy type
-    log_debug("Validating user proxy type", args.debug)
-    if args.user_proxy_type not in [None, "dummy", "metadata"]:
-        error_msg = f"Invalid user proxy type: {args.user_proxy_type}. Valid options are None, 'dummy', or 'metadata'."
-        log_debug(f"ERROR: {error_msg}", args.debug)
+    log_debug("Validating user proxy type", debug)
+    if user_proxy_type not in [None, "dummy", "metadata"]:
+        error_msg = f"Invalid user proxy type: {user_proxy_type}. Valid options are None, 'dummy', or 'metadata'."
+        log_debug(f"ERROR: {error_msg}", debug)
         raise ValueError(error_msg)
 
     # Validate metadata user proxy parameters
-    log_debug("Validating metadata user proxy parameters", args.debug)
-    if args.user_proxy_type == "metadata":
-        if not all([args.metadata_task, args.metadata_hints, args.metadata_answer]):
+    log_debug("Validating metadata user proxy parameters", debug)
+    if user_proxy_type == "metadata":
+        if not all([metadata_task, metadata_hints, metadata_answer]):
             error_msg = "When using metadata user proxy type, all metadata parameters (--metadata-task, --metadata-hints, --metadata-answer) must be provided."
-            log_debug(f"ERROR: {error_msg}", args.debug)
+            log_debug(f"ERROR: {error_msg}", debug)
             raise ValueError(error_msg)
 
     # Validate action policy
-    log_debug("Validating action policy", args.debug)
-    if args.action_policy not in [
+    log_debug("Validating action policy", debug)
+    if action_policy not in [
         "always",
         "never",
         "auto-conservative",
         "auto-permissive",
     ]:
-        error_msg = f"Invalid action policy: {args.action_policy}. Valid options are 'always', 'never', 'auto-conservative', 'auto-permissive'."
-        log_debug(f"ERROR: {error_msg}", args.debug)
+        error_msg = f"Invalid action policy: {action_policy}. Valid options are 'always', 'never', 'auto-conservative', 'auto-permissive'."
+        log_debug(f"ERROR: {error_msg}", debug)
+        raise ValueError(error_msg)
+
+    # Validate dynamic sentinel sleep configuration
+    log_debug("Validating dynamic sentinel sleep configuration", debug)
+    if dynamic_sentinel_sleep and not sentinel_tasks:
+        error_msg = "Dynamic sentinel sleep (--dynamic-sentinel-sleep) can only be enabled when sentinel tasks (--sentinel-tasks) are enabled."
+        log_debug(f"ERROR: {error_msg}", debug)
         raise ValueError(error_msg)
 
     # Set up LLM logging if requested
-    if args.llmlog_dir:
-        log_debug(f"Setting up LLM logging to directory: {args.llmlog_dir}", args.debug)
-        setup_llm_logging(args.llmlog_dir)
+    if llmlog_dir:
+        log_debug(f"Setting up LLM logging to directory: {llmlog_dir}", debug)
+        setup_llm_logging(llmlog_dir)
 
     # If the config file is not provided, check for the default config file
-    client_config: str | None = args.config
+    client_config: str | None = config
     if not client_config:
         if os.path.isfile("config.yaml"):
             client_config = "config.yaml"
             log_debug(
-                "Using default config.yaml file found in current directory", args.debug
+                "Using default config.yaml file found in current directory", debug
             )
         else:
             log_debug(
-                "No config file provided or found. Using default settings.", args.debug
+                "No config file provided or found. Using default settings.", debug
             )
             logger.info("Config file not provided. Using default settings.")
 
     # Expand the task and final answer prompt
-    log_debug("Processing task input", args.debug)
-    task: str | None = None
-    if args.task:
-        if args.task == "-":
-            log_debug("Reading task from stdin", args.debug)
-            task = sys.stdin.buffer.read().decode("utf-8")
+    log_debug("Processing task input", debug)
+    processed_task: str | None = None
+    if task:
+        if task == "-":
+            log_debug("Reading task from stdin", debug)
+            processed_task = sys.stdin.buffer.read().decode("utf-8")
             log_debug(
-                f"Task read from stdin, length: {len(task if task else '')}", args.debug
+                f"Task read from stdin, length: {len(processed_task if processed_task else '')}",
+                debug,
             )
-        elif os.path.isfile(args.task):
-            log_debug(f"Reading task from file: {args.task}", args.debug)
-            with open(args.task, "r") as f:
-                task = f.read()
+        elif os.path.isfile(task):
+            log_debug(f"Reading task from file: {task}", debug)
+            with open(task, "r") as f:
+                processed_task = f.read()
                 log_debug(
-                    f"Task read from file, length: {len(task if task else '')}",
-                    args.debug,
+                    f"Task read from file, length: {len(processed_task if processed_task else '')}",
+                    debug,
                 )
         else:
-            log_debug("Using task from command line argument", args.debug)
-            task = args.task
+            log_debug("Using task from command line argument", debug)
+            processed_task = task
             log_debug(
-                f"Task from argument, length: {len(task if task else '')}", args.debug
+                f"Task from argument, length: {len(processed_task if processed_task else '')}",
+                debug,
             )
 
-    if not args.run_without_docker:
+    if not run_without_docker:
         # Check Docker and pull images if necessary
-        log_debug("Checking Docker setup...", args.debug)
+        log_debug("Checking Docker setup...", debug)
         logger.info("Checking if Docker is running...")
 
         if not check_docker_running():
@@ -734,45 +732,43 @@ def main() -> None:
             )
             sys.exit(1)
 
-        log_debug("Docker setup completed successfully", args.debug)
+        log_debug("Docker setup completed successfully", debug)
 
-    log_debug("Processing final answer prompt", args.debug)
-    final_answer_prompt: str | None = None
-    if args.final_answer_prompt:
-        if os.path.isfile(args.final_answer_prompt):
+    log_debug("Processing final answer prompt", debug)
+    processed_final_answer_prompt: str | None = None
+    if final_answer_prompt:
+        if os.path.isfile(final_answer_prompt):
             log_debug(
-                f"Reading final answer prompt from file: {args.final_answer_prompt}",
-                args.debug,
+                f"Reading final answer prompt from file: {final_answer_prompt}",
+                debug,
             )
-            with open(args.final_answer_prompt, "r") as f:
-                final_answer_prompt = f.read()
+            with open(final_answer_prompt, "r") as f:
+                processed_final_answer_prompt = f.read()
                 log_debug(
-                    f"Final answer prompt read from file, length: {len(final_answer_prompt if final_answer_prompt else '')}",
-                    args.debug,
+                    f"Final answer prompt read from file, length: {len(processed_final_answer_prompt if processed_final_answer_prompt else '')}",
+                    debug,
                 )
         else:
+            log_debug("Using final answer prompt from command line argument", debug)
+            processed_final_answer_prompt = final_answer_prompt
             log_debug(
-                "Using final answer prompt from command line argument", args.debug
-            )
-            final_answer_prompt = args.final_answer_prompt
-            log_debug(
-                f"Final answer prompt from argument, length: {len(final_answer_prompt if final_answer_prompt else '')}",
-                args.debug,
+                f"Final answer prompt from argument, length: {len(processed_final_answer_prompt if processed_final_answer_prompt else '')}",
+                debug,
             )
 
     # Set up autonomous execution mode if requested
-    if args.autonomous:
+    if autonomous:
         log_debug(
             "Autonomous mode enabled, setting autonomous_execution=True and cooperative_planning=False",
-            args.debug,
+            debug,
         )
-        args.autonomous_execution = True
-        args.cooperative_planning = False
+        autonomous_execution = True
+        cooperative_planning = False
 
     # Try and load an MCP Agents file
     mcp_agents: List[McpAgentConfig] = []
-    if args.mcp_agents_file:
-        with open(args.mcp_agents_file) as fd:
+    if mcp_agents_file:
+        with open(mcp_agents_file) as fd:
             mcp_agents_data: Any = yaml.safe_load(fd)
 
         if not isinstance(mcp_agents_data, list):
@@ -789,48 +785,58 @@ def main() -> None:
 
     # Add a basic signal handler to log as soon as SIGINT is received
     def signal_handler(sig: int, frame: types.FrameType | None) -> Any:
-        log_debug(f"Signal handler caught signal: {sig}", args.debug)
+        log_debug(f"Signal handler caught signal: {sig}", debug)
         logger.info("magentic-ui cli caught SIGINT...")
-        log_debug("Raising KeyboardInterrupt to terminate application", args.debug)
+        log_debug("Raising KeyboardInterrupt to terminate application", debug)
         raise KeyboardInterrupt
 
-    log_debug("Registering SIGINT signal handler", args.debug)
+    log_debug("Registering SIGINT signal handler", debug)
     signal.signal(signal.SIGINT, signal_handler)
 
     # Starts an asyncio event loop responsible for running asynchronous tasks
-    log_debug("Starting asyncio event loop for get_team", args.debug)
+    log_debug("Starting asyncio event loop for get_team", debug)
     asyncio.run(
         # Passes the arguments to the get_team function
         get_team(
-            cooperative_planning=args.cooperative_planning,
-            autonomous_execution=args.autonomous_execution,
-            reset=not args.use_state,  # Invert logic: if not using state, reset is True
-            task=task,
-            final_answer_prompt=final_answer_prompt,
-            debug=args.debug,
-            internal_workspace_root=args.internal_workspace_root,
-            external_workspace_root=args.external_workspace_root,
-            playwright_port=args.playwright_port,
-            novnc_port=args.novnc_port,
-            inside_docker=args.inside_docker,
-            work_dir=args.work_dir,
+            cooperative_planning=cooperative_planning,
+            autonomous_execution=autonomous_execution,
+            reset=not use_state,  # Invert logic: if not using state, reset is True
+            task=processed_task,
+            final_answer_prompt=processed_final_answer_prompt,
+            debug=debug,
+            internal_workspace_root=internal_workspace_root,
+            external_workspace_root=external_workspace_root,
+            playwright_port=playwright_port,
+            novnc_port=novnc_port,
+            inside_docker=inside_docker,
+            work_dir=work_dir,
             client_config=client_config,
-            action_policy=cast(ApprovalPolicy, args.action_policy),
-            user_proxy_type=args.user_proxy_type,
-            task_metadata=args.metadata_task
-            if args.user_proxy_type == "metadata"
-            else task,
-            hints=args.metadata_hints if args.user_proxy_type == "metadata" else None,
-            answer=args.metadata_answer if args.user_proxy_type == "metadata" else None,
-            use_pretty_ui=args.use_pretty_ui,
+            action_policy=cast(ApprovalPolicy, action_policy),
+            user_proxy_type=user_proxy_type,
+            task_metadata=metadata_task
+            if user_proxy_type == "metadata"
+            else processed_task,
+            hints=metadata_hints if user_proxy_type == "metadata" else None,
+            answer=metadata_answer if user_proxy_type == "metadata" else None,
+            use_pretty_ui=use_pretty_ui,
             mcp_agents=mcp_agents,
-            run_without_docker=args.run_without_docker,
-            browser_headless=args.browser_headless,
-            sentinel_tasks=args.sentinel_tasks,
+            run_without_docker=run_without_docker,
+            browser_headless=browser_headless,
+            browser_local=browser_local,
+            sentinel_tasks=sentinel_tasks,
+            dynamic_sentinel_sleep=dynamic_sentinel_sleep,
         )
     )
-    log_debug("Asyncio event loop and get_team function completed", args.debug)
+    log_debug("Asyncio event loop and get_team function completed", debug)
+
+
+def main() -> None:
+    """
+    Entry point for the magentic-cli command.
+    Called from pyproject.toml's [project.scripts] section.
+    """
+    app()
 
 
 if __name__ == "__main__":
-    main()
+    app()

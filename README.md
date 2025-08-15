@@ -68,7 +68,6 @@ You can then pass a config file to the `magentic-ui` command (<a href="#model-cl
 
 For further details on installation please read the   <a href="#️-installation">🛠️ Installation</a> section. For common installation issues and their solutions, please refer to the [troubleshooting document](TROUBLESHOOTING.md). See advanced usage instructions with the command `magentic-ui --help`. 
 
-
 ## Quick Navigation:
 <p align="center">
   <a href="#-how-it-works">🟪 How it Works</a> &nbsp;|&nbsp;
@@ -128,6 +127,24 @@ To reproduce these experimental results, please see the following [instructions]
 
 
 If you're interested in reading more checkout our [technical report](https://www.microsoft.com/en-us/research/wp-content/uploads/2025/07/magentic-ui-report.pdf) and [blog post](https://www.microsoft.com/en-us/research/blog/magentic-ui-an-experimental-human-centered-web-agent/).
+
+<details>
+<summary>📝 BibTeX Citation</summary>
+
+```bibtex
+@techreport{mozannar2025magentic-ui,
+author = {Mozannar, Hussein and Bansal, Gagan and Tan, Cheng and Fourney, Adam and Dibia, Victor and Chen, Jingya and Gerrits, Jack and Payne, Tyler and Maldaner, Matheus Kunzler and Grunde-McLaughlin, Madeleine and Zhu, Eric and Bassman, Griffin and Alber, Jacob and Chang, Peter and Loynd, Ricky and Niedtner, Friederike and Kamar, Ece and Murad, Maya and Hosn, Rafah and Amershi, Saleema},
+title = {Magentic-UI: Towards Human-in-the-loop Agentic Systems},
+institution = {Microsoft},
+year = {2025},
+month = {July},
+abstract = {AI agents powered by large language models are increasingly capable of autonomously completing complex, multi-step tasks using external tools. Yet, they still fall short of human-level performance in most domains including computer use, software development, and research. Their growing autonomy and ability to interact with the outside world, also introduces safety and security risks including potentially misaligned actions and adversarial manipulation. We argue that human-in-the-loop agentic systems offer a promising path forward, combining human oversight and control with AI efficiency to unlock productivity from imperfect systems. We introduce Magentic-UI, an open-source web interface for developing and studying human-agent interaction. Built on a flexible multi-agent architecture, Magentic-UI supports web browsing, code execution, and file manipulation, and can be extended with diverse tools via Model Context Protocol (MCP). Moreover, Magentic-UI presents six interaction mechanisms for enabling effective, low-cost human involvement: co-planning, co-tasking, multi-tasking, action guards, and long-term memory. We evaluate Magentic-UI across four dimensions: autonomous task completion on agentic benchmarks, simulated user testing of its interaction capabilities, qualitative studies with real users, and targeted safety assessments. Our findings highlight Magentic-UI's potential to advance safe and efficient human-agent collaboration.},
+url = {https://www.microsoft.com/en-us/research/publication/magentic-ui-report/},
+number = {MSR-TR-2025-40},
+}
+```
+
+</details>
 
 ## 🛠️ Installation
 ### Pre-Requisites
