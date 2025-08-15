@@ -178,11 +178,12 @@ To run Magentic-UI, make sure that Docker is running, then run the following com
 magentic-ui --port 8081
 ```
 
->**Note**: Running this command for the first time will pull two docker images required for the Magentic-UI agents. If you encounter problems, you can build them directly with the following command:
-```bash
-cd docker
-sh build-all.sh
-```
+> [!Note]
+> Running this command for the first time will pull two docker images required for the Magentic-UI agents. If you encounter problems, you can build them directly with the following command:
+> ```bash
+> cd docker
+> sh build-all.sh
+> ```
 
 If you face issues with Docker, please refer to the [TROUBLESHOOTING.md](TROUBLESHOOTING.md) document.
 
