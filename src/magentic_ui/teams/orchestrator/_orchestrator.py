@@ -809,6 +809,24 @@ class Orchestrator(BaseGroupChatManager):
             assert plan_response is not None
             self._state.plan = Plan.from_list_of_dicts_or_str(plan_response["steps"])
             self._state.plan_str = str(self._state.plan)
+            
+            # DEBUG: Print plan details for sentinel verification
+            print("🔍 PLAN GENERATED:")
+            print("=" * 50)
+            print(json.dumps(plan_response, indent=2))
+            print("=" * 50)
+            for i, step in enumerate(self._state.plan.steps):
+                step_type = "SentinelPlanStep" if hasattr(step, 'sleep_duration') else "PlanStep"
+                print(f"Step {i+1}: {step_type}")
+                if hasattr(step, 'sleep_duration'):
+                    print(f"  Sleep Duration: {step.sleep_duration}s")
+                    print(f"  Condition: {step.condition}")
+                print(f"  Title: {step.title}")
+                print(f"  Details: {step.details}")
+                print(f"  Agent: {step.agent_name}")
+                print("-" * 30)
+            print("🔍 END PLAN")
+            
             # add plan_response to the message thread
             self._state.message_history.append(
                 TextMessage(

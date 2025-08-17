@@ -25,7 +25,7 @@ class SentinelBenchBenchmark(Benchmark):
         self,
         name: str = "SentinelBench",
         data_dir: Union[str, None] = None,
-        base_website_path: str = "http://localhost:5174/",
+        base_website_path: str = "http://localhost:5173/",
     ):
         """
         SentinelBench benchmark for monitoring and long-term observation tasks.
@@ -42,9 +42,9 @@ class SentinelBenchBenchmark(Benchmark):
         self.base_website_path = base_website_path
         
         logging_msg = f"[SentinelBench] Using base website path: {self.base_website_path}"
-        if self.base_website_path == "http://localhost:5174/":
+        if self.base_website_path == "http://localhost:5173/":
             logging_msg += """
-            SentinelBench is currently configured for local testing at localhost:5174.
+            SentinelBench is currently configured for local testing at localhost:5173.
             Make sure you have the SentinelBench website running locally before executing evaluations.
             """
         logging.info(logging_msg)
