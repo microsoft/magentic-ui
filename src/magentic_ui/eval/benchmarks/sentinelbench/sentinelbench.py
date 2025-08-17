@@ -131,9 +131,15 @@ class SentinelBenchBenchmark(Benchmark):
             if row.get("failure_tolerance"):
                 metadata["failure_tolerance"] = row["failure_tolerance"]
 
+            # Create the new prompt format
+            prompt = (
+                f"Go to {self.base_website_path}{row['path']} and {row['description']}. "
+                "Upon successful completion you may get a password or a code which you should extract."
+            )
+
             task = BaseTask(
                 id=row["id"],  # type: ignore
-                question=f"{added_instruction}\n\n{row['description']}",  # type: ignore
+                question=prompt,  # type: ignore
                 ground_truth=row["password"],  # type: ignore
                 url_path=f"{self.base_website_path}{row['path']}",  # type: ignore
                 metadata=metadata,
