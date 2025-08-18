@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import importlib
 from typing import Optional, Type
 from .models import AllTaskTypes, AllCandidateTypes
@@ -73,6 +74,29 @@ class BaseSystem:
         answer_path = os.path.join(output_dir, f"{task_id}_answer.json")
         with open(answer_path, "w", encoding="utf-8") as f:
             f.write(answer.model_dump_json(indent=2))
+
+    def save_partial_state(self, task_id: str, output_dir: str, **kwargs) -> None:
+        """
+        Save partial state information for interrupted runs.
+        Subclasses can override this to save system-specific partial state.
+
+        Args:
+            task_id (str): The ID of the task.
+            output_dir (str): The directory to save partial state in.
+            **kwargs: Additional state information to save.
+        """
+        os.makedirs(output_dir, exist_ok=True)
+        partial_state_path = os.path.join(output_dir, f"{task_id}_partial_state.json")
+        
+        state_data = {
+            "task_id": task_id,
+            "timestamp": json.dumps(time.time()),
+            "status": "interrupted",
+            **kwargs
+        }
+        
+        with open(partial_state_path, "w", encoding="utf-8") as f:
+            json.dump(state_data, f, indent=2)
 
 
 def load_system_class(system_name: str) -> Type[BaseSystem]:

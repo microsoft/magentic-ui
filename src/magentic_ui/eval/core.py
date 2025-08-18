@@ -192,19 +192,50 @@ def _run_single_task(
             task.file_dir = os.path.join(question_dir, os.path.basename(file_dir))
 
         start_time = time.time()
-        answer = system.get_answer(task_id, task, question_dir)
-        end_time = time.time()
-
-        times_path = os.path.join(question_dir, "times.json")
-        with open(times_path, "w") as f:
-            json.dump(
-                {
-                    "start_time": start_time,
-                    "end_time": end_time,
-                    "duration": end_time - start_time,
-                },
-                f,
-            )
+        answer = None
+        end_time = start_time
+        interrupted = False
+        
+        try:
+            answer = system.get_answer(task_id, task, question_dir)
+            end_time = time.time()
+        except KeyboardInterrupt:
+            end_time = time.time()
+            interrupted = True
+            logger.warning(f"Task {task_id} interrupted by user (Ctrl+C)")
+            raise  # Re-raise to maintain expected behavior
+        except Exception as e:
+            end_time = time.time()
+            interrupted = True
+            logger.error(f"Task {task_id} failed with exception: {e}")
+            
+            # Save partial state if the system supports it
+            try:
+                if hasattr(system, 'save_partial_state'):
+                    system.save_partial_state(
+                        task_id, 
+                        question_dir, 
+                        error_message=str(e),
+                        error_type=type(e).__name__
+                    )
+            except Exception as save_error:
+                logger.error(f"Failed to save partial state for {task_id}: {save_error}")
+            
+            # Don't re-raise here - we want to save partial state and continue
+        finally:
+            # Always save timing data, even for interrupted/failed runs
+            times_path = os.path.join(question_dir, "times.json")
+            with open(times_path, "w") as f:
+                json.dump(
+                    {
+                        "start_time": start_time,
+                        "end_time": end_time,
+                        "duration": end_time - start_time,
+                        "interrupted": interrupted,
+                        "completed": answer is not None,
+                    },
+                    f,
+                )
 
         logger.info(f"Completed task for task_id={task_id}")
         return task_id, answer, end_time - start_time
