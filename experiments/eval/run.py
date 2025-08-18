@@ -135,6 +135,9 @@ def run_system_evaluation(
             run_id=args.run_id,
             system_constructor=system_constructor,
             redo_eval=args.redo_eval,
+            task_id=args.task_id,
+            base_task=args.base_task,
+            difficulty=args.difficulty,
         )
     else:
         run_evaluate_benchmark_func(
@@ -149,6 +152,9 @@ def run_system_evaluation(
             system_constructor=system_constructor,
             subsample=args.subsample if args.subsample < 1 else None,
             redo_eval=args.redo_eval,
+            task_id=args.task_id,
+            base_task=args.base_task,
+            difficulty=args.difficulty,
         )
 
 
@@ -281,6 +287,22 @@ def main() -> None:
         action="store_true",
         default=False,
         help="Enable sentinel tasks functionality in the orchestrator (default: False)",
+    )
+    parser.add_argument(
+        "--task-id",
+        type=str,
+        help="Run a specific task by ID (e.g., 'reactor-easy')",
+    )
+    parser.add_argument(
+        "--base-task",
+        type=str,
+        help="Run all variants of a specific task (e.g., 'reactor' for reactor-easy, reactor-medium, reactor-hard)",
+    )
+    parser.add_argument(
+        "--difficulty",
+        type=str,
+        choices=["easy", "medium", "hard"],
+        help="Filter tasks by difficulty level",
     )
 
     args = parser.parse_args()

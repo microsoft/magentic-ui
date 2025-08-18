@@ -283,6 +283,9 @@ def run_benchmark_func(
     seed: Optional[int] = 42,
     reload_benchmark_per_task: bool = False,
     reload_system_per_task: bool = False,
+    task_id: Optional[str] = None,
+    base_task: Optional[str] = None,
+    difficulty: Optional[str] = None,
 ) -> None:
     """Run benchmark evaluation.
 
@@ -370,9 +373,14 @@ def run_benchmark_func(
         system_constructor = system
 
     # Get task IDs instead of full tasks
-    task_ids = (
-        benchmark.get_split_tasks(split) if split else list(benchmark.tasks.keys())
-    )
+    if split:
+        # For SentinelBench, pass filtering parameters
+        if benchmark_name == "SentinelBench":
+            task_ids = benchmark.get_split_tasks(split, task_id=task_id, base_task=base_task, difficulty=difficulty)
+        else:
+            task_ids = benchmark.get_split_tasks(split)
+    else:
+        task_ids = list(benchmark.tasks.keys())
 
     if subsample and 0 < subsample <= 1:
         task_ids = random.sample(task_ids, int(len(task_ids) * subsample))
@@ -498,6 +506,9 @@ def evaluate_benchmark_func(
     system_constructor: Optional[Union[Callable[..., BaseSystem], BaseSystem]] = None,
     parallel: int = 1,
     redo_eval: bool = False,
+    task_id: Optional[str] = None,
+    base_task: Optional[str] = None,
+    difficulty: Optional[str] = None,
 ) -> None:
     """Evaluates benchmark results across single or multiple runs.
     Args:
@@ -565,7 +576,14 @@ def evaluate_benchmark_func(
         else:
             system = system_constructor
 
-        tasks = benchmark.get_split_tasks(split) if split else benchmark.tasks
+        if split:
+            # For SentinelBench, pass filtering parameters
+            if benchmark_name == "SentinelBench":
+                tasks = benchmark.get_split_tasks(split, task_id=task_id, base_task=base_task, difficulty=difficulty)
+            else:
+                tasks = benchmark.get_split_tasks(split)
+        else:
+            tasks = benchmark.tasks
         tasks_sys_benchmark_data = [
             (task_id, system, output_dir, benchmark, redo_eval) for task_id in tasks
         ]
@@ -660,6 +678,9 @@ def run_evaluate_benchmark_func(
     redo_eval: bool = False,
     reload_benchmark_per_task: bool = False,
     reload_system_per_task: bool = False,
+    task_id: Optional[str] = None,
+    base_task: Optional[str] = None,
+    difficulty: Optional[str] = None,
 ) -> None:
     """Run benchmark evaluation and compute metrics.
 
@@ -699,6 +720,9 @@ def run_evaluate_benchmark_func(
             seed=seed,
             reload_benchmark_per_task=reload_benchmark_per_task,
             reload_system_per_task=reload_system_per_task,
+            task_id=task_id,
+            base_task=base_task,
+            difficulty=difficulty,
         )
     evaluate_benchmark_func(
         benchmark_name=benchmark_name,
@@ -711,4 +735,7 @@ def run_evaluate_benchmark_func(
         system_constructor=system_constructor,
         parallel=parallel,
         redo_eval=redo_eval,
+        task_id=task_id,
+        base_task=base_task,
+        difficulty=difficulty,
     )

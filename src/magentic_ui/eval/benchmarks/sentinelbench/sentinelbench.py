@@ -25,7 +25,7 @@ class SentinelBenchBenchmark(Benchmark):
         self,
         name: str = "SentinelBench",
         data_dir: Union[str, None] = None,
-        base_website_path: str = "http://localhost:5173/",
+        base_website_path: str = "http://172.25.159.193:5173/",
     ):
         """
         SentinelBench benchmark for monitoring and long-term observation tasks.
@@ -34,7 +34,7 @@ class SentinelBenchBenchmark(Benchmark):
             name: Name of the benchmark
             data_dir: Directory containing the benchmark data
             base_website_path: The base path of the website to use for the SentinelBench. 
-                              Make sure it ends with a slash. Default is localhost for local testing.
+                              Make sure it ends with a slash. Default is 172.25.159.193 for local testing.
         """
         assert data_dir is not None, "data_dir must be provided for SentinelBenchBenchmark"
         super().__init__(name=name, data_dir=data_dir)
@@ -42,10 +42,10 @@ class SentinelBenchBenchmark(Benchmark):
         self.base_website_path = base_website_path
         
         logging_msg = f"[SentinelBench] Using base website path: {self.base_website_path}"
-        if self.base_website_path == "http://localhost:5173/":
+        if self.base_website_path == "http://172.25.159.193:5173/":
             logging_msg += """
-            SentinelBench is currently configured for local testing at localhost:5173.
-            Make sure you have the SentinelBench website running locally before executing evaluations.
+            SentinelBench is currently configured for local testing at 172.25.159.193:5173.
+            Make sure you have the SentinelBench website running locally with 'npm run dev -- --host 0.0.0.0' before executing evaluations.
             """
         logging.info(logging_msg)
 
@@ -149,13 +149,39 @@ class SentinelBenchBenchmark(Benchmark):
 
         logging.info(f"[SentinelBench] Loaded {len(self.tasks)} total examples.")
 
-    def get_split_tasks(self, split: str) -> List[str]:
+    def get_split_tasks(self, split: str, task_id: str = None, base_task: str = None, difficulty: str = None) -> List[str]:
         """
         Returns task IDs for the specified split (only 'test' is available).
+        
+        Args:
+            split: The dataset split (currently only 'test' is available for SentinelBench)
+            task_id: Filter to a specific task ID (e.g., 'reactor-easy')
+            base_task: Filter to all variants of a base task (e.g., 'reactor')
+            difficulty: Filter by difficulty level ('easy', 'medium', 'hard')
         """
         if split != "test":
             raise ValueError("only 'test' split is available for SentinelBench")
-        return [task_id for task_id, task in self.tasks.items() if task.set == split]
+        
+        filtered_tasks = []
+        for task_id_key, task in self.tasks.items():
+            if task.set != split:
+                continue
+                
+            # Apply task_id filter (exact match)
+            if task_id is not None and task_id_key != task_id:
+                continue
+                
+            # Apply base_task filter (check metadata)
+            if base_task is not None and task.metadata.get("base_task") != base_task:
+                continue
+                
+            # Apply difficulty filter (check metadata)
+            if difficulty is not None and task.metadata.get("difficulty") != difficulty:
+                continue
+                
+            filtered_tasks.append(task_id_key)
+        
+        return filtered_tasks
 
     def evaluator(self, task: BaseTask, candidate: BaseCandidate) -> BaseEvalResult:
         """
