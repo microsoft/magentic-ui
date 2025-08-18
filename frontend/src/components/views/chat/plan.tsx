@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { ChevronDownIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { ClipboardList } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   DragDropContext,
   Droppable,
@@ -75,6 +76,7 @@ const PlanView: React.FC<PlanProps> = ({
   isCollapsed: initialIsCollapsed = false,
   forceCollapsed = false,
 }) => {
+  const { t } = useTranslation();
   const [localPlan, setLocalPlan] = useState<IPlanStep[]>([]);
   const [isCollapsed, setIsCollapsed] = useState(
     viewOnly && (initialIsCollapsed || forceCollapsed)
@@ -156,25 +158,22 @@ const PlanView: React.FC<PlanProps> = ({
 
   const getAgentIcon = (agentName: string | undefined): JSX.Element | null => {
     const lowerCaseName = (agentName || "").toLowerCase();
-    if (lowerCaseName === "coder_agent") return <CoderIcon tooltip="Coder" />;
-    if (lowerCaseName === "web_surfer")
-      return <WebSurferIcon tooltip="WebSurfer" />;
-    if (lowerCaseName === "file_surfer")
-      return <FileSurferIcon tooltip="FileSurfer" />;
-    if (lowerCaseName === "user_proxy") return <UserIcon tooltip="User" />;
-    if (lowerCaseName === "no_action_agent")
-      return <AgentIcon tooltip="Self-Reflection" />;
-    return <AgentIcon tooltip="Agent" />;
+    if (lowerCaseName === "coder_agent") return <CoderIcon tooltip={t("agents.coder")} />;
+    if (lowerCaseName === "web_surfer") return <WebSurferIcon tooltip={t("agents.webSurfer")} />;
+    if (lowerCaseName === "file_surfer") return <FileSurferIcon tooltip={t("agents.fileSurfer")} />;
+    if (lowerCaseName === "user_proxy") return <UserIcon tooltip={t("agents.user")} />;
+    if (lowerCaseName === "no_action_agent") return <AgentIcon tooltip={t("agents.selfReflection")} />;
+    return <AgentIcon tooltip={t("agents.agent")} />;
   };
 
   const getAgentName = (agentName: string | undefined): string => {
     const lowerCaseName = (agentName || "").toLowerCase();
-    if (lowerCaseName === "coder_agent") return "Coder";
-    if (lowerCaseName === "web_surfer") return "WebSurfer";
-    if (lowerCaseName === "file_surfer") return "FileSurfer";
-    if (lowerCaseName === "user_proxy") return "User";
-    if (lowerCaseName === "no_action_agent") return "Self-Reflection";
-    return agentName || "Agent";
+    if (lowerCaseName === "coder_agent") return t("agents.coder");
+    if (lowerCaseName === "web_surfer") return t("agents.webSurfer");
+    if (lowerCaseName === "file_surfer") return t("agents.fileSurfer");
+    if (lowerCaseName === "user_proxy") return t("agents.user");
+    if (lowerCaseName === "no_action_agent") return t("agents.selfReflection");
+    return agentName || t("agents.agent");
   };
 
   const noop = () => {};
@@ -185,9 +184,9 @@ const PlanView: React.FC<PlanProps> = ({
         <div className="flex items-center mb-2">
           <ClipboardList className="h-5 w-5 mr-2 flex-shrink-0" />
           {fromMemory
-            ? "Potentially relevant plan retrieved from memory. "
-            : "Here's a plan. "}
-          <span> You can edit it directly or through the chat.</span>
+            ? t("planView.potentiallyRelevantPlanFromMemory")
+            : t("planView.heresAPlan")}
+          <span> {t("planView.youCanEditDirectlyOrThroughChat")}</span>
         </div>
       )}
       <div className="rounded-none border-[var(--color-border-primary)]">
@@ -197,7 +196,7 @@ const PlanView: React.FC<PlanProps> = ({
             onClick={() => setIsCollapsed(false)}
           >
             <ClipboardList className="h-5 w-5 mr-2 flex-shrink-0" />
-            <h2 className="">Plan for: {task}</h2>
+            <h2 className="line-through">{t("planView.planFor")} {task === "Untitled" ? t("planCard.untitledPlan") : task}</h2>
           </div>
         ) : (
           <>
@@ -216,7 +215,7 @@ const PlanView: React.FC<PlanProps> = ({
                   {viewOnly && (
                     <ClipboardList className="h-5 w-5 mr-2 flex-shrink-0" />
                   )}
-                  <h2 className="">Plan for: {task}</h2>
+                  <h2 className="">{t("planView.planFor")} {task === "Untitled" ? t("planCard.untitledPlan") : task}</h2>
                 </div>
               </div>
             )}
@@ -246,7 +245,7 @@ const PlanView: React.FC<PlanProps> = ({
                                   !viewOnly ? "cursor-grab" : ""
                                 }`}
                               >
-                                Step {index + 1}
+                                {t("planView.step")} {index + 1}
                               </span>
                               <div className="flex items-center ml-2">
                                 <div className="text-gray-600 dark:text-gray-300">
@@ -282,7 +281,7 @@ const PlanView: React.FC<PlanProps> = ({
                                         : ""
                                     }`}
                                     readOnly={viewOnly}
-                                    placeholder="Enter step details"
+                                    placeholder={t("planView.enterStepDetails")}
                                   />
                                 }
                                 {!viewOnly && (
@@ -315,16 +314,16 @@ const PlanView: React.FC<PlanProps> = ({
               <div className="mt-2 p-0 flex justify-end">
                 <div className="flex gap-4 items-center">
                   <span className="mt-1 text-[var(--color-text-secondary)] px-2">
-                    {saveStatus === "saving" && "Saving..."}
-                    {saveStatus === "saved" && ""}
-                    {saveStatus === "error" && "Error saving changes"}
+                                {saveStatus === "saving" && t("planView.saving")}
+            {saveStatus === "saved" && ""}
+            {saveStatus === "error" && t("planView.errorSavingChanges")}
                   </span>
                   <div
                     onClick={addLocalPlan}
                     className="mt-2 flex items-center text-[var(--color-text-secondary)] px-4 rounded hover:text-[var(--color-text-primary)] cursor-pointer"
                   >
                     <PlusIcon className="h-5 w-5 mr-2" />
-                    Add Step
+                    {t("planView.addStep")}
                   </div>
                 </div>
               </div>

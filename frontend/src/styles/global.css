@@ -62,6 +62,59 @@
   --color-gray-800: #5f5f5f;
 }
 
+.spirits {
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #ffead7;
+  --color-bg-light: #f6f7fa;
+  --color-bg-tertiary: #f6f7fa;
+  --color-bg-opposite: #252526;
+  --color-bg-white: #ffffff;
+  --color-bg-dark: #252526;
+  --color-bg-accent: #ff810d;
+  --color-text-primary: #252526;
+  --color-text-secondary: #676767;
+  --color-text-accent: #ff810d;
+  --color-border-primary: #e9ebf1;
+  --color-border-secondary: #dfdfff;
+  --color-border-accent: #ff810d;
+  --color-warning-primary: #ff810d;
+  --color-text-message: #252526;
+  --color-magenta-400: #fff6ed;
+  --color-magenta-700: #ffe4d6;
+  --color-magenta-800: #e67300;
+  --color-magenta-900: #e67300;
+  --color-blue-400: #edf4fb;
+  --color-blue-700: #a0d6ff;
+  --color-blue-800: #0078d4;
+  --color-blue-900: #0062ad;
+  --color-gary-700: #e1e1e1;
+  --color-gray-800: #5f5f5f;
+}
+
+.spirits .bg-secondary {
+  border-radius:0.5rem;
+}
+.spirits .h-16 {
+  background-image: url('../assets/light2_bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.spirits body {
+    padding-left: 0rem !important;
+    padding-right: 0rem !important;
+}
+.spirits .left-1 {
+  background-color: #f6f7fa;
+}
+.spirits .left-0 {
+  background-color: #f6f7fa;
+  padding-left: 0.5rem;
+}
+.spirits .left-2 {
+  background-color: #f6f7fa;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

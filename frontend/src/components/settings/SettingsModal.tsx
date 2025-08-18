@@ -1,4 +1,5 @@
 import React, { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { appContext } from "../../hooks/provider";
 import SignInModal from "../signin";
 import { useSettingsStore } from "../store";
@@ -27,6 +28,7 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
   const { darkMode, setDarkMode, user } = React.useContext(appContext);
   const [isEmailModalOpen, setIsEmailModalOpen] = React.useState(false);
   const [hasChanges, setHasChanges] = React.useState(false);
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = React.useState(false);
   const [originalConfig, setOriginalConfig] = React.useState<any>(null);
 
@@ -51,7 +53,7 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
             setOriginalConfig(mergedConfig);
           } catch (error) {
             message.error(
-              "Failed to load settings. Using defaults. Error: " + error
+              t('settings.failedToLoadSettings') + ", Error: " + error
             );
             resetToDefaults();
             setOriginalConfig(null);
@@ -90,9 +92,9 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
     if (hasActualChanges && user?.email) {
       try {
         await settingsAPI.updateSettings(user.email, config);
-        message.success("Updated settings!");
+        message.success(t('settings.updatedSettings'));
       } catch (error) {
-        message.error("Failed to save settings");
+        message.error(t('settings.failedToSaveSettings'));
         console.error("Failed to save settings:", error);
         return;
       }
@@ -102,44 +104,44 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
   }, [config, originalConfig, user?.email, onClose]);
 
   const tabItems = {
-    general: {
-      label: "General",
+    "general": {
+      label: t('settings.general'),
       children: (
         <>
-          <Typography.Text strong>General Settings</Typography.Text>
-          <Divider />
-          <GeneralSettings
-            darkMode={darkMode}
-            setDarkMode={setDarkMode}
-            config={config}
-            handleUpdateConfig={handleUpdateConfig}
+        <Typography.Text strong>{t('generalSettings.title')}</Typography.Text>
+        <Divider />
+        <GeneralSettings
+          darkMode={darkMode as "dark" | "light" | "spirits"}
+          setDarkMode={setDarkMode as (mode: "dark" | "light" | "spirits") => void}
+          config={config}
+          handleUpdateConfig={handleUpdateConfig}
           />
         </>
       ),
     },
-    agents: {
-      label: "Agent Settings",
+    "agents": {
+      label: t('settings.agents'),
       children: (
         <>
-          <Typography.Text strong>Agent Settings</Typography.Text>
-          <Divider />
-          <AgentSettingsTab
-            config={config}
-            handleUpdateConfig={handleUpdateConfig}
+        <Typography.Text strong>{t('agentSettings.title')}</Typography.Text>
+        <Divider />
+        <AgentSettingsTab
+          config={config}
+          handleUpdateConfig={handleUpdateConfig}
           />
         </>
       ),
     },
-    advanced_config: {
-      label: "Advanced Settings",
+    "advanced_config": {
+      label: t('settings.advanced'),
       children: (
         <>
-          <Typography.Text strong>Advanced Settings</Typography.Text>
-          <Divider />
-          <AdvancedConfigEditor
-            config={config}
-            darkMode={darkMode}
-            handleUpdateConfig={handleUpdateConfig}
+        <Typography.Text strong>{t('advancedSettings.title')}</Typography.Text>
+        <Divider />
+        <AdvancedConfigEditor
+          config={config}
+          darkMode={darkMode}
+          handleUpdateConfig={handleUpdateConfig}
           />
         </>
       ),
@@ -162,13 +164,12 @@ const SettingsModal: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
               onClick={handleResetDefaults}
               disabled={isLoading}
             >
-              Reset to Defaults
+              {t('settings.resetToDefaults')}
             </Button>
             {hasChanges && (
-              <Typography.Text italic type="warning">
-                Warning: Settings changes will only apply when you create a new
-                session
-              </Typography.Text>
+                <Typography.Text italic type="warning">
+                  {t('settings.settingsChangesWarning')}
+                </Typography.Text>
             )}
           </Flex>,
         ]}
