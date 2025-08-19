@@ -154,66 +154,46 @@ const McpServersList: React.FC = () => {
     setIsConfigModalOpen(true);
   };
 
-  // Helper function: Update a specific server within an existing agent
-  const updateServer = (existingAgent: MCPAgentConfig, editingServer: MCPServerInfo, formData: any): MCPAgentConfig => {
-    const updatedServers = existingAgent.mcp_servers.map((server: any) => {
-      if (server.server_name === editingServer.serverName) {
-        return formData.serverConfig;
-      }
-      return server;
-    });
-
-    return {
-      ...existingAgent,
-      name: formData.agentName || existingAgent.name,
-      description: formData.agentDescription || existingAgent.description,
-      mcp_servers: updatedServers
-    };
-  };
-
-  const editServer = (formData: any, settings: any, editingServer: MCPServerInfo) => {
-    const updatedAgents = settings.mcp_agent_configs.map((existingAgent: MCPAgentConfig) => {
-      if (existingAgent.name === editingServer.agentName) {
-        return updateServer(existingAgent, editingServer, formData);
-      }
-      return existingAgent;
-    });
-
-    return updatedAgents;
-  };
-
-  const addAgent = (formData: any, settings: any) => {
+  const addAgent = (formData: MCPAgentConfig, settings: any) => {
     return [...(settings.mcp_agent_configs || []), formData];
   };
 
-  const handleSaveServer = async (formData: any) => {
+  const handleSaveServer = async (formData: MCPAgentConfig) => {
     if (!user?.email || !settings) {
       console.error("User not authenticated or settings not loaded");
       return;
     }
 
     try {
-      // Validate server configuration before saving
-      if (formData.serverConfig) {
-        const validationResult = NamedMCPServerConfigSchema.safeParse(formData.serverConfig);
-        if (!validationResult.success) {
-          throw new Error(`Server validation failed: ${validationResult.error.errors.map(err => err.message).join(', ')}`);
-        }
+      let updatedSettings;
+
+      if (editingServer) {
+        const updatedAgents = settings.mcp_agent_configs.map((agent: MCPAgentConfig) => {
+          if (agent.name === editingServer.agentName) {
+            return {
+              ...agent, // Preserve existing system_message, tool_call_summary_format, model_client
+              ...formData, // Override only name, description, mcp_servers from modal
+            };
+          }
+          return agent;
+        });
+        updatedSettings = { ...settings, mcp_agent_configs: updatedAgents };
+      } else {
+        // Adding new server/agent - formData is already complete
+        const updatedAgents = addAgent(formData, settings);
+        updatedSettings = { ...settings, mcp_agent_configs: updatedAgents };
       }
 
-      // Validate complete agent configuration if it's a new agent
-      if (!editingServer && formData.name) {
-        const agentValidationResult = MCPAgentConfigSchema.safeParse(formData);
-        if (!agentValidationResult.success) {
-          throw new Error(`Agent validation failed: ${agentValidationResult.error.errors.map(err => err.message).join(', ')}`);
-        }
+      // Validate the complete agent configuration after merging
+      const agentToValidate = editingServer
+        ? updatedSettings.mcp_agent_configs.find((agent: MCPAgentConfig) => agent.name === editingServer.agentName)
+        : formData;
+
+      const agentValidationResult = MCPAgentConfigSchema.safeParse(agentToValidate);
+      if (!agentValidationResult.success) {
+        throw new Error(`Agent validation failed: ${agentValidationResult.error.errors.map(err => err.message).join(', ')}`);
       }
 
-      const updatedAgents = editingServer
-        ? editServer(formData, settings, editingServer)
-        : addAgent(formData, settings);
-
-      const updatedSettings = { ...settings, mcp_agent_configs: updatedAgents };
       await settingsAPI.updateSettings(user.email, updatedSettings);
       setSettings(updatedSettings);
 
