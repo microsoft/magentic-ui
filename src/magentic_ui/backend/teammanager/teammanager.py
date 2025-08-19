@@ -216,10 +216,12 @@ class TeamManager:
             # If invalid: we disregard in the configuration file and use the UI settings to configure MCP agent for team
 
             # Get mcp_agent_configs from configuration file
-            mcp_agent_config_from_config_file:List[Dict[str, Any]] = self.config.get("mcp_agent_configs", [])
+            mcp_agent_config_from_config_file: List[Dict[str, Any]] = self.config.get(
+                "mcp_agent_configs", []
+            )
             # Get mcp_agent_configs from frontend settings
             settings_mcp_configs = settings_config.get("mcp_agent_configs", [])
-            
+
             # Verify the MCP agent configuration in the configuration file
             def validate_mcp_config(mcp_config: Dict[str, Any]) -> bool:
                 """
@@ -230,9 +232,13 @@ class TeamManager:
                 if not isinstance(mcp_servers, list) or len(mcp_servers) == 0:
                     return False
 
-                agent_name:str|None = mcp_config.get("name")
-                agent_description:str|None  = mcp_config.get("description")
-                if not isinstance(agent_name, str) or not agent_name.isalnum() or not isinstance(agent_description, str):
+                agent_name: str | None = mcp_config.get("name")
+                agent_description: str | None = mcp_config.get("description")
+                if (
+                    not isinstance(agent_name, str)
+                    or not agent_name.isalnum()
+                    or not isinstance(agent_description, str)
+                ):
                     return False
 
                 for server in mcp_servers:
@@ -243,7 +249,7 @@ class TeamManager:
                         return False
 
                 return True
-                        
+
             # If there are MCP configurations in config file, validate and use them
             if mcp_agent_config_from_config_file:
                 # Verify the MCP agent configuration in the configuration file
@@ -254,12 +260,16 @@ class TeamManager:
                     else:
                         all_valid = False
                         break
-                
+
                 if not all_valid:
-                    logger.warning("MCP agent configurations in config file are invalid, falling back to frontend settings.")
+                    logger.warning(
+                        "MCP agent configurations in config file are invalid, falling back to frontend settings."
+                    )
                     settings_config["mcp_agent_configs"] = settings_mcp_configs
                 else:
-                    settings_config["mcp_agent_configs"] = mcp_agent_config_from_config_file
+                    settings_config["mcp_agent_configs"] = (
+                        mcp_agent_config_from_config_file
+                    )
             else:
                 # If no MCP configurations in config file, use frontend settings
                 settings_config["mcp_agent_configs"] = settings_mcp_configs
