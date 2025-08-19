@@ -5,11 +5,17 @@ import { StdioServerParams } from "../types";
 const StdioServerForm: React.FC<{
   value: StdioServerParams;
   onValueChanged: (updated: StdioServerParams) => void;
-}> = ({ value, onValueChanged }) => {
+  resetFlag?: number;
+}> = ({ value, onValueChanged, resetFlag }) => {
   const [hasInteracted, setHasInteracted] = useState(false);
   const stdioCommandError = hasInteracted && (!value.command || value.command.trim() === '');
 
   const [envText, setEnvText] = useState('');
+
+  // Clear error state when component mounts or resetFlag changes
+  useEffect(() => {
+    setHasInteracted(false);
+  }, [resetFlag]);
 
   useEffect(() => {
     const envTextValue = value.env ? Object.entries(value.env).map(([k, v]) => `${k}=${v}`).join('\n') : '';
