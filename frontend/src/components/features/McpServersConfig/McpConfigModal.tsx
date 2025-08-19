@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Form, Input, Button, message, Tabs, Tooltip, Divider } from "antd";
+import { Modal, Form, Input, Button, message, Tabs, Divider } from "antd";
 import {
   // Types
   MCPServerInfo,
@@ -11,6 +11,7 @@ import {
   DEFAULT_SSE_PARAMS,
   DEFAULT_STDIO_PARAMS,
   serverNamePattern,
+  agentNamePattern,
 
   // Type guards
   isSseServerParams,
@@ -69,6 +70,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
   const [formAgentName, setFormAgentName] = useState("");
   const [formAgentDescription, setFormAgentDescription] = useState("");
   const [jsonConfig, setJsonConfig] = useState("");
+  const [hasServerNameInteracted, setHasServerNameInteracted] = useState(false);
 
   const { defaultModel } = useDefaultModel();
   const [modelClient, setModelClient] = useState<ModelConfig>(DEFAULT_OPENAI);
@@ -272,8 +274,9 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
     }
   };
 
-  const serverNameError = isEmpty(serverName) || !serverNamePattern.test(serverName);
-  const serverNameDuplicateError = serverName && existingServerNames.includes(serverName) && (!server || server.serverName !== serverName);
+  const serverNameError = hasServerNameInteracted && (isEmpty(serverName) || !serverNamePattern.test(serverName));
+  const serverNameDuplicateError = !isEmpty(serverName) && existingServerNames.includes(serverName) && (!server || server.serverName !== serverName);
+  const agentNameError = !isEmpty(formAgentName) && !agentNamePattern.test(formAgentName);
 
   return (
     <Modal
@@ -297,7 +300,13 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
         <Button key="test" onClick={handleTestConnection} loading={isTesting}>
           Test Connection
         </Button>,
-        <Button key="save" type="primary" onClick={handleSave} loading={isSaving}>
+        <Button
+          key="save"
+          type="primary"
+          onClick={handleSave}
+          loading={isSaving}
+          disabled={serverNameError || serverNameDuplicateError || agentNameError}
+        >
           {server ? "Update Server" : "Add Server"}
         </Button>,
       ]}
@@ -329,21 +338,27 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
 
           {activeTab !== "json" && (
             <div className="space-y-4">
-              <Tooltip title={
-                serverNameError ? 'Server Name is required and can only contain letters and numbers.' :
-                serverNameDuplicateError ? 'Server name already exists.' : ''
-              } open={serverNameError || serverNameDuplicateError ? undefined : false}>
-                <Form.Item label="Server Name" required>
-                  <Input
-                    value={serverName}
-                    placeholder="Server Name"
-                    status={serverNameError || serverNameDuplicateError ? 'error' : ''}
-                    onChange={e => setServerName(e.target.value)}
-                    maxLength={50}
-                    showCount
-                  />
-                </Form.Item>
-              </Tooltip>
+              <Form.Item
+                label="Server Name"
+                required
+                validateStatus={serverNameError || serverNameDuplicateError ? 'error' : undefined}
+                help={
+                  serverNameError ? 'Server Name is required and can only contain letters and numbers.' :
+                  serverNameDuplicateError ? 'Server name already exists.' : undefined
+                }
+              >
+                <Input
+                  value={serverName}
+                  placeholder="Server Name"
+                  status={serverNameError || serverNameDuplicateError ? 'error' : undefined}
+                  onChange={e => {
+                    setHasServerNameInteracted(true);
+                    setServerName(e.target.value);
+                  }}
+                  maxLength={50}
+                  showCount
+                />
+              </Form.Item>
             </div>
           )}
 
@@ -371,6 +386,8 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
 
             <Form.Item
               label="Agent Name"
+              validateStatus={agentNameError ? 'error' : undefined}
+              help={agentNameError ? 'Agent name must be a valid Python identifier (letters, numbers, underscores only, must start with letter or underscore)' : undefined}
             >
               <Input
                 value={formAgentName}
@@ -378,6 +395,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
                 placeholder="Auto-generated from server name"
                 maxLength={100}
                 showCount
+                status={agentNameError ? 'error' : undefined}
               />
             </Form.Item>
 

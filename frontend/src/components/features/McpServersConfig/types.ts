@@ -4,6 +4,9 @@ import { ModelConfigSchema } from "../../settings/tabs/agentSettings/modelSelect
 // Shared server name pattern - must start with letter, then letters/numbers
 export const SERVER_NAME_PATTERN = /^[A-Za-z]+[A-Za-z0-9]*$/;
 
+// Agent name pattern - must be a valid Python identifier (same as Python side)
+export const AGENT_NAME_PATTERN = /^[a-zA-Z_]+[a-zA-Z0-9_]*$/;
+
 export const StdioServerParamsSchema = z.object({
   type: z.literal("StdioServerParams"),
   command: z.string(),
@@ -92,6 +95,7 @@ export const MCP_SERVER_TYPES = {
 };
 
 export const serverNamePattern = SERVER_NAME_PATTERN;
+export const agentNamePattern = AGENT_NAME_PATTERN;
 
 export const isEmpty = (val: any) => val === undefined || val === null || (typeof val === 'string' && val.trim() === '') || (Array.isArray(val) && val.length === 0);
 

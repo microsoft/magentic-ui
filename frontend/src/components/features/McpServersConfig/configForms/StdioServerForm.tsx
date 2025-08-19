@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Input, Form, Tooltip, Collapse, Flex } from "antd";
+import { Input, Form, Collapse, Flex } from "antd";
 import { StdioServerParams } from "../types";
 
 const StdioServerForm: React.FC<{
   value: StdioServerParams;
   onValueChanged: (updated: StdioServerParams) => void;
 }> = ({ value, onValueChanged }) => {
-  const stdioCommandError = !value.command || value.command.trim() === '';
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const stdioCommandError = hasInteracted && (!value.command || value.command.trim() === '');
 
   const [envText, setEnvText] = useState('');
 
@@ -21,6 +22,8 @@ const StdioServerForm: React.FC<{
   }
 
   const handleCommandValueChanged: React.ChangeEventHandler<HTMLInputElement> = (event) => {
+    setHasInteracted(true);
+
     const parts = event.target.value?.trimStart().split(" ");
 
     if (parts.length > 1) {
@@ -40,16 +43,19 @@ const StdioServerForm: React.FC<{
 
   return (
     <Flex vertical gap="small" style={{width: "100%"}}>
-      <Tooltip title={stdioCommandError ? 'Command is required' : 'Provide the command and arguments, e.g. "npx -y mcp-server-fetch"'}>
-        <Form.Item label="Command (including args)" required>
+        <Form.Item
+          label="Command (including args)"
+          required
+          validateStatus={stdioCommandError ? 'error' : undefined}
+          help={stdioCommandError ? 'Command is required' : undefined}
+        >
           <Input
             placeholder="npx -y mcp-server-fetch"
             value={command}
-            status={stdioCommandError ? 'error' : ''}
+            status={stdioCommandError ? 'error' : undefined}
             onChange={handleCommandValueChanged}
           />
         </Form.Item>
-      </Tooltip>
       <Collapse>
         <Collapse.Panel key="1" header={<h1>Optional Properties</h1>}>
           <Form.Item label="Read Timeout (seconds)">
