@@ -42,9 +42,9 @@ const McpServerCard: React.FC<McpServerCardProps> = ({ server, index, onEdit, on
     }
 
     if (server.connectionStatus.isConnected) {
-      return `Connected (${server.connectionStatus.toolsFound || 0} tools)`;
+      return `Test found (${server.connectionStatus.toolsFound || 0} tools)`;
     } else {
-      return "Connection failed";
+      return "Test failed";
     }
   };
 

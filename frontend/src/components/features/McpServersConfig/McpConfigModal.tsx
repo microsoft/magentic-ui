@@ -251,7 +251,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
 
       return connectionStatus;
     } catch (error) {
-      console.error("Test connection failed:", error);
+      console.error("Test failed:", error);
       message.error(`Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
 
       // Save error status
@@ -290,8 +290,8 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
             return connectionStatus && (
               <div className={`text-sm ${connectionStatus.isConnected ? 'text-green-600' : 'text-red-600'}`}>
                 {connectionStatus.isConnected
-                  ? `✓ Connected (${connectionStatus.toolsFound || 0} tools)`
-                  : '✗ Connection failed'
+                  ? `✓ Test found (${connectionStatus.toolsFound || 0} tools)`
+                  : '✗ Test failed'
                 }
               </div>
             );
