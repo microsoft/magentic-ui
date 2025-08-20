@@ -332,7 +332,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
         </Button>,
       ]}
       width={600}
-      className="max-h-[75vh] p-0 overflow-y-auto"
+      className="max-h-[80vh] p-0 overflow-y-auto"
     >
       <Form form={form} layout="vertical">
         <div className="space-y-6 p-6">
