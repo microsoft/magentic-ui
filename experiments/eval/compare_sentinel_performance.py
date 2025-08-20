@@ -15,23 +15,32 @@ from scipy import stats
 from typing import Dict, List, Tuple, Optional
 
 
-# Model pricing per 1K tokens (input/output)
+# Model def get_model_pricing():
 MODEL_PRICING = {
-    "gpt-4o": {"input": 0.0025, "output": 0.01},
-    "gpt-4o-2024-08-06": {"input": 0.0025, "output": 0.01},
-    "gpt-4o-2024-11-20": {"input": 0.0025, "output": 0.01},
-    "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
-    "gpt-4o-mini-2024-07-18": {"input": 0.00015, "output": 0.0006},
+    # OpenAI GPT
+    "gpt-4o": {"input": 0.005, "output": 0.02},  # Standard
+    "gpt-4o-batch": {"input": 0.0025, "output": 0.01},  # Batch/Azure
+    "gpt-4o-2024-08-06": {"input": 0.005, "output": 0.02},
+    "gpt-4o-2024-11-20": {"input": 0.005, "output": 0.02},
+    "gpt-4o-mini": {"input": 0.0006, "output": 0.0024},  # Standard (Batch = 0.0003/0.0012)
+    "gpt-4o-mini-2024-07-18": {"input": 0.0006, "output": 0.0024},
     "gpt-4": {"input": 0.03, "output": 0.06},
     "gpt-4-turbo": {"input": 0.01, "output": 0.03},
-    "gpt-3.5-turbo": {"input": 0.0015, "output": 0.002},
+    "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
+
+    # Anthropic Claude
     "claude-3-5-sonnet-20241022": {"input": 0.003, "output": 0.015},
     "claude-3-5-sonnet-20240620": {"input": 0.003, "output": 0.015},
     "claude-3-opus-20240229": {"input": 0.015, "output": 0.075},
     "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125},
-    "gemini-1.5-pro": {"input": 0.00125, "output": 0.005},
-    "gemini-1.5-flash": {"input": 0.000075, "output": 0.0003},
+
+    # Google Gemini
+    "gemini-1.5-pro": {"input": 0.00125, "output": 0.005},  # ≤128k ctx
+    "gemini-1.5-pro-extended": {"input": 0.0025, "output": 0.01},  # >128k ctx
+    "gemini-1.5-flash": {"input": 0.000075, "output": 0.0003},  # ≤128k ctx
+    "gemini-1.5-flash-extended": {"input": 0.00015, "output": 0.0006},  # >128k ctx
 }
+return MODEL_PRICING
 
 
 def setup_plot_style():
