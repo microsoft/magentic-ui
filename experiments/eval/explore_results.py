@@ -5,6 +5,7 @@ import argparse
 from typing import Dict, Any
 from magentic_ui.eval.benchmarks.gaia.gaia import GaiaBenchmark
 from magentic_ui.eval.benchmarks.sentinelbench.sentinelbench import SentinelBenchBenchmark
+from magentic_ui.eval.benchmarks.webgames.webgames import WebGamesBenchmark
 
 
 def get_run_results_df(
@@ -24,8 +25,10 @@ def get_run_results_df(
         benchmark = GaiaBenchmark(data_dir=data_dir)
     elif dataset_name == "SentinelBench":
         benchmark = SentinelBenchBenchmark(data_dir=data_dir)
+    elif dataset_name == "WebGames":
+        benchmark = WebGamesBenchmark(data_dir=data_dir)
     else:
-        raise ValueError(f"Invalid dataset name: {dataset_name}. Supported: Gaia, SentinelBench")
+        raise ValueError(f"Invalid dataset name: {dataset_name}. Supported: Gaia, SentinelBench, WebGames")
     # Download the dataset (only needed once)
     benchmark.download_dataset()
     # Load it into memory
@@ -54,6 +57,10 @@ def get_run_results_df(
                 # SentinelBench stores difficulty in metadata
                 task_data["difficulty"] = benchmark.tasks[task_dir].metadata.get("difficulty", "unknown")
                 task_data["base_task"] = benchmark.tasks[task_dir].metadata.get("base_task", "unknown")
+            elif dataset_name == "WebGames":
+                # WebGames stores tags in metadata
+                task_data["difficulty"] = "unknown"  # WebGames doesn't have difficulty levels
+                task_data["tags"] = benchmark.tasks[task_dir].metadata.get("tags", [])
             task_data["metadata"] = benchmark.tasks[task_dir].metadata
 
         # Read answer file
@@ -156,7 +163,7 @@ def main():
         "--data-dir", type=str, required=True, help="Path to the data directory"
     )
     parser.add_argument(
-        "--dataset", type=str, default="Gaia", choices=["Gaia", "SentinelBench"], 
+        "--dataset", type=str, default="Gaia", choices=["Gaia", "SentinelBench", "WebGames"], 
         help="Dataset name (default: Gaia)"
     )
     args, unknown = (
