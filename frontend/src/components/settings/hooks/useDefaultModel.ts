@@ -12,34 +12,42 @@ import { settingsAPI } from "../../views/api";
  * Otherwise, it falls back to UI settings.
  */
 export const useDefaultModel = () => {
-  const { config } = useSettingsStore();
+  const { config: uiSettings } = useSettingsStore();
   const [defaultModel, setDefaultModel] = useState<ModelConfig | undefined>(
-    initializeDefaultModel(config)
+    initializeDefaultModel(uiSettings)
   );
 
   useEffect(() => {
     const fetchConfigInfo = async () => {
       try {
-        const configInfo = await settingsAPI.getConfigInfo();
+        const configFileInfo = await settingsAPI.getConfigInfo();
 
         // Check if config file has complete model client configurations
-        if (configInfo?.has_config_file && configInfo?.config_content) {
-          const configContent = configInfo.config_content;
+        if (configFileInfo?.has_config_file && configFileInfo?.config_content) {
+          const configFileData = configFileInfo.config_content;
 
-          const hasCompleteConfig =
-            configContent.orchestrator_client &&
-            configContent.web_surfer_client &&
-            configContent.coder_client &&
-            configContent.file_surfer_client &&
-            configContent.action_guard_client;
+          const hasCompleteConfigFile =
+            configFileData.model_client_configs?.orchestrator &&
+            configFileData.model_client_configs?.web_surfer &&
+            configFileData.model_client_configs?.coder &&
+            configFileData.model_client_configs?.file_surfer &&
+            configFileData.model_client_configs?.action_guard;
 
-          if (hasCompleteConfig) {
-            setDefaultModel(configContent.orchestrator_client);
+          if (hasCompleteConfigFile) {
+            const modelFromConfigFile = initializeDefaultModel(configFileData);
+            setDefaultModel(modelFromConfigFile);
             return;
           }
         }
+
+        // Fall back to UI settings if no complete config file
+        const modelFromUISettings = initializeDefaultModel(uiSettings);
+        setDefaultModel(modelFromUISettings);
       } catch (error) {
         console.warn("Failed to fetch config file info:", error);
+        // Fall back to UI settings on error
+        const modelFromUISettings = initializeDefaultModel(uiSettings);
+        setDefaultModel(modelFromUISettings);
       }
     };
 
