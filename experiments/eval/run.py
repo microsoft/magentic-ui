@@ -11,6 +11,7 @@ from magentic_ui.eval.systems import LLMSystem
 from magentic_ui.eval.benchmarks import WebVoyagerBenchmark
 from magentic_ui.eval.benchmark import Benchmark
 from autogen_core.models import ChatCompletionClient
+from src.magentic_ui.eval.benchmarks.sentinelbench.task_variants import SENTINELBENCH_TASK_VARIANTS, SENTINELBENCH_TEST_VARIANTS
 
 
 def save_experiment_args(args: argparse.Namespace, system_name: str) -> None:
@@ -103,8 +104,8 @@ def run_system_evaluation(
         client = ChatCompletionClient.load_component(
             {
                 "provider": "OpenAIChatCompletionClient",
-                "config": {
-                    "model": "gpt-4o-2024-08-06",
+                    "config": {
+                        "model": "gpt-5",
                 },
                 "max_retries": 10,
             }
@@ -122,6 +123,29 @@ def run_system_evaluation(
             return benchmark
 
         benchmark_constructor = create_benchmark
+    elif args.dataset == "SentinelBench":
+        # Import here to avoid circular import
+        from magentic_ui.eval.benchmarks.sentinelbench.sentinelbench import SentinelBenchBenchmark
+        
+        def create_sentinelbench_benchmark(data_dir="SentinelBench", name="SentinelBench"):
+            # Choose variants based on args or use defaults
+            task_variants = None
+            if hasattr(args, 'use_test_variants') and args.use_test_variants:
+                task_variants = SENTINELBENCH_TEST_VARIANTS
+            elif hasattr(args, 'use_full_variants') and args.use_full_variants:
+                task_variants = SENTINELBENCH_TASK_VARIANTS
+            
+            benchmark = SentinelBenchBenchmark(
+                data_dir=data_dir,
+                name=name,
+                task_variants=task_variants,
+            )
+            return benchmark
+            
+        benchmark_constructor = create_sentinelbench_benchmark
+    elif args.dataset == "WebGames":
+        # Keep original WebGames logic without variants
+        benchmark_constructor = None
         # Load it into memory
     if args.mode == "eval":
         evaluate_benchmark_func(
@@ -200,6 +224,7 @@ def run_system_sim_user(args: argparse.Namespace, system_name: str) -> None:
             dataset_name=args.dataset,
             use_local_browser=args.use_local_browser,
             sentinel_tasks=args.sentinel_tasks,
+            timeout_minutes=args.timeout_minutes,
         )
 
     run_system_evaluation(args, system, system_name, config)
@@ -303,6 +328,24 @@ def main() -> None:
         type=str,
         choices=["easy", "medium", "hard"],
         help="Filter tasks by difficulty level",
+    )
+    parser.add_argument(
+        "--timeout-minutes",
+        type=int,
+        default=15,
+        help="Timeout for each task in minutes (default: 15)",
+    )
+    parser.add_argument(
+        "--use-test-variants",
+        action="store_true",
+        default=False,
+        help="Use test variants for SentinelBench (smaller set for testing)",
+    )
+    parser.add_argument(
+        "--use-full-variants",
+        action="store_true",
+        default=False,
+        help="Use full variants for SentinelBench (all parameter combinations)",
     )
 
     args = parser.parse_args()

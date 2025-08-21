@@ -77,6 +77,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         web_surfer_only: bool = False,
         use_local_browser: bool = False,
         sentinel_tasks: bool = False,
+        timeout_minutes: int = 15,
     ):
         super().__init__(name)
         self.candidate_class = WebVoyagerCandidate
@@ -88,6 +89,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         self.dataset_name = dataset_name
         self.use_local_browser = use_local_browser
         self.sentinel_tasks = sentinel_tasks
+        self.timeout_minutes = timeout_minutes
 
     def get_answer(
         self, task_id: str, task: BaseTask, output_dir: str
@@ -238,44 +240,73 @@ class MagenticUIAutonomousSystem(BaseSystem):
                 )
             else:
                 task_message = TextMessage(content=task_question, source="user")
-            # Step 4: Run the team on the task
-            async for message in team.run_stream(task=task_message):
-                # Store log events
-                message_str: str = ""
-                try:
-                    if isinstance(message, TaskResult) or isinstance(
-                        message, CheckpointEvent
-                    ):
-                        continue
-                    message_str = message.to_text()
-                    # Create log event with source, content and timestamp
-                    log_event = LogEventSystem(
-                        source=message.source,
-                        content=message_str,
-                        timestamp=datetime.datetime.now().isoformat(),
-                        metadata=message.metadata,
-                    )
-                    messages_so_far.append(log_event)
-                except Exception as e:
-                    logger.info(
-                        f"[likely nothing] When creating model_dump of message encountered exception {e}"
-                    )
-                    pass
+            # Step 4: Run the team on the task with explicit timeout wrapper
+            timeout_seconds = 60 * self.timeout_minutes
+            last_message_str = ""
+            try:
+                async def run_with_timeout():
+                    nonlocal last_message_str
+                    async for message in team.run_stream(task=task_message):
+                        # Store log events
+                        message_str: str = ""
+                        try:
+                            if isinstance(message, TaskResult) or isinstance(
+                                message, CheckpointEvent
+                            ):
+                                continue
+                            message_str = message.to_text()
+                            last_message_str = message_str  # Store for access outside
+                            # Create log event with source, content and timestamp
+                            log_event = LogEventSystem(
+                                source=message.source,
+                                content=message_str,
+                                timestamp=datetime.datetime.now().isoformat(),
+                                metadata=message.metadata,
+                            )
+                            messages_so_far.append(log_event)
+                        except Exception as e:
+                            logger.info(
+                                f"[likely nothing] When creating model_dump of message encountered exception {e}"
+                            )
+                            pass
 
-                # save to file
-                logger.info(f"Run in progress: {task_id}, message: {message_str}")
-                async with aiofiles.open(
-                    f"{output_dir}/{task_id}_messages.json", "w"
-                ) as f:
-                    # Convert list of logevent objects to list of dicts
-                    messages_json = [msg.model_dump() for msg in messages_so_far]
-                    await f.write(json.dumps(messages_json, indent=2))
+                        # save to file
+                        logger.info(f"Run in progress: {task_id}, message: {message_str}")
+                        safe_task_id = task_id.replace("/", "_")
+                        async with aiofiles.open(
+                            f"{output_dir}/{safe_task_id}_messages.json", "w"
+                        ) as f:
+                            await f.write(
+                                json.dumps([msg.model_dump() for msg in messages_so_far], indent=2)
+                            )
+                
+                await asyncio.wait_for(run_with_timeout(), timeout=timeout_seconds)
+                
                 # how the final answer is formatted:  "Final Answer: FINAL ANSWER: Actual final answer"
 
-                if message_str.startswith("Final Answer:"):
-                    answer = message_str[len("Final Answer:") :].strip()
+                if last_message_str.startswith("Final Answer:"):
+                    answer = last_message_str[len("Final Answer:") :].strip()
                     # remove the "FINAL ANSWER:" part and get the string after it
                     answer = answer.split("FINAL ANSWER:")[1].strip()
+
+            except asyncio.TimeoutError:
+                logger.warning(f"Task {task_id} timed out after {timeout_seconds} seconds")
+                answer = "TIMEOUT: Task execution exceeded time limit"
+                # Save timeout message to log
+                timeout_log_event = LogEventSystem(
+                    source="system",
+                    content=f"Task timed out after {timeout_seconds} seconds",
+                    timestamp=datetime.datetime.now().isoformat(),
+                    metadata={"type": "timeout"},
+                )
+                messages_so_far.append(timeout_log_event)
+                # Save final messages
+                safe_task_id = task_id.replace("/", "_")
+                async with aiofiles.open(
+                    f"{output_dir}/{safe_task_id}_messages.json", "w"
+                ) as f:
+                    messages_json = [msg.model_dump() for msg in messages_so_far]
+                    await f.write(json.dumps(messages_json, indent=2))
 
             assert isinstance(
                 answer, str

@@ -117,6 +117,7 @@ class MagenticUISimUserSystem(BaseSystem):
         endpoint_config_user_proxy: Optional[Dict[str, Any]] = default_client_config,
         dataset_name: str = "Gaia",
         include_metadata_in_task_message: bool = False,
+        timeout_minutes: int = 15,
     ):
         super().__init__(name)
         self.candidate_class = WebVoyagerCandidate
@@ -130,6 +131,7 @@ class MagenticUISimUserSystem(BaseSystem):
         self.dataset_name = dataset_name
         self.how_helpful_user_proxy = how_helpful_user_proxy
         self.include_metadata_in_task_message = include_metadata_in_task_message
+        self.timeout_minutes = timeout_minutes
 
     def get_answer(
         self, task_id: str, task: BaseTask, output_dir: str
