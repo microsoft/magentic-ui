@@ -59,6 +59,6 @@ def validate_sentinel_condition_check_json(json_response: Dict[str, Any]) -> boo
         json_response["sleep_duration"], int
     ):
         return False
-    if json_response["sleep_duration"] <= 0:
+    if json_response["sleep_duration"] < 0:
         return False
     return True
