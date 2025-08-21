@@ -27,6 +27,7 @@ MODEL_PRICING = {
     "gpt-4": {"input": 0.03, "output": 0.06},
     "gpt-4-turbo": {"input": 0.01, "output": 0.03},
     "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
+    "gpt-5-mini": {"input": 0.00025, "output": 0.002},  # GPT-5 mini: $0.25/$2.00 per 1M tokens
 
     # Anthropic Claude
     "claude-3-5-sonnet-20241022": {"input": 0.003, "output": 0.015},
