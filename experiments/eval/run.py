@@ -11,7 +11,7 @@ from magentic_ui.eval.systems import LLMSystem
 from magentic_ui.eval.benchmarks import WebVoyagerBenchmark
 from magentic_ui.eval.benchmark import Benchmark
 from autogen_core.models import ChatCompletionClient
-from src.magentic_ui.eval.benchmarks.sentinelbench.task_variants import SENTINELBENCH_TASK_VARIANTS, SENTINELBENCH_TEST_VARIANTS
+from magentic_ui.eval.benchmarks.sentinelbench.task_variants import SENTINELBENCH_TASK_VARIANTS, SENTINELBENCH_TEST_VARIANTS
 
 
 def save_experiment_args(args: argparse.Namespace, system_name: str) -> None:
