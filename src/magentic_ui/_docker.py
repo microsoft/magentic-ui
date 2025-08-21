@@ -4,8 +4,8 @@ import os
 import docker
 from docker.errors import DockerException, ImageNotFound
 
-BROWSER_IMAGE_ENV_VAR = "MAGENTIC_UI_BROWSER_IMAGE"
-PYTHON_IMAGE_ENV_VAR = "MAGENTIC_UI_PYTHON_IMAGE"
+BROWSER_IMAGE_ENV_VAR = "magentic-ui-browser-image"
+PYTHON_IMAGE_ENV_VAR = "magentic-ui-python-image"
 
 DOCKER_REGISTRY = "ghcr.io/microsoft"
 BROWSER_IMAGE = os.getenv(
