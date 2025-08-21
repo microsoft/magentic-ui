@@ -13,8 +13,9 @@ else
     echo "Building images locally..."
 fi
 
+# --platform linux/amd64,linux/arm64 \
 docker buildx build \
-    --platform linux/amd64,linux/arm64 \
+    --platform linux/arm64 \
     -t "${REGISTRY}/${IMAGE_NAME}:latest" \
     -t "${REGISTRY}/${IMAGE_NAME}:${IMAGE_VERSION}" \
     ${PUSH_FLAG} \
