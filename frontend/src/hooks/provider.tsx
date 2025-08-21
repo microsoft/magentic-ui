@@ -18,7 +18,7 @@ export interface AppContextType {
   cookie_name: string;
   darkMode: string;
   setDarkMode: any;
-  language: "zh-CN" | "en-US";
+  language: "en-US" | "zh-CN";
   setLanguage: any;
 }
 
@@ -37,8 +37,8 @@ const Provider = ({ children }: any) => {
   );
   // language config
   const storedLanguage = getLocalStorage("language", false);
-  const [language, setLanguageState] = useState<"zh-CN" | "en-US">(
-    storedLanguage === null ? "zh-CN" : (storedLanguage === "zh-CN" || storedLanguage === "en-US") ? storedLanguage : "zh-CN"
+  const [language, setLanguageState] = useState<"en-US" | "zh-CN">(
+    storedLanguage === null ? "en-US" : (storedLanguage === "zh-CN" || storedLanguage === "en-US") ? storedLanguage : "en-US"
   );
   const logout = () => {
     // setUser(null);
@@ -52,7 +52,7 @@ const Provider = ({ children }: any) => {
     setLocalStorage("darkmode", darkMode, false);
   };
 
-  const updateLanguage = (language: "zh-CN" | "en-US") => {
+  const updateLanguage = (language: "en-US" | "zh-CN") => {
     setLanguageState(language);
     setLocalStorage("language", language, false);
     i18n.changeLanguage(language);

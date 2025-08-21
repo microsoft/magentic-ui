@@ -117,7 +117,8 @@
     "enterMessageToGetStarted": "输入消息开始对话",
     "noRunFound": "未找到运行",
     "socketFailedToConnect": "Socket连接失败",
-    "invalidSessionConfiguration": "无效的会话配置"
+    "invalidSessionConfiguration": "无效的会话配置",
+    "websocketMessageParsingError": "WebSocket消息解析错误"
   },
   "settings": {
     "title": "设置",

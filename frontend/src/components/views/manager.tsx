@@ -302,7 +302,7 @@ export const SessionManager: React.FC = () => {
     only_retrieve_existing_socket: boolean = false
   ): WebSocket | null => {
     console.log("getSessionSocket", sessionId, runId, fresh_socket, only_retrieve_existing_socket);
-    // 如果fresh_socket为true，并且sessionId不存在于sessionSockets中，则创建新的socket
+    // if fresh_socket is true and sessionId does not exist in sessionSockets, create a new socket
     const sessionExists = sessionId in sessionSockets;
     if (fresh_socket && !sessionExists) {
       return setupWebSocket(sessionId, runId);

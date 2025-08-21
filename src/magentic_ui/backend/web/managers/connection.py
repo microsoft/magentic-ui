@@ -538,7 +538,7 @@ class WebSocketManager:
             )
             await self.disconnect(run_id)
         except Exception as e:
-            # 检查是否是 GroupChatError 相关的错误
+            # check if the error is related to GroupChatError or Unhandled message in agent container
             if "GroupChatError" in str(e) or "Unhandled message in agent container" in str(e):
                 logger.warning(f"Ignoring GroupChatError in _send_message for run {run_id}: {e}")
             

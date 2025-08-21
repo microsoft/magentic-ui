@@ -20,7 +20,7 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    fallbackLng: 'zh-CN', // default language is Chinese
+    fallbackLng: 'en-US', // default language is English
     debug: process.env.NODE_ENV === 'development',
     
     interpolation: {

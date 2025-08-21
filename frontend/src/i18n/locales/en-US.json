@@ -117,7 +117,8 @@
     "enterMessageToGetStarted": "Enter a message to get started",
     "noRunFound": "No run found",
     "socketFailedToConnect": "Socket failed to connect",
-    "invalidSessionConfiguration": "Invalid session configuration"
+    "invalidSessionConfiguration": "Invalid session configuration",
+    "websocketMessageParsingError": "WebSocket message parsing error"
   },
   "settings": {
     "title": "Settings",

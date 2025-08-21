@@ -313,7 +313,7 @@ export default function ChatView({
             onRunStatusChange(session.id, message.status as BaseRunStatus);
           }
         } catch (error) {
-          console.error("WebSocket message parsing error:", error);
+          console.error(t("chat.websocketMessageParsingError"), error);
         }
       };
 

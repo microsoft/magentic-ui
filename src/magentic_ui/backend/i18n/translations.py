@@ -1,14 +1,14 @@
 """
-后端翻译工具
+Backend Translation Tool
 
-提供多语言文本获取功能
+Provides multi-language text retrieval functionality
 """
 
 from typing import Optional
 from ..datamodel import Settings
 
 
-# 翻译文本字典
+# Translation text dictionary
 TRANSLATIONS = {
     "zh-CN": {
         "backend": {
@@ -138,33 +138,33 @@ TRANSLATIONS = {
     }
 }
 
-# 默认语言
-DEFAULT_LANGUAGE = "zh-CN"
+# Default language
+DEFAULT_LANGUAGE = "en-US"
 
 
 def get_language_from_settings(settings: Optional[Settings]) -> str:
     """
-    从用户设置中获取语言设置
+    Get language setting from user settings
     
     Args:
-        settings: 用户设置对象
+        settings: User settings object
         
     Returns:
-        str: 语言代码 (zh-CN 或 en-US)
+        str: Language code (zh-CN or en-US)
     """
     if not settings or not settings.config:
         return DEFAULT_LANGUAGE
     
-    # 从设置中获取语言配置
+    # Get language configuration from settings
     config = settings.config
     if isinstance(config, dict):
-        # 如果是字典格式，查找language字段
+        # If it's a dictionary format, look for the language field
         language = config.get("language", DEFAULT_LANGUAGE)
     else:
-        # 如果是SettingsConfig对象，查找language字段
+        # If it's a SettingsConfig object, look for the language field
         language = getattr(config, "language", DEFAULT_LANGUAGE)
     
-    # 验证语言代码
+    # Validate language code
     if language not in ["zh-CN", "en-US"]:
         return DEFAULT_LANGUAGE
     
@@ -173,35 +173,35 @@ def get_language_from_settings(settings: Optional[Settings]) -> str:
 
 def get_text(key: str, language: str = DEFAULT_LANGUAGE, **kwargs: str) -> str:
     """
-    获取指定语言的文本
+    Get text in the specified language
     
     Args:
-        key: 翻译键
-        language: 语言代码
-        **kwargs: 格式化参数
+        key: Translation key
+        language: Language code
+        **kwargs: Format parameters
         
     Returns:
-        str: 翻译后的文本
+        str: Translated text
     """
-    # 确保语言代码有效
+    # Ensure language code is valid
     if language not in TRANSLATIONS:
         language = DEFAULT_LANGUAGE
     
-    # 按点分割键
+    # Split key by dots
     keys = key.split(".")
     current_dict = TRANSLATIONS[language]
     
-    # 遍历键路径
+    # Traverse key path
     for k in keys:
         if isinstance(current_dict, dict) and k in current_dict:
             current_dict = current_dict[k]
         else:
-            # 如果找不到翻译，返回键本身
+            # If translation not found, return the key itself
             return key
     
-    # 如果找到了翻译文本
+    # If translation text is found
     if isinstance(current_dict, str):
-        # 格式化文本（如果有参数）
+        # Format text (if parameters exist)
         if kwargs:
             try:
                 return current_dict.format(**kwargs)
@@ -209,5 +209,5 @@ def get_text(key: str, language: str = DEFAULT_LANGUAGE, **kwargs: str) -> str:
                 return current_dict
         return current_dict
     
-    # 如果最终结果不是字符串，返回键本身
+    # If final result is not a string, return the key itself
     return key 
