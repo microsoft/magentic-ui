@@ -52,7 +52,9 @@ class BaseSystem:
         if self.candidate_class is None:
             raise ValueError("Subclass must set self.candidate_class in __init__")
 
-        answer_path = os.path.join(output_dir, f"{task_id}_answer.json")
+        # Sanitize task_id for filename (replace / with _) to match save_answer_to_disk
+        safe_task_id = task_id.replace("/", "_")
+        answer_path = os.path.join(output_dir, f"{safe_task_id}_answer.json")
         if not os.path.exists(answer_path):
             return None
         with open(answer_path, "r", encoding="utf-8") as f:
@@ -71,7 +73,8 @@ class BaseSystem:
             output_dir (str): The directory to save the answer in.
         """
         os.makedirs(output_dir, exist_ok=True)
-        answer_path = os.path.join(output_dir, f"{task_id}_answer.json")
+        safe_task_id = task_id.replace("/", "_")
+        answer_path = os.path.join(output_dir, f"{safe_task_id}_answer.json")
         with open(answer_path, "w", encoding="utf-8") as f:
             f.write(answer.model_dump_json(indent=2))
 
@@ -86,7 +89,8 @@ class BaseSystem:
             **kwargs: Additional state information to save.
         """
         os.makedirs(output_dir, exist_ok=True)
-        partial_state_path = os.path.join(output_dir, f"{task_id}_partial_state.json")
+        safe_task_id = task_id.replace("/", "_")
+        partial_state_path = os.path.join(output_dir, f"{safe_task_id}_partial_state.json")
         
         state_data = {
             "task_id": task_id,

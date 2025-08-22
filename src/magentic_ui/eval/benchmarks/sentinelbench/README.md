@@ -48,8 +48,6 @@ python experiments/eval/run.py --current-dir . --dataset SentinelBench --split t
 python experiments/eval/run.py --current-dir . --dataset SentinelBench --split test --run-id 1 --simulated-user-type none --parallel 1 --config experiments/endpoint_configs/config.yaml --mode run --base-task animal-mover --difficulty medium
 ```
 
-Available base tasks: `reactor`, `animal-mover`, `button-presser`, `linkedin-monitor`, `github-watcher`, `cuckoo-watcher`
-
 ## Local Hosting
 
 SentinelBench is designed to be hosted locally during development and testing. The default configuration expects the benchmark website to be running at `http://172.25.159.193:5173/`.

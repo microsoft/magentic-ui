@@ -46,9 +46,39 @@ class SentinelBenchBenchmark(Benchmark):
         self.task_variants = task_variants or {}
         
         # Default parameter values for known parameterizable tasks
+        # All tasks will have easy/medium/hard variants in the final dataset
         self.default_params = {
-            "reactor-easy": {"duration": 30},  # Default 30s
-            # Add other parameterizable SentinelBench tasks here
+            # Time-based tasks (duration in seconds) - all variants
+            "reactor-easy": {"duration": 30},
+            "reactor-medium": {"duration": 30}, 
+            "reactor-hard": {"duration": 30},
+            "teams-monitor-easy": {"duration": 30},
+            "teams-monitor-medium": {"duration": 30},
+            "teams-monitor-hard": {"duration": 30},
+            "linkedin-monitor-easy": {"duration": 30},
+            "linkedin-monitor-medium": {"duration": 30},
+            "linkedin-monitor-hard": {"duration": 30},
+            "flight-booker-easy": {"duration": 30},
+            "flight-booker-medium": {"duration": 30},
+            "flight-booker-hard": {"duration": 30},
+            "news-checker-easy": {"duration": 30},
+            "news-checker-medium": {"duration": 30},
+            "news-checker-hard": {"duration": 30},
+            "github-watcher-easy": {"duration": 30},
+            "github-watcher-medium": {"duration": 30},
+            "github-watcher-hard": {"duration": 30},
+            "cuckoo-watcher-easy": {"duration": 30},
+            "cuckoo-watcher-medium": {"duration": 30},
+            "cuckoo-watcher-hard": {"duration": 30},
+            
+            # Count-based tasks (number of items/actions) - all variants
+            # Both use same scaling: [2, 4, 8, 16, 32, 64]
+            "animal-mover-easy": {"count": 2},
+            "animal-mover-medium": {"count": 2},
+            "animal-mover-hard": {"count": 2},
+            "button-presser-easy": {"count": 2},
+            "button-presser-medium": {"count": 2},
+            "button-presser-hard": {"count": 2},
         }
         
         logging_msg = f"[SentinelBench] Using base website path: {self.base_website_path}"
@@ -121,6 +151,7 @@ class SentinelBenchBenchmark(Benchmark):
         for _, row in df.iterrows():
             task_id = row["id"]  # type: ignore
             base_url = f"{self.base_website_path}{row['path']}"  # type: ignore
+            logging.info(f"[DEBUG] Processing task from dataset: id='{task_id}', path='{row['path']}', base_task='{row.get('base_task', 'N/A')}'")  # type: ignore
             
             # Build base metadata including all SentinelBench-specific fields
             base_metadata = {
@@ -146,10 +177,12 @@ class SentinelBenchBenchmark(Benchmark):
 
             # Check if this task has variants
             if task_id in self.task_variants:
+                logging.info(f"[DEBUG] Task '{task_id}' has variants: {self.task_variants[task_id]}")
                 # Create multiple variants with different parameters
                 for param_value in self.task_variants[task_id]:
                     variant_id = f"{task_id}/{param_value}"
                     variant_url = self._build_parameterized_url(base_url, task_id, param_value)
+                    logging.info(f"[DEBUG] Creating variant: id='{variant_id}', url='{variant_url}'")
                     
                     # Create variant metadata
                     variant_metadata = base_metadata.copy()
@@ -171,13 +204,17 @@ class SentinelBenchBenchmark(Benchmark):
                         set="test",
                     )
                     self.tasks[variant_id] = task
+                    logging.info(f"[DEBUG] Added task to self.tasks: '{variant_id}'")  
             else:
+                logging.info(f"[DEBUG] Task '{task_id}' NOT in task_variants, checking default_params")
                 # Create default task (possibly with default parameters)
                 if task_id in self.default_params:
+                    logging.info(f"[DEBUG] Task '{task_id}' has default params: {self.default_params[task_id]}")
                     # Use default parameter value
                     default_value = list(self.default_params[task_id].values())[0]
                     variant_id = f"{task_id}/{default_value}"
                     variant_url = self._build_parameterized_url(base_url, task_id, default_value)
+                    logging.info(f"[DEBUG] Creating default variant: id='{variant_id}', url='{variant_url}'")
                     
                     # Create variant metadata
                     variant_metadata = base_metadata.copy()
@@ -189,10 +226,12 @@ class SentinelBenchBenchmark(Benchmark):
                         "Upon successful completion you may get a password or a code which you should extract."
                     )
                 else:
+                    logging.info(f"[DEBUG] Task '{task_id}' has NO variants or default params, using original")
                     # No parameters, use original
                     variant_id = task_id
                     variant_url = base_url
                     variant_metadata = base_metadata.copy()
+                    logging.info(f"[DEBUG] Creating original task: id='{variant_id}', url='{variant_url}'")
                     
                     prompt = (
                         f"Go to {variant_url} and {row['description']}. "
@@ -208,6 +247,7 @@ class SentinelBenchBenchmark(Benchmark):
                     set="test",
                 )
                 self.tasks[variant_id] = task
+                logging.info(f"[DEBUG] Added task to self.tasks: '{variant_id}'")
 
         logging.info(f"[SentinelBench] Loaded {len(self.tasks)} total examples.")
 
@@ -215,11 +255,26 @@ class SentinelBenchBenchmark(Benchmark):
         """
         Build URL with parameters for specific SentinelBench tasks.
         """
-        if task_id == "reactor-easy":
+        # Duration-based tasks (time in seconds) - all will have easy/medium/hard variants
+        if task_id in [
+            "reactor-easy", "reactor-medium", "reactor-hard",
+            "teams-monitor-easy", "teams-monitor-medium", "teams-monitor-hard",
+            "linkedin-monitor-easy", "linkedin-monitor-medium", "linkedin-monitor-hard",
+            "flight-booker-easy", "flight-booker-medium", "flight-booker-hard",
+            "news-checker-easy", "news-checker-medium", "news-checker-hard",
+            "github-watcher-easy", "github-watcher-medium", "github-watcher-hard",
+            "cuckoo-watcher-easy", "cuckoo-watcher-medium", "cuckoo-watcher-hard"
+        ]:
             return f"{base_url}?duration={param_value}"
-        # Add other parameterizable SentinelBench tasks here
-        # elif task_id == "monitoring-task":
-        #     return f"{base_url}?interval={param_value}"
+        
+        # Count-based tasks (number of items/actions) - all will have easy/medium/hard variants
+        elif task_id in [
+            "animal-mover-easy", "animal-mover-medium", "animal-mover-hard",
+            "button-presser-easy", "button-presser-medium", "button-presser-hard"
+        ]:
+            return f"{base_url}?count={param_value}"
+        
+        # No parameters for other tasks
         else:
             return base_url
 
@@ -233,28 +288,39 @@ class SentinelBenchBenchmark(Benchmark):
             base_task: Filter to all variants of a base task (e.g., 'reactor')
             difficulty: Filter by difficulty level ('easy', 'medium', 'hard')
         """
+        logging.info(f"[DEBUG] get_split_tasks called with: split='{split}', task_id='{task_id}', base_task='{base_task}', difficulty='{difficulty}'")
+        logging.info(f"[DEBUG] Total tasks available: {len(self.tasks)}")
+        
         if split != "test":
             raise ValueError("only 'test' split is available for SentinelBench")
         
         filtered_tasks = []
         for task_id_key, task in self.tasks.items():
+            logging.info(f"[DEBUG] Checking task: '{task_id_key}', set='{task.set}', metadata.base_task='{task.metadata.get('base_task')}', metadata.difficulty='{task.metadata.get('difficulty')}'")
+            
             if task.set != split:
+                logging.info(f"[DEBUG] Skipping '{task_id_key}' - wrong split ('{task.set}' != '{split}')")
                 continue
                 
             # Apply task_id filter (exact match)
             if task_id is not None and task_id_key != task_id:
+                logging.info(f"[DEBUG] Skipping '{task_id_key}' - task_id filter ('{task_id_key}' != '{task_id}')")
                 continue
                 
             # Apply base_task filter (check metadata)
             if base_task is not None and task.metadata.get("base_task") != base_task:
+                logging.info(f"[DEBUG] Skipping '{task_id_key}' - base_task filter ('{task.metadata.get('base_task')}' != '{base_task}')")
                 continue
                 
             # Apply difficulty filter (check metadata)
             if difficulty is not None and task.metadata.get("difficulty") != difficulty:
+                logging.info(f"[DEBUG] Skipping '{task_id_key}' - difficulty filter ('{task.metadata.get('difficulty')}' != '{difficulty}')")
                 continue
                 
+            logging.info(f"[DEBUG] Task '{task_id_key}' PASSED all filters - adding to filtered_tasks")
             filtered_tasks.append(task_id_key)
         
+        logging.info(f"[DEBUG] get_split_tasks returning {len(filtered_tasks)} tasks: {filtered_tasks}")
         return filtered_tasks
 
     def evaluator(self, task: BaseTask, candidate: BaseCandidate) -> BaseEvalResult:
