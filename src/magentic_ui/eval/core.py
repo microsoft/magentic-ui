@@ -117,8 +117,12 @@ def _run_single_task(
     5. Saves results and timing information
     """
     logger.info(f"Running task {task_id} in {output_dir}")
+    logger.info(f"[DEBUG] _run_single_task called with task_id='{task_id}'")
+    logger.info(f"[DEBUG] benchmark_name='{benchmark_name}'")
+    
     question_dir = os.path.join(output_dir, str(task_id))
     os.makedirs(question_dir, exist_ok=True)
+    logger.info(f"[DEBUG] Created question_dir: {question_dir}")
 
     try:
         # Initialize or reload system
@@ -141,9 +145,14 @@ def _run_single_task(
             )
 
         # Load task just before we need it
+        logger.info(f"[DEBUG] About to load task with ID: '{task_id}'")
+        logger.info(f"[DEBUG] Available tasks in benchmark: {list(benchmark.tasks.keys())[:10]}...")  # Show first 10
         task = benchmark.load_task_by_id(task_id)
         if task is None:
+            logger.error(f"[DEBUG] Task '{task_id}' not found in benchmark.tasks")
+            logger.error(f"[DEBUG] All available task IDs: {list(benchmark.tasks.keys())}")
             raise ValueError(f"Task {task_id} not found")
+        logger.info(f"[DEBUG] Successfully loaded task: id='{task.id}', url_path='{task.url_path}'")
 
         # If there's already an answer, skip
         if os.path.exists(question_dir):
@@ -154,6 +163,8 @@ def _run_single_task(
                     if os.path.exists(times_path):
                         with open(times_path, "r") as f:
                             times_data = json.load(f)
+                            # Print prominent green bolded message to console
+                            print(f"\033[1;32m✅ SKIPPED: {task_id} (already completed)\033[0m")
                             logger.info(f"Skipping {task_id} (already has answer).")
                             return (
                                 task_id,
@@ -404,17 +415,27 @@ def run_benchmark_func(
         system_constructor = system
 
     # Get task IDs instead of full tasks
+    logger.info(f"[DEBUG] Getting task IDs for split='{split}', benchmark_name='{benchmark_name}'")
+    logger.info(f"[DEBUG] Filtering parameters: task_id='{task_id}', base_task='{base_task}', difficulty='{difficulty}'")
+    
     if split:
         # For SentinelBench, pass filtering parameters
         if benchmark_name == "SentinelBench":
+            logger.info(f"[DEBUG] Calling benchmark.get_split_tasks for SentinelBench")
             task_ids = benchmark.get_split_tasks(split, task_id=task_id, base_task=base_task, difficulty=difficulty)
         else:
+            logger.info(f"[DEBUG] Calling benchmark.get_split_tasks for non-SentinelBench")
             task_ids = benchmark.get_split_tasks(split)
     else:
+        logger.info(f"[DEBUG] No split specified, using all benchmark tasks")
         task_ids = list(benchmark.tasks.keys())
 
+    logger.info(f"[DEBUG] Before subsample: {len(task_ids)} task IDs: {task_ids}")
+    
     if subsample and 0 < subsample <= 1:
+        original_count = len(task_ids)
         task_ids = random.sample(task_ids, int(len(task_ids) * subsample))
+        logger.info(f"[DEBUG] After subsample ({subsample}): {len(task_ids)} task IDs (reduced from {original_count}): {task_ids}")
 
     # Task preparation bundles all necessary data for parallel execution
     tasks_system_data = [
@@ -431,6 +452,10 @@ def run_benchmark_func(
         for task_id in task_ids
     ]
 
+    logger.info(f"[DEBUG] Created {len(tasks_system_data)} task data entries for execution")
+    for i, (_, task_id, _, _, _, _, _, _) in enumerate(tasks_system_data[:5]):  # Show first 5
+        logger.info(f"[DEBUG] Task data [{i}]: task_id='{task_id}'")
+
     logger.info(
         f"Starting run_benchmark with {'sequential' if parallel == 1 else str(parallel) + ' processes'}..."
     )
@@ -438,7 +463,8 @@ def run_benchmark_func(
     # Separate path for non-parallel execution
     if parallel == 1:
         results: List[Tuple[str, Optional[AllCandidateTypes], float]] = []
-        for task_data in tasks_system_data:
+        for i, task_data in enumerate(tasks_system_data):
+            logger.info(f"[DEBUG] About to execute task {i+1}/{len(tasks_system_data)}: task_id='{task_data[1]}'")
             results.append(_run_single_task(*task_data))
     else:
         with multiprocessing.Pool(processes=parallel) as pool:
