@@ -7,8 +7,7 @@ import { settingsAPI } from "../../views/api";
 /**
  * Hook to get the default model, prioritizing config file over UI settings
  *
- * When --config is provided and contains complete model client configurations,
- * it uses orchestrator_client as the default model (same logic as teammanager.py).
+ * When --config is provided, it uses the default model from the config file.
  * Otherwise, it falls back to UI settings.
  */
 export const useDefaultModel = () => {
@@ -22,25 +21,15 @@ export const useDefaultModel = () => {
       try {
         const configFileInfo = await settingsAPI.getConfigInfo();
 
-        // Check if config file has complete model client configurations
+        // Check if config file exists and has content
         if (configFileInfo?.has_config_file && configFileInfo?.config_content) {
           const configFileData = configFileInfo.config_content;
-
-          const hasCompleteConfigFile =
-            configFileData.model_client_configs?.orchestrator &&
-            configFileData.model_client_configs?.web_surfer &&
-            configFileData.model_client_configs?.coder &&
-            configFileData.model_client_configs?.file_surfer &&
-            configFileData.model_client_configs?.action_guard;
-
-          if (hasCompleteConfigFile) {
-            const modelFromConfigFile = initializeDefaultModel(configFileData);
-            setDefaultModel(modelFromConfigFile);
-            return;
-          }
+          const modelFromConfigFile = initializeDefaultModel(configFileData);
+          setDefaultModel(modelFromConfigFile);
+          return;
         }
 
-        // Fall back to UI settings if no complete config file
+        // Fall back to UI settings if no config file
         const modelFromUISettings = initializeDefaultModel(uiSettings);
         setDefaultModel(modelFromUISettings);
       } catch (error) {
