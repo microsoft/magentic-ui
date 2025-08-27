@@ -38,8 +38,8 @@ Answer in this exact JSON format:
 {{
     "reason": "Detailed explanation referencing specific evidence from the agent response and why it does/doesn't meet the condition criteria",
     "condition_met": true or false,
-    "sleep_duration": suggested_sleep_duration_in_seconds
-    "sleep_duration_reason": "Detailed explanation for the suggested sleep duration"
+    "sleep_duration_reason": "Detailed explanation for the suggested sleep duration",
+    "sleep_duration": suggested_sleep_duration_in_seconds,
 }}
 
 Only output the JSON object and nothing else.
