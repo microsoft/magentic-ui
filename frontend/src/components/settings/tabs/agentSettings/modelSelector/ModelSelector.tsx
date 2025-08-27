@@ -92,6 +92,51 @@ export const PROVIDER_FORM_MAP: Record<string, { label: string, defaultValue: Mo
           ...DEFAULT_OPENAI.config,
           model: "gpt-4o-mini-2024-07-18"
         }
+      },
+      "gpt-5-2025-08-07": {
+        ...DEFAULT_OPENAI,
+        config: {
+          ...DEFAULT_OPENAI.config,
+          model: "gpt-5-2025-08-07",
+          model_info: {
+            vision: true,
+            function_calling: true,
+            json_output: true,
+            family: "unknown",
+            structured_output: true,
+            multiple_system_messages: false,
+          }
+        }
+      },
+      "gpt-5-mini-2025-08-07": {
+        ...DEFAULT_OPENAI,
+        config: {
+          ...DEFAULT_OPENAI.config,
+          model: "gpt-5-mini-2025-08-07",
+          model_info: {
+            vision: true,
+            function_calling: true,
+            json_output: true,
+            family: "unknown",
+            structured_output: true,
+            multiple_system_messages: false,
+          }
+        }
+      },
+      "gpt-5-nano-2025-08-07": {
+        ...DEFAULT_OPENAI,
+        config: {
+          ...DEFAULT_OPENAI.config,
+          model: "gpt-5-nano-2025-08-07",
+          model_info: {
+            vision: true,
+            function_calling: true,
+            json_output: true,
+            family: "unknown",
+            structured_output: true,
+            multiple_system_messages: false,
+          }
+        }
       }
     }
   },
@@ -136,14 +181,15 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onChange, value }) => {
     }
   };
 
-  // --- Hide advanced toggles for OpenAI recognized models (except OpenRouter) ---
+  // --- Hide advanced toggles for OpenAI recognized models (except OpenRouter and GPT-5 models) ---
   let hideAdvancedToggles = false;
   if (
     provider === DEFAULT_OPENAI.provider &&
     providerFormEntry &&
     preset &&
     Object.keys(providerFormEntry.presets).includes(preset) &&
-    preset !== 'OpenRouter'
+    preset !== 'OpenRouter' &&
+    !preset.startsWith('gpt-5')
   ) {
     hideAdvancedToggles = true;
   }

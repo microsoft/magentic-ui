@@ -139,6 +139,7 @@ class WebSurferConfig(BaseModel):
     viewport_height: int = 1440
     viewport_width: int = 1440
     use_action_guard: bool = False
+    search_engine: str = "duckduckgo"
 
 
 class WebSurferState(BaseState):
@@ -196,6 +197,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         multiple_tools_per_call (bool, optional): Whether to allow execution of multiple tool calls sequentially per model call. Default: False.
         viewport_height (int, optional): The height of the viewport. Default: 1440.
         viewport_width (int, optional): The width of the viewport. Default: 1440.
+        search_engine (str, optional): The search engine to use for web searches. Supported engines: "duckduckgo", "google", "bing", "yahoo". Any other value will be treated as a direct website URL to visit. Default: "duckduckgo".
     """
 
     component_type = "agent"
@@ -209,7 +211,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
     In a single step when you ask the agent to do something, it will perform multiple actions sequentially until it decides to stop.
     The actions it can perform are:
     - visiting a web page url
-    - performing a web search using Bing
+    - performing a web search using a configurable search engine
     - Interact with a web page: clicking a button, hovering over a button, typing in a field, scrolling the page, select an option in a dropdown
     - Downloading a file from the web page and upload file from the local file system
     - Pressing a key on the keyboard to interact with the web page
@@ -252,6 +254,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         viewport_height: int = 1440,
         viewport_width: int = 1440,
         use_action_guard: bool = False,
+        search_engine: str = "duckduckgo",
     ) -> None:
         """
         Initialize the WebSurfer.
@@ -282,6 +285,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         self.viewport_height = viewport_height
         self.viewport_width = viewport_width
         self.use_action_guard = use_action_guard
+        self.search_engine = search_engine
         self._browser = browser
         # Call init to set these in case not set
         self._context: BrowserContext | None = None
@@ -363,6 +367,37 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             self.is_multimodal = True
         else:
             self.is_multimodal = False
+
+    def _get_search_url(self, query: str) -> tuple[str, str]:
+        """Get search URL and domain based on configured search engine.
+
+        Args:
+            query (str): The search query
+
+        Returns:
+            tuple[str, str]: (search_url, domain) - For known search engines, returns search URL.
+                            For unknown engines, treats the engine name as a direct website URL.
+        """
+        if self.search_engine.lower() == "google":
+            domain = "google.com"
+            url = f"https://www.google.com/search?q={quote_plus(query)}"
+        elif self.search_engine.lower() == "bing":
+            domain = "bing.com"
+            url = f"https://www.bing.com/search?q={quote_plus(query)}"
+        elif self.search_engine.lower() == "yahoo":
+            domain = "yahoo.com"
+            url = f"https://search.yahoo.com/search?p={quote_plus(query)}"
+        elif self.search_engine.lower() == "duckduckgo":
+            domain = "duckduckgo.com"
+            url = f"https://duckduckgo.com/?q={quote_plus(query)}"
+        else:  # treat as direct website URL
+            domain = self.search_engine
+            url = (
+                f"https://{self.search_engine}"
+                if not self.search_engine.startswith(("http://", "https://"))
+                else self.search_engine
+            )
+        return url, domain
 
     async def lazy_init(
         self,
@@ -1325,7 +1360,8 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             ) = await self._playwright_controller.visit_page(self._page, url)
         # If the argument contains a space, treat it as a search query
         elif " " in url:
-            ret, approved = await self._check_url_and_generate_msg("bing.com")
+            search_url, domain = self._get_search_url(url)
+            ret, approved = await self._check_url_and_generate_msg(domain)
             if not approved:
                 return ret
             (
@@ -1333,7 +1369,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 reset_last_download,
             ) = await self._playwright_controller.visit_page(
                 self._page,
-                f"https://www.bing.com/search?q={quote_plus(url)}&FORM=QBLH",
+                search_url,
             )
         # Otherwise, prefix with https://
         else:
@@ -1365,17 +1401,18 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
 
     async def _execute_tool_web_search(self, args: Dict[str, Any]) -> str:
         assert self._page is not None
-        ret, approved = await self._check_url_and_generate_msg("bing.com")
+        query = cast(str, args.get("query"))
+        search_url, domain = self._get_search_url(query)
+        ret, approved = await self._check_url_and_generate_msg(domain)
         if not approved:
             return ret
-        query = cast(str, args.get("query"))
         action_description = f"I typed '{query}' into the browser search bar."
         (
             reset_prior_metadata,
             reset_last_download,
         ) = await self._playwright_controller.visit_page(
             self._page,
-            f"https://www.bing.com/search?q={quote_plus(query)}&FORM=QBLH",
+            search_url,
         )
         if reset_last_download:
             self._last_download = None
@@ -2021,6 +2058,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             viewport_height=self.viewport_height,
             viewport_width=self.viewport_width,
             use_action_guard=self.use_action_guard,
+            search_engine=self.search_engine,
         )
 
     @classmethod
@@ -2045,6 +2083,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             viewport_height=config.viewport_height,
             viewport_width=config.viewport_width,
             use_action_guard=config.use_action_guard,
+            search_engine=config.search_engine,
         )
 
     @classmethod

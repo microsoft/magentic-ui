@@ -46,7 +46,7 @@ TOOL_WEB_SEARCH: ToolSchema = load_tool(
         "type": "function",
         "function": {
             "name": "web_search",
-            "description": "Performs a web search on Bing.com with the given query. Make sure the query is simple and don't use compound queries.",
+            "description": "Performs a web search on a search engine with the given query. Make sure the query is simple and don't use compound queries.",
             "parameters": {
                 "type": "object",
                 "properties": {
