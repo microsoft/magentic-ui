@@ -349,6 +349,20 @@ This project welcomes contributions and suggestions. For information about contr
 
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information, see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
+
+## Citation
+
+Please cite our paper if you use our work in your research:
+
+```
+@article{mozannar2025magentic,
+  title={Magentic-UI: Towards Human-in-the-loop Agentic Systems},
+  author={Mozannar, Hussein and Bansal, Gagan and Tan, Cheng and Fourney, Adam and Dibia, Victor and Chen, Jingya and Gerrits, Jack and Payne, Tyler and Maldaner, Matheus Kunzler and Grunde-McLaughlin, Madeleine and others},
+  journal={arXiv preprint arXiv:2507.22358},
+  year={2025}
+}
+```
+
 ## License
 
 Microsoft, and any contributors, grant you a license to any code in the repository under the [MIT License](https://opensource.org/licenses/MIT). See the [LICENSE](LICENSE) file.
@@ -363,3 +377,4 @@ Any use of third-party trademarks or logos are subject to those third-party's po
 Privacy information can be found at <https://go.microsoft.com/fwlink/?LinkId=521839>
 
 Microsoft and any contributors reserve all other rights, whether under their respective copyrights, patents, or trademarks, whether by implication, estoppel, or otherwise.
+
