@@ -41,7 +41,7 @@ MODEL_PRICING = {
     "gemini-1.5-flash": {"input": 0.000075, "output": 0.0003},  # ≤128k ctx
     "gemini-1.5-flash-extended": {"input": 0.00015, "output": 0.0006},  # >128k ctx
 }
-return MODEL_PRICING
+#return MODEL_PRICING
 
 
 def setup_plot_style():

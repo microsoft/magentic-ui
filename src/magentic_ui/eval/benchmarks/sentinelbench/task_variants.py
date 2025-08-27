@@ -61,9 +61,9 @@ SENTINELBENCH_TEST_VARIANTS = {
     # Time-based test variants (2 time points) - all tasks will have easy/medium/hard variants
     
     # Reactor variants
-    "reactor-easy": [60, 3600],
-    "reactor-medium": [60, 3600],
-    "reactor-hard": [60, 3600],
+    "reactor-easy": [14400, 28800, 57600],
+    "reactor-medium": [14400, 28800, 57600],
+    "reactor-hard": [14400, 28800, 57600],
     
     # Teams monitor variants
     "teams-monitor-easy": [60, 3600],

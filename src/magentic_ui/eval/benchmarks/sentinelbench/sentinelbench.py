@@ -25,7 +25,7 @@ class SentinelBenchBenchmark(Benchmark):
         self,
         name: str = "SentinelBench",
         data_dir: Union[str, None] = None,
-        base_website_path: str = "http://172.25.159.193:5173/",
+        base_website_path: str = "http://172.18.110.233:5173/",
         task_variants: dict = None,
     ):
         """
@@ -35,7 +35,7 @@ class SentinelBenchBenchmark(Benchmark):
             name: Name of the benchmark
             data_dir: Directory containing the benchmark data
             base_website_path: The base path of the website to use for the SentinelBench. 
-                              Make sure it ends with a slash. Default is 172.25.159.193 for local testing.
+                              Make sure it ends with a slash. Default is http://172.18.110.233:5173/ for local testing.
             task_variants: Dict of task_id -> list of parameter values. 
                           E.g., {"reactor-easy": [60, 120, 3600]} for different duration values
         """
@@ -58,9 +58,9 @@ class SentinelBenchBenchmark(Benchmark):
             "linkedin-monitor-easy": {"duration": 30},
             "linkedin-monitor-medium": {"duration": 30},
             "linkedin-monitor-hard": {"duration": 30},
-            "flight-booker-easy": {"duration": 30},
-            "flight-booker-medium": {"duration": 30},
-            "flight-booker-hard": {"duration": 30},
+            "flight-monitor-easy": {"duration": 30},
+            "flight-monitor-medium": {"duration": 30},
+            "flight-monitor-hard": {"duration": 30},
             "news-checker-easy": {"duration": 30},
             "news-checker-medium": {"duration": 30},
             "news-checker-hard": {"duration": 30},
@@ -191,7 +191,7 @@ class SentinelBenchBenchmark(Benchmark):
                     
                     # Create the prompt with parameter info
                     prompt = (
-                        f"Go to {variant_url} and {row['description']} (Parameter: {param_value}). "
+                        f"Go to {variant_url} and continuously perform the action to {row['description']} until completion."
                         "Upon successful completion you may get a password or a code which you should extract."
                     )
                     
@@ -207,7 +207,7 @@ class SentinelBenchBenchmark(Benchmark):
                     logging.info(f"[DEBUG] Added task to self.tasks: '{variant_id}'")  
             else:
                 logging.info(f"[DEBUG] Task '{task_id}' NOT in task_variants, checking default_params")
-                # Create default task (possibly with default parameters)
+                # ALL tasks must have default parameters - use them
                 if task_id in self.default_params:
                     logging.info(f"[DEBUG] Task '{task_id}' has default params: {self.default_params[task_id]}")
                     # Use default parameter value
@@ -226,17 +226,8 @@ class SentinelBenchBenchmark(Benchmark):
                         "Upon successful completion you may get a password or a code which you should extract."
                     )
                 else:
-                    logging.info(f"[DEBUG] Task '{task_id}' has NO variants or default params, using original")
-                    # No parameters, use original
-                    variant_id = task_id
-                    variant_url = base_url
-                    variant_metadata = base_metadata.copy()
-                    logging.info(f"[DEBUG] Creating original task: id='{variant_id}', url='{variant_url}'")
-                    
-                    prompt = (
-                        f"Go to {variant_url} and {row['description']}. "
-                        "Upon successful completion you may get a password or a code which you should extract."
-                    )
+                    # ERROR: ALL tasks should have default params defined
+                    raise ValueError(f"Task '{task_id}' has no variants and no default params defined. All tasks must have default parameters in self.default_params.")
                 
                 task = BaseTask(
                     id=variant_id,
@@ -327,6 +318,7 @@ class SentinelBenchBenchmark(Benchmark):
         """
         Evaluate if the candidate password matches the ground truth password.
         Uses substring matching like WebGames.
+        For ALL tasks, appends the parameter value to the expected password.
         """
         # Cast to proper types if needed
         if isinstance(task, dict):
@@ -334,7 +326,16 @@ class SentinelBenchBenchmark(Benchmark):
         if isinstance(candidate, dict):
             candidate = BaseCandidate(**candidate)  # type: ignore
         
-        # Check if the ground truth password is anywhere in the candidate answer, as a substring
-        score = 1.0 if task.ground_truth in candidate.answer else 0.0
+        # Get the expected password
+        expected_password = task.ground_truth
+        
+        # For ALL tasks, append the parameter value if available
+        if (hasattr(task, 'metadata') and task.metadata and 
+            'parameter_value' in task.metadata):
+            parameter_value = task.metadata['parameter_value']
+            expected_password = f"{expected_password}_{parameter_value}"
+        
+        # Check if the expected password is anywhere in the candidate answer, as a substring
+        score = 1.0 if expected_password in candidate.answer else 0.0
 
         return BaseEvalResult(score=score)

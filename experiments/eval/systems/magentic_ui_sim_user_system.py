@@ -210,8 +210,8 @@ class MagenticUISimUserSystem(BaseSystem):
             # Step 2: Create the Magentic-UI team
             # TERMINATION CONDITION
             termination_condition = TimeoutTermination(
-                timeout_seconds=60 * 15
-            )  # 15 minutes
+                timeout_seconds=60 * self.timeout_minutes
+            )
             model_context_token_limit = 110000
             # ORCHESTRATOR CONFIGURATION
             orchestrator_config = OrchestratorConfig(

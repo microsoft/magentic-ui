@@ -99,22 +99,46 @@ class LocalPlaywrightBrowser(
             # Ensure the browser data directory exists
             Path(self._browser_data_dir).mkdir(parents=True, exist_ok=True)
 
+            # Check if running as root and disable sandbox if needed
+            import os
+            is_root = os.getuid() == 0
+            
+            args = ["--disable-extensions", "--disable-file-system"]
+            if is_root:
+                args.append("--no-sandbox")
+
             # Launch persistent context
             self._context = await self._playwright.chromium.launch_persistent_context(
                 self._browser_data_dir,
                 accept_downloads=self._enable_downloads,
                 **launch_options,
-                args=["--disable-extensions", "--disable-file-system"],
+                args=args,
                 env={},
-                chromium_sandbox=True,
+                chromium_sandbox=not is_root,  # Disable sandbox if running as root
             )
         else:
             # Launch regular browser and create new context
+            # For WSL2, try to detect the correct display
+            env = {}
+            if not self._headless:
+                # Try to use the current DISPLAY environment variable, or default to :0
+                import os
+                display = os.environ.get('DISPLAY', ':0')
+                env = {"DISPLAY": display}
+            
+            # Check if running as root and disable sandbox if needed
+            import os
+            is_root = os.getuid() == 0
+            
+            args = ["--disable-extensions", "--disable-file-system"]
+            if is_root:
+                args.append("--no-sandbox")
+            
             self._browser = await self._playwright.chromium.launch(
                 **launch_options,
-                args=["--disable-extensions", "--disable-file-system"],
-                chromium_sandbox=True,
-                env={} if self._headless else {"DISPLAY": ":0"},
+                args=args,
+                chromium_sandbox=not is_root,  # Disable sandbox if running as root
+                env=env,
             )
 
             self._context = await self._browser.new_context(

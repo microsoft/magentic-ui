@@ -28,6 +28,7 @@ from magentic_ui.tools.playwright.browser.utils import get_available_port
 
 
 logger = logging.getLogger(__name__)
+# Default to WARNING level - will be overridden by verbose flag via core.py
 logging.getLogger("autogen").setLevel(logging.WARNING)
 logging.getLogger("autogen.agentchat").setLevel(logging.WARNING)
 logging.getLogger("autogen_agentchat.events").setLevel(logging.WARNING)
@@ -78,6 +79,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         use_local_browser: bool = False,
         sentinel_tasks: bool = False,
         timeout_minutes: int = 15,
+        verbose: bool = False,
     ):
         super().__init__(name)
         self.candidate_class = WebVoyagerCandidate
@@ -90,6 +92,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         self.use_local_browser = use_local_browser
         self.sentinel_tasks = sentinel_tasks
         self.timeout_minutes = timeout_minutes
+        self.verbose = verbose
 
     def get_answer(
         self, task_id: str, task: BaseTask, output_dir: str
@@ -113,6 +116,10 @@ class MagenticUIAutonomousSystem(BaseSystem):
             Returns:
                 Tuple[str, List[str]]: The final answer string and a list of screenshot file paths.
             """
+            if self.verbose:
+                print(f"\n🔧 VERBOSE MODE ENABLED - Agent conversations will be shown in real-time")
+                print(f"🎯 Starting task: {task_id}")
+                
             messages_so_far: List[LogEventSystem] = []
 
             task_question: str = task.question
@@ -135,8 +142,8 @@ class MagenticUIAutonomousSystem(BaseSystem):
             # Step 2: Create the Magentic-UI team
             # TERMINATION CONDITION
             termination_condition = TimeoutTermination(
-                timeout_seconds=60 * 15
-            )  # 15 minutes
+                timeout_seconds=60 * self.timeout_minutes
+            )
             model_context_token_limit = 110000
             # ORCHESTRATOR CONFIGURATION
             orchestrator_config = OrchestratorConfig(
@@ -165,7 +172,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
             # launch the browser
             if self.use_local_browser:
                 browser = LocalPlaywrightBrowser(
-                    headless=False)
+                    headless=False)  # Use headful mode when local browser is requested
             else:
                 playwright_port, socket = get_available_port()
                 novnc_port, socket_vnc = get_available_port()
@@ -272,6 +279,11 @@ class MagenticUIAutonomousSystem(BaseSystem):
 
                         # save to file
                         logger.info(f"Run in progress: {task_id}, message: {message_str}")
+                        
+                        # Add console output for verbose mode
+                        if self.verbose:
+                            print(f"\n🤖 [{message.source}]: {message_str}")
+                        
                         safe_task_id = task_id.replace("/", "_")
                         async with aiofiles.open(
                             f"{output_dir}/{safe_task_id}_messages.json", "w"

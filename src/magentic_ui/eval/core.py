@@ -22,6 +22,7 @@ def _setup_file_logging(
     benchmark_name: str,
     split: Optional[str],
     run_id: Union[int, List[int]],
+    verbose: bool = False,
 ) -> None:
     """Setup file logging while maintaining console output.
 
@@ -68,7 +69,23 @@ def _setup_file_logging(
 
 
 logger = logging.getLogger(__name__)
-logging.getLogger("autogen_core").setLevel(logging.CRITICAL)
+# Will be set dynamically based on verbose flag
+_verbose_mode = False
+
+def set_verbose_logging(verbose: bool):
+    """Set verbose logging mode for agent conversations."""
+    global _verbose_mode
+    _verbose_mode = verbose
+    if verbose:
+        logging.getLogger("autogen_core").setLevel(logging.INFO)
+        logging.getLogger("autogen").setLevel(logging.INFO)
+        logging.getLogger("autogen_agentchat").setLevel(logging.INFO)
+        logging.getLogger("autogen_agentchat.events").setLevel(logging.INFO)
+    else:
+        logging.getLogger("autogen_core").setLevel(logging.CRITICAL)
+        logging.getLogger("autogen").setLevel(logging.WARNING)
+        logging.getLogger("autogen_agentchat").setLevel(logging.WARNING)
+        logging.getLogger("autogen_agentchat.events").setLevel(logging.WARNING)
 
 # ----------------------------------------------------------------------
 # Type Definitions & Constants
@@ -91,6 +108,7 @@ def _run_single_task(
     benchmark_dir: str,
     reload_benchmark: bool,
     benchmark_name: str,
+    rerun_timedout: bool = False,
 ) -> Tuple[str, Optional[AllCandidateTypes], float]:
     """Run a single task in a separate process.
 
@@ -117,12 +135,12 @@ def _run_single_task(
     5. Saves results and timing information
     """
     logger.info(f"Running task {task_id} in {output_dir}")
-    logger.info(f"[DEBUG] _run_single_task called with task_id='{task_id}'")
-    logger.info(f"[DEBUG] benchmark_name='{benchmark_name}'")
+    logger.debug(f"_run_single_task called with task_id='{task_id}'")
+    logger.debug(f"benchmark_name='{benchmark_name}'")
     
     question_dir = os.path.join(output_dir, str(task_id))
     os.makedirs(question_dir, exist_ok=True)
-    logger.info(f"[DEBUG] Created question_dir: {question_dir}")
+    logger.debug(f"Created question_dir: {question_dir}")
 
     try:
         # Initialize or reload system
@@ -145,8 +163,8 @@ def _run_single_task(
             )
 
         # Load task just before we need it
-        logger.info(f"[DEBUG] About to load task with ID: '{task_id}'")
-        logger.info(f"[DEBUG] Available tasks in benchmark: {list(benchmark.tasks.keys())[:10]}...")  # Show first 10
+        logger.debug(f"About to load task with ID: '{task_id}'")
+        logger.debug(f"Available tasks in benchmark: {list(benchmark.tasks.keys())[:10]}...")  # Show first 10
         task = benchmark.load_task_by_id(task_id)
         if task is None:
             logger.error(f"[DEBUG] Task '{task_id}' not found in benchmark.tasks")
@@ -154,25 +172,44 @@ def _run_single_task(
             raise ValueError(f"Task {task_id} not found")
         logger.info(f"[DEBUG] Successfully loaded task: id='{task.id}', url_path='{task.url_path}'")
 
-        # If there's already an answer, skip
+        # If there's already an answer, skip unless it's a timeout
         if os.path.exists(question_dir):
             try:
                 existing_answer = system.load_answer_from_disk(task_id, question_dir)
                 if existing_answer:
-                    times_path = os.path.join(question_dir, "times.json")
-                    if os.path.exists(times_path):
-                        with open(times_path, "r") as f:
-                            times_data = json.load(f)
-                            # Print prominent green bolded message to console
-                            print(f"\033[1;32m✅ SKIPPED: {task_id} (already completed)\033[0m")
-                            logger.info(f"Skipping {task_id} (already has answer).")
-                            return (
-                                task_id,
-                                existing_answer,
-                                times_data.get("duration", 0),
-                            )
+                    # Check if the existing answer is a timeout - if so, rerun the task (if flag is enabled)
+                    is_timeout = False
+                    if rerun_timedout:
+                        if hasattr(existing_answer, 'answer') and isinstance(existing_answer.answer, str):
+                            is_timeout = "TIMEOUT: Task execution exceeded time limit" in existing_answer.answer
+                        elif isinstance(existing_answer, str):
+                            is_timeout = "TIMEOUT: Task execution exceeded time limit" in existing_answer
+                    
+                    if is_timeout and rerun_timedout:
+                        print(f"\033[1;33m🔄 RERUNNING: {task_id} (previous timeout detected)\033[0m")
+                        logger.info(f"Rerunning {task_id} (previous result was timeout).")
+                        # Clear question directory to start fresh
+                        for file in os.listdir(question_dir):
+                            file_path = os.path.join(question_dir, file)
+                            if os.path.isfile(file_path):
+                                os.remove(file_path)
+                            elif os.path.isdir(file_path):
+                                shutil.rmtree(file_path)
                     else:
-                        raise FileNotFoundError(f"Times file not found for {task_id}")
+                        times_path = os.path.join(question_dir, "times.json")
+                        if os.path.exists(times_path):
+                            with open(times_path, "r") as f:
+                                times_data = json.load(f)
+                                # Print prominent green bolded message to console
+                                print(f"\033[1;32m✅ SKIPPED: {task_id} (already completed)\033[0m")
+                                logger.info(f"Skipping {task_id} (already has answer).")
+                                return (
+                                    task_id,
+                                    existing_answer,
+                                    times_data.get("duration", 0),
+                                )
+                        else:
+                            raise FileNotFoundError(f"Times file not found for {task_id}")
             except Exception:
                 logger.error(
                     f"Error running task {task_id}: {traceback.format_exc()}.\n Clearing question directory {question_dir}"
@@ -328,6 +365,8 @@ def run_benchmark_func(
     task_id: Optional[str] = None,
     base_task: Optional[str] = None,
     difficulty: Optional[str] = None,
+    rerun_timedout: bool = False,
+    verbose: bool = False,
 ) -> None:
     """Run benchmark evaluation.
 
@@ -358,7 +397,8 @@ def run_benchmark_func(
     - Caches results to disk
     - Provides progress logging
     """
-    _setup_file_logging(runs_dir, system_name, benchmark_name, split, run_id)
+    _setup_file_logging(runs_dir, system_name, benchmark_name, split, run_id, verbose)
+    set_verbose_logging(verbose)
     if subsample is not None and not (0 < subsample <= 1):
         raise ValueError("subsample must be in the range (0, 1].")
     if seed is not None:
@@ -448,12 +488,13 @@ def run_benchmark_func(
             benchmark_dir,
             reload_benchmark_per_task,
             benchmark_name,
+            rerun_timedout,
         )
         for task_id in task_ids
     ]
 
     logger.info(f"[DEBUG] Created {len(tasks_system_data)} task data entries for execution")
-    for i, (_, task_id, _, _, _, _, _, _) in enumerate(tasks_system_data[:5]):  # Show first 5
+    for i, (_, task_id, _, _, _, _, _, _, _) in enumerate(tasks_system_data[:5]):  # Show first 5
         logger.info(f"[DEBUG] Task data [{i}]: task_id='{task_id}'")
 
     logger.info(
@@ -566,6 +607,7 @@ def evaluate_benchmark_func(
     task_id: Optional[str] = None,
     base_task: Optional[str] = None,
     difficulty: Optional[str] = None,
+    verbose: bool = False,
 ) -> None:
     """Evaluates benchmark results across single or multiple runs.
     Args:
@@ -592,7 +634,8 @@ def evaluate_benchmark_func(
     - Caches evaluation scores
     - Computes aggregate metrics across runs
     """
-    _setup_file_logging(runs_dir, system_name, benchmark_name, split, run_id)
+    _setup_file_logging(runs_dir, system_name, benchmark_name, split, run_id, verbose)
+    set_verbose_logging(verbose)
     if isinstance(run_id, int):
         run_ids = [run_id]
     else:
@@ -738,6 +781,8 @@ def run_evaluate_benchmark_func(
     task_id: Optional[str] = None,
     base_task: Optional[str] = None,
     difficulty: Optional[str] = None,
+    rerun_timedout: bool = False,
+    verbose: bool = False,
 ) -> None:
     """Run benchmark evaluation and compute metrics.
 
@@ -780,6 +825,8 @@ def run_evaluate_benchmark_func(
             task_id=task_id,
             base_task=base_task,
             difficulty=difficulty,
+            rerun_timedout=rerun_timedout,
+            verbose=verbose,
         )
     evaluate_benchmark_func(
         benchmark_name=benchmark_name,
@@ -795,4 +842,5 @@ def run_evaluate_benchmark_func(
         task_id=task_id,
         base_task=base_task,
         difficulty=difficulty,
+        verbose=verbose,
     )
