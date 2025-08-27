@@ -135,6 +135,7 @@ def get_orchestrator_system_message_planning(
             For **SentinelPlanStep** ONLY (IMPORTANT):
             - **details** (string): The details field should be the SINGLE instruction the agent will do. 
               * For instance, if the sentinel step is "check the magentic-ui repo until it has 7k stars", the details field should be "check the number of stars of magentic-ui repo"
+              * If the task requires checking a specific URL, website, or repository, INCLUDE THE FULL URL in the details field. For example: "check the number of stars of https://github.com/magentic-ai/magentic-ui repo" or "check if https://example.com/api/status returns a 200 status code"
               * (IMPORTANT) DO NOT INCLUDE ANY MENTION OF MONITORING OR WAITING IN THE DETAILS FIELD. The system will handle the monitoring and waiting based on the sleep_duration and condition fields.
               
             - **agent_name** (string):
@@ -445,6 +446,7 @@ def get_orchestrator_system_message_planning_autonomous(
             For **SentinelPlanStep** ONLY (IMPORTANT):
             - **details** (string): The details field should be the SINGLE instruction the agent will do. 
               * For instance, if the sentinel step is "check the magentic-ui repo until it has 7k stars", the details field should be "check the number of stars of magentic-ui repo"
+              * If the task requires checking a specific URL, website, or repository, INCLUDE THE FULL URL in the details field. For example: "check the number of stars of https://github.com/magentic-ai/magentic-ui repo" or "check if https://example.com/api/status returns a 200 status code"
               * (IMPORTANT) DO NOT INCLUDE ANY MENTION OF MONITORING OR WAITING IN THE DETAILS FIELD. The system will handle the monitoring and waiting based on the sleep_duration and condition fields.
               
             - **agent_name** (string):
@@ -750,6 +752,7 @@ def get_orchestrator_plan_prompt_json(sentinel_tasks_enabled: bool = False) -> s
             For **SentinelPlanStep** ONLY (IMPORTANT):
             - **details** (string): The details field should be the SINGLE instruction the agent will do. 
               * For instance, if the sentinel step is "check the magentic-ui repo until it has 7k stars", the details field should be "check the number of stars of magentic-ui repo"
+              * If the task requires checking a specific URL, website, or repository, INCLUDE THE FULL URL in the details field. For example: "check the number of stars of https://github.com/magentic-ai/magentic-ui repo" or "check if https://example.com/api/status returns a 200 status code"
               * (IMPORTANT) DO NOT INCLUDE ANY MENTION OF MONITORING OR WAITING IN THE DETAILS FIELD. The system will handle the monitoring and waiting based on the sleep_duration and condition fields.
               
             - **agent_name** (string):
