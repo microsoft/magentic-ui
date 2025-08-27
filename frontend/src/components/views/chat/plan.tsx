@@ -74,12 +74,12 @@ const formatCondition = (condition: number | string): { display: string; isTrunc
   if (typeof condition === 'number') {
     return { display: `Run ${condition} times`, isTruncated: false };
   }
-  
+
   const maxLength = 50;
   if (condition.length <= maxLength) {
     return { display: condition, isTruncated: false };
   }
-  
+
   return { display: `${condition.substring(0, maxLength)}...`, isTruncated: true };
 };
 
@@ -90,13 +90,13 @@ const validateSleepDuration = (value: string): boolean => {
 
 const validateCondition = (value: string): boolean => {
   if (!value.trim()) return false;
-  
+
   // If it's a number, validate as positive integer
   const num = parseInt(value);
   if (!isNaN(num)) {
     return num > 0;
   }
-  
+
   // If it's a string, check length
   return value.trim().length >= 3 && value.trim().length <= 200;
 };
@@ -179,7 +179,7 @@ const PlanView: React.FC<PlanProps> = ({
 
   const updateSleepDuration = (index: number, value: string) => {
     if (!validateSleepDuration(value)) return;
-    
+
     const newPlan = [...localPlan];
     newPlan[index] = {
       ...newPlan[index],
@@ -190,7 +190,7 @@ const PlanView: React.FC<PlanProps> = ({
 
   const updateCondition = (index: number, value: string) => {
     if (!validateCondition(value)) return;
-    
+
     const newPlan = [...localPlan];
     const numValue = parseInt(value);
     newPlan[index] = {
@@ -265,7 +265,7 @@ const PlanView: React.FC<PlanProps> = ({
     return agentName || "Agent";
   };
 
-  const noop = () => {};
+  const noop = () => { };
 
   return (
     <>
@@ -296,9 +296,8 @@ const PlanView: React.FC<PlanProps> = ({
             ) : (
               <div className="flex justify-between items-center">
                 <div
-                  className={`flex items-center ${
-                    viewOnly ? "hover:opacity-80 cursor-pointer" : ""
-                  }`}
+                  className={`flex items-center ${viewOnly ? "hover:opacity-80 cursor-pointer" : ""
+                    }`}
                   onClick={viewOnly ? () => setIsCollapsed(true) : undefined}
                 >
                   {viewOnly && (
@@ -330,9 +329,8 @@ const PlanView: React.FC<PlanProps> = ({
                             <div className="flex items-center">
                               <span
                                 {...(!viewOnly ? provided.dragHandleProps : {})}
-                                className={`flex items-center justify-center  font-semibold p-1.5 ${
-                                  !viewOnly ? "cursor-grab" : ""
-                                }`}
+                                className={`flex items-center justify-center  font-semibold p-1.5 ${!viewOnly ? "cursor-grab" : ""
+                                  }`}
                               >
                                 Step {index + 1}
                               </span>
@@ -351,7 +349,7 @@ const PlanView: React.FC<PlanProps> = ({
                               {/* Sentinel Step Indicator */}
                               {isSentinelStep(item) && (
                                 <div className="relative ml-2">
-                                  <ClipboardList 
+                                  <ClipboardList
                                     className="h-4 w-4 text-purple-600 dark:text-purple-400 cursor-pointer hover:text-purple-800 dark:hover:text-purple-200 transition-colors"
                                     onClick={() => toggleSentinelTooltip(index)}
                                     title="Sentinel Step - Click for details"
@@ -368,14 +366,14 @@ const PlanView: React.FC<PlanProps> = ({
                                         <div>
                                           <span className="font-medium">Condition: </span>
                                           <span className="break-words">
-                                            {typeof item.condition === 'number' 
-                                              ? `Run ${item.condition} times` 
+                                            {typeof item.condition === 'number'
+                                              ? `Run ${item.condition} times`
                                               : item.condition}
                                           </span>
                                         </div>
                                       </div>
                                       {/* Close button */}
-                                      <button 
+                                      <button
                                         onClick={() => toggleSentinelTooltip(index)}
                                         className="absolute -top-1 -right-1 bg-gray-600 hover:bg-gray-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
                                       >
@@ -397,26 +395,23 @@ const PlanView: React.FC<PlanProps> = ({
                                     ) => updateDetails(index, e.target.value)}
                                     onBlur={() => setFocusedIndex(null)}
                                     autoFocus
-                                    className={`flex-1 p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded ${
-                                      !item.details.trim()
+                                    className={`flex-1 p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded ${!item.details.trim()
                                         ? "border border-orange-300"
                                         : ""
-                                    } ${
-                                      viewOnly
+                                      } ${viewOnly
                                         ? "cursor-default focus:outline-none"
                                         : ""
-                                    }`}
+                                      }`}
                                     readOnly={viewOnly}
                                     placeholder="Enter step details"
                                   />
                                 }
                                 {!viewOnly && (
                                   <div
-                                    className={`flex items-center transition-opacity ${
-                                      hoveredIndex === index
+                                    className={`flex items-center transition-opacity ${hoveredIndex === index
                                         ? "opacity-100"
                                         : "opacity-0"
-                                    }`}
+                                      }`}
                                   >
                                     <Trash2
                                       role="button"
@@ -464,7 +459,7 @@ const PlanView: React.FC<PlanProps> = ({
                                         placeholder="e.g., 5 or 'until condition met'"
                                       />
                                       <div className="text-xs text-gray-500 mt-1">
-                                        {typeof item.condition === 'number' 
+                                        {typeof item.condition === 'number'
                                           ? `Will run ${item.condition} times`
                                           : 'String condition'
                                         }
