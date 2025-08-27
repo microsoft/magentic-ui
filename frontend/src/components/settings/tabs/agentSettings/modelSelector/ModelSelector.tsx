@@ -92,6 +92,27 @@ export const PROVIDER_FORM_MAP: Record<string, { label: string, defaultValue: Mo
           ...DEFAULT_OPENAI.config,
           model: "gpt-4o-mini-2024-07-18"
         }
+      },
+      "gpt-5-2025-08-07": {
+        ...DEFAULT_OPENAI,
+        config: {
+          ...DEFAULT_OPENAI.config,
+          model: "gpt-5-2025-08-07"
+        }
+      },
+      "gpt-5-mini-2025-08-07": {
+        ...DEFAULT_OPENAI,
+        config: {
+          ...DEFAULT_OPENAI.config,
+          model: "gpt-5-mini-2025-08-07"
+        }
+      },
+      "gpt-5-nano-2025-08-07": {
+        ...DEFAULT_OPENAI,
+        config: {
+          ...DEFAULT_OPENAI.config,
+          model: "gpt-5-nano-2025-08-07"
+        }
       }
     }
   },
