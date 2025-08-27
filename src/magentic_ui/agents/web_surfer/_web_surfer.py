@@ -392,7 +392,11 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             url = f"https://duckduckgo.com/?q={quote_plus(query)}"
         else:  # treat as direct website URL
             domain = self.search_engine
-            url = f"https://{self.search_engine}" if not self.search_engine.startswith(('http://', 'https://')) else self.search_engine
+            url = (
+                f"https://{self.search_engine}"
+                if not self.search_engine.startswith(("http://", "https://"))
+                else self.search_engine
+            )
         return url, domain
 
     async def lazy_init(
