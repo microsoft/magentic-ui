@@ -197,7 +197,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         multiple_tools_per_call (bool, optional): Whether to allow execution of multiple tool calls sequentially per model call. Default: False.
         viewport_height (int, optional): The height of the viewport. Default: 1440.
         viewport_width (int, optional): The width of the viewport. Default: 1440.
-        search_engine (str, optional): The search engine to use for web searches. Supported engines: "duckduckgo", "google", "bing", "yahoo". Default: "duckduckgo".
+        search_engine (str, optional): The search engine to use for web searches. Supported engines: "duckduckgo", "google", "bing", "yahoo". Any other value will be treated as a direct website URL to visit. Default: "duckduckgo".
     """
 
     component_type = "agent"
@@ -375,7 +375,8 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             query (str): The search query
 
         Returns:
-            tuple[str, str]: (search_url, domain)
+            tuple[str, str]: (search_url, domain) - For known search engines, returns search URL.
+                            For unknown engines, treats the engine name as a direct website URL.
         """
         if self.search_engine.lower() == "google":
             domain = "google.com"
@@ -386,9 +387,12 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         elif self.search_engine.lower() == "yahoo":
             domain = "yahoo.com"
             url = f"https://search.yahoo.com/search?p={quote_plus(query)}"
-        else:  # default to duckduckgo
+        elif self.search_engine.lower() == "duckduckgo":
             domain = "duckduckgo.com"
             url = f"https://duckduckgo.com/?q={quote_plus(query)}"
+        else:  # treat as direct website URL
+            domain = self.search_engine
+            url = f"https://{self.search_engine}" if not self.search_engine.startswith(('http://', 'https://')) else self.search_engine
         return url, domain
 
     async def lazy_init(
