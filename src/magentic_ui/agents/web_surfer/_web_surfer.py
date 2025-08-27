@@ -209,7 +209,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
     In a single step when you ask the agent to do something, it will perform multiple actions sequentially until it decides to stop.
     The actions it can perform are:
     - visiting a web page url
-    - performing a web search using Bing
+    - performing a web search using DuckDuckGo
     - Interact with a web page: clicking a button, hovering over a button, typing in a field, scrolling the page, select an option in a dropdown
     - Downloading a file from the web page and upload file from the local file system
     - Pressing a key on the keyboard to interact with the web page
@@ -1325,7 +1325,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             ) = await self._playwright_controller.visit_page(self._page, url)
         # If the argument contains a space, treat it as a search query
         elif " " in url:
-            ret, approved = await self._check_url_and_generate_msg("bing.com")
+            ret, approved = await self._check_url_and_generate_msg("duckduckgo.com")
             if not approved:
                 return ret
             (
@@ -1333,7 +1333,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
                 reset_last_download,
             ) = await self._playwright_controller.visit_page(
                 self._page,
-                f"https://www.bing.com/search?q={quote_plus(url)}&FORM=QBLH",
+                f"https://duckduckgo.com/?q={quote_plus(url)}",
             )
         # Otherwise, prefix with https://
         else:
@@ -1365,7 +1365,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
 
     async def _execute_tool_web_search(self, args: Dict[str, Any]) -> str:
         assert self._page is not None
-        ret, approved = await self._check_url_and_generate_msg("bing.com")
+        ret, approved = await self._check_url_and_generate_msg("duckduckgo.com")
         if not approved:
             return ret
         query = cast(str, args.get("query"))
@@ -1375,7 +1375,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             reset_last_download,
         ) = await self._playwright_controller.visit_page(
             self._page,
-            f"https://www.bing.com/search?q={quote_plus(query)}&FORM=QBLH",
+            f"https://duckduckgo.com/?q={quote_plus(query)}",
         )
         if reset_last_download:
             self._last_download = None
