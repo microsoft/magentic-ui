@@ -23,9 +23,9 @@ SENTINELBENCH_TASK_VARIANTS = {
     "linkedin-monitor-hard": [30, 60, 300, 900, 3600, 7200],
     
     # Flight booker variants
-    "flight-booker-easy": [30, 60, 300, 900, 3600, 7200],
-    "flight-booker-medium": [30, 60, 300, 900, 3600, 7200],
-    "flight-booker-hard": [30, 60, 300, 900, 3600, 7200],
+    "flight-monitor-easy": [30, 60, 300, 900, 3600, 7200],
+    "flight-monitor-medium": [30, 60, 300, 900, 3600, 7200],
+    "flight-monitor-hard": [30, 60, 300, 900, 3600, 7200],
     
     # News checker variants
     "news-checker-easy": [30, 60, 300, 900, 3600, 7200],
@@ -37,10 +37,6 @@ SENTINELBENCH_TASK_VARIANTS = {
     "github-watcher-medium": [30, 60, 300, 900, 3600, 7200],
     "github-watcher-hard": [30, 60, 300, 900, 3600, 7200],
     
-    # Cuckoo watcher variants
-    "cuckoo-watcher-easy": [30, 60, 300, 900, 3600, 7200],
-    "cuckoo-watcher-medium": [30, 60, 300, 900, 3600, 7200],
-    "cuckoo-watcher-hard": [30, 60, 300, 900, 3600, 7200],
     
     # Count-based variants: exponential scaling to test complexity (number of items/actions)
     # All tasks will have easy/medium/hard variants in the final dataset
@@ -76,9 +72,9 @@ SENTINELBENCH_TEST_VARIANTS = {
     "linkedin-monitor-hard": [60, 3600],
     
     # Flight booker variants
-    "flight-booker-easy": [60, 3600],
-    "flight-booker-medium": [60, 3600],
-    "flight-booker-hard": [60, 3600],
+    "flight-monitor-easy": [60, 3600],
+    "flight-monitor-medium": [60, 3600],
+    "flight-monitor-hard": [60, 3600],
     
     # News checker variants
     "news-checker-easy": [60, 3600],
@@ -90,10 +86,6 @@ SENTINELBENCH_TEST_VARIANTS = {
     "github-watcher-medium": [60, 3600],
     "github-watcher-hard": [60, 3600],
     
-    # Cuckoo watcher variants
-    "cuckoo-watcher-easy": [60, 3600],
-    "cuckoo-watcher-medium": [60, 3600],
-    "cuckoo-watcher-hard": [60, 3600],
     
     # Count-based test variants (2 count points) - all tasks will have easy/medium/hard variants
     
