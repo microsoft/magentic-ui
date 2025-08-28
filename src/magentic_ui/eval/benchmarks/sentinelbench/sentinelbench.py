@@ -25,7 +25,7 @@ class SentinelBenchBenchmark(Benchmark):
         self,
         name: str = "SentinelBench",
         data_dir: Union[str, None] = None,
-        base_website_path: str = "http://172.18.110.233:5173/",
+        base_website_path: str = "http://10.255.255.254:5173/",
         task_variants: dict = None,
     ):
         """
@@ -35,7 +35,7 @@ class SentinelBenchBenchmark(Benchmark):
             name: Name of the benchmark
             data_dir: Directory containing the benchmark data
             base_website_path: The base path of the website to use for the SentinelBench. 
-                              Make sure it ends with a slash. Default is http://172.18.110.233:5173/ for local testing.
+                              Make sure it ends with a slash. Default is http://10.255.255.254:5173/ for local testing.
             task_variants: Dict of task_id -> list of parameter values. 
                           E.g., {"reactor-easy": [60, 120, 3600]} for different duration values
         """
@@ -67,9 +67,6 @@ class SentinelBenchBenchmark(Benchmark):
             "github-watcher-easy": {"duration": 30},
             "github-watcher-medium": {"duration": 30},
             "github-watcher-hard": {"duration": 30},
-            "cuckoo-watcher-easy": {"duration": 30},
-            "cuckoo-watcher-medium": {"duration": 30},
-            "cuckoo-watcher-hard": {"duration": 30},
             
             # Count-based tasks (number of items/actions) - all variants
             # Both use same scaling: [2, 4, 8, 16, 32, 64]
@@ -82,9 +79,9 @@ class SentinelBenchBenchmark(Benchmark):
         }
         
         logging_msg = f"[SentinelBench] Using base website path: {self.base_website_path}"
-        if self.base_website_path == "http://172.25.159.193:5173/":
+        if self.base_website_path == "http://10.255.255.254:5173/":
             logging_msg += """
-            SentinelBench is currently configured for local testing at 172.25.159.193:5173.
+            SentinelBench is currently configured for local testing at 10.255.255.254:5173.
             Make sure you have the SentinelBench website running locally with 'npm run dev -- --host 0.0.0.0' before executing evaluations.
             """
         logging.info(logging_msg)
@@ -251,10 +248,9 @@ class SentinelBenchBenchmark(Benchmark):
             "reactor-easy", "reactor-medium", "reactor-hard",
             "teams-monitor-easy", "teams-monitor-medium", "teams-monitor-hard",
             "linkedin-monitor-easy", "linkedin-monitor-medium", "linkedin-monitor-hard",
-            "flight-booker-easy", "flight-booker-medium", "flight-booker-hard",
+            "flight-monitor-easy", "flight-monitor-medium", "flight-monitor-hard",
             "news-checker-easy", "news-checker-medium", "news-checker-hard",
-            "github-watcher-easy", "github-watcher-medium", "github-watcher-hard",
-            "cuckoo-watcher-easy", "cuckoo-watcher-medium", "cuckoo-watcher-hard"
+            "github-watcher-easy", "github-watcher-medium", "github-watcher-hard"
         ]:
             return f"{base_url}?duration={param_value}"
         
