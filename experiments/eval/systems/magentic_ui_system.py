@@ -25,6 +25,7 @@ from magentic_ui.teams import GroupChat
 from magentic_ui.tools.playwright.browser import VncDockerPlaywrightBrowser
 from magentic_ui.tools.playwright.browser import LocalPlaywrightBrowser
 from magentic_ui.tools.playwright.browser.utils import get_available_port
+from magentic_ui.cli import PrettyConsole
 
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         dataset_name (str): Name of the evaluation dataset (e.g., "Gaia").
         use_local_browser (bool): If True, use the local browser.
         sentinel_tasks (bool): If True, enable sentinel tasks functionality in the orchestrator.
+        pretty_output (bool): If True, use PrettyConsole for formatted agent output (default: False).
     """
 
     def __init__(
@@ -80,6 +82,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         sentinel_tasks: bool = False,
         timeout_minutes: int = 15,
         verbose: bool = False,
+        pretty_output: bool = False,
     ):
         super().__init__(name)
         self.candidate_class = WebVoyagerCandidate
@@ -93,6 +96,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         self.sentinel_tasks = sentinel_tasks
         self.timeout_minutes = timeout_minutes
         self.verbose = verbose
+        self.pretty_output = pretty_output
 
     def get_answer(
         self, task_id: str, task: BaseTask, output_dir: str
@@ -251,48 +255,100 @@ class MagenticUIAutonomousSystem(BaseSystem):
             timeout_seconds = 60 * self.timeout_minutes
             last_message_str = ""
             try:
-                async def run_with_timeout():
-                    nonlocal last_message_str
-                    async for message in team.run_stream(task=task_message):
-                        # Store log events
-                        message_str: str = ""
-                        try:
-                            if isinstance(message, TaskResult) or isinstance(
-                                message, CheckpointEvent
-                            ):
-                                continue
-                            message_str = message.to_text()
-                            last_message_str = message_str  # Store for access outside
-                            # Create log event with source, content and timestamp
-                            log_event = LogEventSystem(
-                                source=message.source,
-                                content=message_str,
-                                timestamp=datetime.datetime.now().isoformat(),
-                                metadata=message.metadata,
-                            )
-                            messages_so_far.append(log_event)
-                        except Exception as e:
-                            logger.info(
-                                f"[likely nothing] When creating model_dump of message encountered exception {e}"
-                            )
-                            pass
+                if self.pretty_output:
+                    # Use PrettyConsole for formatted output with logging capture
+                    async def run_with_pretty_console():
+                        nonlocal last_message_str
+                        
+                        # Create a custom stream processor that captures messages for logging
+                        async def message_processor():
+                            async for message in team.run_stream(task=task_message):
+                                # Store log events for file saving
+                                message_str: str = ""
+                                try:
+                                    if isinstance(message, TaskResult) or isinstance(
+                                        message, CheckpointEvent
+                                    ):
+                                        yield message  # Pass through without processing
+                                        continue
+                                    message_str = message.to_text()
+                                    last_message_str = message_str  # Store for access outside
+                                    # Create log event with source, content and timestamp
+                                    log_event = LogEventSystem(
+                                        source=message.source,
+                                        content=message_str,
+                                        timestamp=datetime.datetime.now().isoformat(),
+                                        metadata=message.metadata,
+                                    )
+                                    messages_so_far.append(log_event)
+                                except Exception as e:
+                                    logger.info(
+                                        f"[likely nothing] When creating model_dump of message encountered exception {e}"
+                                    )
+                                    pass
 
-                        # save to file
-                        logger.info(f"Run in progress: {task_id}, message: {message_str}")
+                                # Save to file (but suppress the verbose logging when using pretty console)
+                                if self.verbose:
+                                    logger.info(f"Run in progress: {task_id}, message: {message_str}")
+                                
+                                safe_task_id = task_id.replace("/", "_")
+                                async with aiofiles.open(
+                                    f"{output_dir}/{safe_task_id}_messages.json", "w"
+                                ) as f:
+                                    await f.write(
+                                        json.dumps([msg.model_dump() for msg in messages_so_far], indent=2)
+                                    )
+                                
+                                yield message  # Pass message to PrettyConsole
                         
-                        # Add console output for verbose mode
-                        if self.verbose:
-                            print(f"\n🤖 [{message.source}]: {message_str}")
-                        
-                        safe_task_id = task_id.replace("/", "_")
-                        async with aiofiles.open(
-                            f"{output_dir}/{safe_task_id}_messages.json", "w"
-                        ) as f:
-                            await f.write(
-                                json.dumps([msg.model_dump() for msg in messages_so_far], indent=2)
-                            )
-                
-                await asyncio.wait_for(run_with_timeout(), timeout=timeout_seconds)
+                        # Use PrettyConsole to process the stream
+                        await PrettyConsole(message_processor(), debug=self.verbose)
+                    
+                    await asyncio.wait_for(run_with_pretty_console(), timeout=timeout_seconds)
+                else:
+                    # Keep existing logic for backward compatibility
+                    async def run_with_timeout():
+                        nonlocal last_message_str
+                        async for message in team.run_stream(task=task_message):
+                            # Store log events
+                            message_str: str = ""
+                            try:
+                                if isinstance(message, TaskResult) or isinstance(
+                                    message, CheckpointEvent
+                                ):
+                                    continue
+                                message_str = message.to_text()
+                                last_message_str = message_str  # Store for access outside
+                                # Create log event with source, content and timestamp
+                                log_event = LogEventSystem(
+                                    source=message.source,
+                                    content=message_str,
+                                    timestamp=datetime.datetime.now().isoformat(),
+                                    metadata=message.metadata,
+                                )
+                                messages_so_far.append(log_event)
+                            except Exception as e:
+                                logger.info(
+                                    f"[likely nothing] When creating model_dump of message encountered exception {e}"
+                                )
+                                pass
+
+                            # save to file
+                            logger.info(f"Run in progress: {task_id}, message: {message_str}")
+                            
+                            # Add console output for verbose mode
+                            if self.verbose:
+                                print(f"\n🤖 [{message.source}]: {message_str}")
+                            
+                            safe_task_id = task_id.replace("/", "_")
+                            async with aiofiles.open(
+                                f"{output_dir}/{safe_task_id}_messages.json", "w"
+                            ) as f:
+                                await f.write(
+                                    json.dumps([msg.model_dump() for msg in messages_so_far], indent=2)
+                                )
+                    
+                    await asyncio.wait_for(run_with_timeout(), timeout=timeout_seconds)
                 
                 # how the final answer is formatted:  "Final Answer: FINAL ANSWER: Actual final answer"
 

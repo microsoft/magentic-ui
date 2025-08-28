@@ -233,6 +233,7 @@ def run_system_sim_user(args: Dict[str, Any], system_name: str) -> None:
             sentinel_tasks=args["sentinel_tasks"],
             timeout_minutes=args["timeout_minutes"],
             verbose=args["verbose"],
+            pretty_output=args["pretty_output"],
         )
 
     run_system_evaluation(args, system, system_name, config)
@@ -281,6 +282,9 @@ def main(
     
     # Debugging
     verbose: Annotated[bool, typer.Option(help="🗣️ Enable verbose logging to show agent thinking", rich_help_panel="🛠️ Debugging")] = False,
+    
+    # Output Formatting
+    pretty_output: Annotated[bool, typer.Option("--pretty-output/--no-pretty-output", help="🎨 Use pretty console formatting for agent output (default: disabled)", rich_help_panel="🎨 Output Formatting")] = False,
 ) -> None:
     """
     🧪 **Magentic-UI Evaluation System**
@@ -312,6 +316,7 @@ def main(
         "how_helpful_user_proxy": how_helpful_user_proxy,
         "user_messages_data": user_messages_data,
         "verbose": verbose,
+        "pretty_output": pretty_output,
     }
     
     # Validate mode
