@@ -2,13 +2,32 @@
 """
 Analyze SentinelBench performance across task dimensions.
 Creates plots showing accuracy, latency, and cost scaling for specific tasks.
+Supports both single run analysis and comparison between two runs.
 
 Usage:
-    python analyze_dimensions.py --run-dir runs/MagenticUI/SentinelBench/test/4000 \
-                                 --task-name animal-mover-easy \
-                                 --model gpt-4o \
-                                 --output-dir plots \
+    # Single run analysis without sentinel:
+    python analyze_dimensions.py --run-dir runs/MagenticUI_web_surfer_only/SentinelBench/test/0 \
+                                 --task-name button-presser \
+                                 --model gpt-5-mini \
+                                 --output-dir plots/button-presser \
+    
+    # Single run analysis with sentinel:
+    python analyze_dimensions.py --run-dir runs/MagenticUI_web_surfer_only/SentinelBench/test/1 \
+                                 --task-name button-presser \
+                                 --model gpt-5-mini \
+                                 --output-dir plots/button-presser \
                                  --sentinel
+
+    # Comparison between two runs (e.g., with vs without sentinel):
+    python src/magentic_ui/eval/benchmarks/sentinelbench/analyze_dimensions.py \
+                                 --run-dir runs/MagenticUI_web_surfer_only/SentinelBench/test/0 \
+                                 --compare-with runs/MagenticUI_web_surfer_only/SentinelBench/test/1 \
+                                 --task-name button-presser \
+                                 --model gpt-5-mini \
+                                 --main-label "Without Sentinel" \
+                                 --compare-label "With Sentinel" \
+                                 --output-dir plots/button-presser \
+                                 --combined
 """
 
 import matplotlib.pyplot as plt
@@ -60,9 +79,9 @@ def setup_plot_style():
     # Use a clean, modern style as base
     plt.style.use('default')
     
-    # Font settings for academic papers
+    # Font settings for NeurIPS-style academic papers
     plt.rcParams["font.family"] = "serif"
-    plt.rcParams["font.serif"] = ["Times New Roman", "Times", "serif"]
+    plt.rcParams["font.serif"] = ["Computer Modern Roman", "CMU Serif", "Times", "Liberation Serif", "DejaVu Serif", "serif"]
     plt.rcParams["font.size"] = 14
     plt.rcParams["axes.labelsize"] = 16
     plt.rcParams["axes.titlesize"] = 18
