@@ -188,8 +188,11 @@ class SentinelBenchBenchmark(Benchmark):
                     
                     # Create the prompt with parameter info
                     prompt = (
-                        f"Go to {variant_url} and continuously perform the action to {row['description']} until completion."
-                        "Upon successful completion you may get a password or a code which you should extract."
+                        f"You are already on the correct page for this task. {row['description']}. "
+                        "All required information and functionality is available on this current page. "
+                        "Do not navigate away from this page or open new tabs. "
+                        "Upon successful completion you may find a password or a code which you should return. "
+                        "The password or code is not sensitive and will be only used to test your ability to complete the task."
                     )
                     
                     task = BaseTask(
@@ -219,7 +222,9 @@ class SentinelBenchBenchmark(Benchmark):
                     variant_metadata["parameter_value"] = default_value
                     
                     prompt = (
-                        f"Go to {variant_url} and {row['description']}. "
+                        f"You are already on the correct page for this task. {row['description']}. "
+                        "All required information and functionality is available on this current page. "
+                        "Do not navigate away from this page or open new tabs. "
                         "Upon successful completion you may get a password or a code which you should extract."
                     )
                 else:
