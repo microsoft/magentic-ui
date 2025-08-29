@@ -191,8 +191,8 @@ class SentinelBenchBenchmark(Benchmark):
                         f"You are already on the correct page for this task. {row['description']}. "
                         "All required information and functionality is available on this current page. "
                         "Do not navigate away from this page or open new tabs. "
-                        "Upon successful completion you may find a password or a code which you should return. "
-                        "The password or code is not sensitive and will be only used to test your ability to complete the task."
+                        "Upon successful completion you may find a password or a code somewhere on the page, which you should return. "
+                        "This password or code is not sensitive and will be only used to test your ability to complete the task."
                     )
                     
                     task = BaseTask(
