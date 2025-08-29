@@ -459,10 +459,36 @@ def run_benchmark_func(
     logger.info(f"[DEBUG] Filtering parameters: task_id='{task_id}', base_task='{base_task}', difficulty='{difficulty}'")
     
     if split:
-        # For SentinelBench, pass filtering parameters
+        # For SentinelBench, pass filtering parameters (with multiple value support)
         if benchmark_name == "SentinelBench":
             logger.info(f"[DEBUG] Calling benchmark.get_split_tasks for SentinelBench")
-            task_ids = benchmark.get_split_tasks(split, task_id=task_id, base_task=base_task, difficulty=difficulty)
+            
+            # Handle comma-separated multiple values for SentinelBench
+            all_task_ids = []
+            
+            # Parse comma-separated values
+            task_id_list = [t.strip() for t in task_id.split(",")] if task_id else [None]
+            base_task_list = [b.strip() for b in base_task.split(",")] if base_task else [None]  
+            difficulty_list = [d.strip() for d in difficulty.split(",")] if difficulty else [None]
+            
+            logger.info(f"[DEBUG] Parsed parameters - task_ids: {task_id_list}, base_tasks: {base_task_list}, difficulties: {difficulty_list}")
+            
+            # Generate all combinations when multiple parameters are specified
+            for tid in task_id_list:
+                for btask in base_task_list:
+                    for diff in difficulty_list:
+                        # Get tasks for this combination
+                        combo_tasks = benchmark.get_split_tasks(
+                            split, 
+                            task_id=tid, 
+                            base_task=btask, 
+                            difficulty=diff
+                        )
+                        all_task_ids.extend(combo_tasks)
+            
+            # Remove duplicates while preserving order
+            task_ids = list(dict.fromkeys(all_task_ids))
+            logger.info(f"[DEBUG] Combined task IDs from all parameter combinations: {len(task_ids)} tasks")
         else:
             logger.info(f"[DEBUG] Calling benchmark.get_split_tasks for non-SentinelBench")
             task_ids = benchmark.get_split_tasks(split)
@@ -677,9 +703,31 @@ def evaluate_benchmark_func(
             system = system_constructor
 
         if split:
-            # For SentinelBench, pass filtering parameters
+            # For SentinelBench, pass filtering parameters (with multiple value support)
             if benchmark_name == "SentinelBench":
-                tasks = benchmark.get_split_tasks(split, task_id=task_id, base_task=base_task, difficulty=difficulty)
+                # Handle comma-separated multiple values for SentinelBench
+                all_task_ids = []
+                
+                # Parse comma-separated values
+                task_id_list = [t.strip() for t in task_id.split(",")] if task_id else [None]
+                base_task_list = [b.strip() for b in base_task.split(",")] if base_task else [None]  
+                difficulty_list = [d.strip() for d in difficulty.split(",")] if difficulty else [None]
+                
+                # Generate all combinations when multiple parameters are specified
+                for tid in task_id_list:
+                    for btask in base_task_list:
+                        for diff in difficulty_list:
+                            # Get tasks for this combination
+                            combo_tasks = benchmark.get_split_tasks(
+                                split, 
+                                task_id=tid, 
+                                base_task=btask, 
+                                difficulty=diff
+                            )
+                            all_task_ids.extend(combo_tasks)
+                
+                # Remove duplicates while preserving order
+                tasks = list(dict.fromkeys(all_task_ids))
             else:
                 tasks = benchmark.get_split_tasks(split)
         else:

@@ -263,9 +263,9 @@ def main(
     sentinel_tasks: Annotated[bool, typer.Option(help="🛡️ Enable sentinel tasks functionality in the orchestrator", rich_help_panel="🤖 System Configuration")] = False,
     
     # Task Filtering
-    task_id: Annotated[Optional[str], typer.Option(help="🎯 Run a specific task by ID (e.g., 'reactor-easy')", rich_help_panel="🔍 Task Filtering")] = None,
-    base_task: Annotated[Optional[str], typer.Option(help="📝 Run all variants of a specific task", rich_help_panel="🔍 Task Filtering")] = None,  
-    difficulty: Annotated[Optional[str], typer.Option(help="⚡ Filter tasks by difficulty level", rich_help_panel="🔍 Task Filtering")] = None,
+    task_id: Annotated[Optional[str], typer.Option(help="🎯 Run a specific task by ID (e.g., 'reactor-easy') or multiple tasks separated by commas (e.g., 'reactor-easy,animal-mover-medium')", rich_help_panel="🔍 Task Filtering")] = None,
+    base_task: Annotated[Optional[str], typer.Option(help="📝 Run all variants of a specific task or multiple tasks separated by commas (e.g., 'reactor,animal-mover,linkedin-monitor')", rich_help_panel="🔍 Task Filtering")] = None,  
+    difficulty: Annotated[Optional[str], typer.Option(help="⚡ Filter tasks by difficulty level or multiple levels separated by commas (e.g., 'easy,medium')", rich_help_panel="🔍 Task Filtering")] = None,
     
     # SentinelBench Options
     use_test_variants: Annotated[bool, typer.Option(help="🧪 Use test variants for SentinelBench (smaller set)", rich_help_panel="🛡️ SentinelBench Options")] = False,
@@ -347,6 +347,24 @@ def main(
     
     typer.echo(f"🚀 Starting evaluation with system: [bold blue]{system_name}[/bold blue]", color=True)
     typer.echo(f"📊 Dataset: [yellow]{dataset}[/yellow], Mode: [cyan]{mode}[/cyan]", color=True)
+    
+    # Display task filtering info for SentinelBench
+    if dataset == "SentinelBench":
+        filter_info = []
+        if task_id:
+            task_count = len([t.strip() for t in task_id.split(",")])
+            filter_info.append(f"Task IDs: [blue]{task_id}[/blue] ({task_count} task{'s' if task_count > 1 else ''})")
+        if base_task:
+            base_count = len([b.strip() for b in base_task.split(",")])
+            filter_info.append(f"Base Tasks: [green]{base_task}[/green] ({base_count} task{'s' if base_count > 1 else ''})")
+        if difficulty:
+            diff_count = len([d.strip() for d in difficulty.split(",")])
+            filter_info.append(f"Difficulties: [magenta]{difficulty}[/magenta] ({diff_count} level{'s' if diff_count > 1 else ''})")
+        
+        if filter_info:
+            typer.echo("🔍 Task Filtering:", color=True)
+            for info in filter_info:
+                typer.echo(f"   • {info}", color=True)
     
     # Save experiment args
     save_experiment_args(args, system_name)
