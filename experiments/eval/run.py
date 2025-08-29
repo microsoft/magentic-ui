@@ -139,10 +139,19 @@ def run_system_evaluation(
             elif args.get('use_full_variants'):
                 task_variants = SENTINELBENCH_TASK_VARIANTS
             
+            # Handle custom base URL if provided
+            base_website_path = "http://10.255.255.254:5173/"  # Default
+            if args.get('sentinelbench_url'):
+                base_website_path = args['sentinelbench_url']
+                # Ensure URL ends with slash
+                if not base_website_path.endswith('/'):
+                    base_website_path += '/'
+            
             benchmark = SentinelBenchBenchmark(
                 data_dir=data_dir,
                 name=name,
                 task_variants=task_variants,
+                base_website_path=base_website_path,
             )
             return benchmark
             
@@ -268,6 +277,7 @@ def main(
     difficulty: Annotated[Optional[str], typer.Option(help="⚡ Filter tasks by difficulty level or multiple levels separated by commas (e.g., 'easy,medium')", rich_help_panel="🛡️ SentinelBench Options")] = None,
     use_test_variants: Annotated[bool, typer.Option(help="🧪 Use test variants for SentinelBench (smaller set)", rich_help_panel="🛡️ SentinelBench Options")] = False,
     use_full_variants: Annotated[bool, typer.Option(help="🎛️ Use full variants for SentinelBench (all combinations)", rich_help_panel="🛡️ SentinelBench Options")] = False,
+    sentinelbench_url: Annotated[Optional[str], typer.Option(help="🌐 Override SentinelBench base URL (default: http://10.255.255.254:5173/)", rich_help_panel="🛡️ SentinelBench Options")] = None,
     
     # Evaluation Options
     redo_eval: Annotated[bool, typer.Option(help="🔄 Redo evaluation even if results exist", rich_help_panel="📊 Evaluation Options")] = False,
@@ -308,6 +318,7 @@ def main(
         "difficulty": difficulty,
         "use_test_variants": use_test_variants,
         "use_full_variants": use_full_variants,
+        "sentinelbench_url": sentinelbench_url,
         "redo_eval": redo_eval,
         "rerun_timedout": rerun_timedout,
         "simulated_user_type": simulated_user_type,
@@ -363,6 +374,14 @@ def main(
             typer.echo("🔍 Task Filtering:", color=True)
             for info in filter_info:
                 typer.echo(f"   • {info}", color=True)
+        
+        # Display custom URL info if provided
+        if args.get("sentinelbench_url"):
+            custom_url = args["sentinelbench_url"]
+            if not custom_url.endswith('/'):
+                custom_url += '/'
+            typer.echo("🌐 Custom SentinelBench URL:", color=True)
+            typer.echo(f"   • URL: [cyan]{custom_url}[/cyan]", color=True)
     
     # Save experiment args
     save_experiment_args(args, system_name)
