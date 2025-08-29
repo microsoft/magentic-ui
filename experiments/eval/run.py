@@ -262,12 +262,10 @@ def main(
     use_local_browser: Annotated[bool, typer.Option(help="🖥️ Run the browser locally, with a GUI (headful)", rich_help_panel="🤖 System Configuration")] = False,
     sentinel_tasks: Annotated[bool, typer.Option(help="🛡️ Enable sentinel tasks functionality in the orchestrator", rich_help_panel="🤖 System Configuration")] = False,
     
-    # Task Filtering
-    task_id: Annotated[Optional[str], typer.Option(help="🎯 Run a specific task by ID (e.g., 'reactor-easy') or multiple tasks separated by commas (e.g., 'reactor-easy,animal-mover-medium')", rich_help_panel="🔍 Task Filtering")] = None,
-    base_task: Annotated[Optional[str], typer.Option(help="📝 Run all variants of a specific task or multiple tasks separated by commas (e.g., 'reactor,animal-mover,linkedin-monitor')", rich_help_panel="🔍 Task Filtering")] = None,  
-    difficulty: Annotated[Optional[str], typer.Option(help="⚡ Filter tasks by difficulty level or multiple levels separated by commas (e.g., 'easy,medium')", rich_help_panel="🔍 Task Filtering")] = None,
-    
     # SentinelBench Options
+    task_id: Annotated[Optional[str], typer.Option(help="🎯 Run a specific task by ID (e.g., 'reactor-easy') or multiple tasks separated by commas (e.g., 'reactor-easy,animal-mover-medium')", rich_help_panel="🛡️ SentinelBench Options")] = None,
+    base_task: Annotated[Optional[str], typer.Option(help="📝 Run all variants of a specific task or multiple tasks separated by commas (e.g., 'reactor,animal-mover,linkedin-monitor')", rich_help_panel="🛡️ SentinelBench Options")] = None,  
+    difficulty: Annotated[Optional[str], typer.Option(help="⚡ Filter tasks by difficulty level or multiple levels separated by commas (e.g., 'easy,medium')", rich_help_panel="🛡️ SentinelBench Options")] = None,
     use_test_variants: Annotated[bool, typer.Option(help="🧪 Use test variants for SentinelBench (smaller set)", rich_help_panel="🛡️ SentinelBench Options")] = False,
     use_full_variants: Annotated[bool, typer.Option(help="🎛️ Use full variants for SentinelBench (all combinations)", rich_help_panel="🛡️ SentinelBench Options")] = False,
     
