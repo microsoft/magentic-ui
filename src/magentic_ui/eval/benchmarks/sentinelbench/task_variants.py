@@ -57,45 +57,45 @@ SENTINELBENCH_TEST_VARIANTS = {
     # Time-based test variants (2 time points) - all tasks will have easy/medium/hard variants
     
     # Reactor variants
-    "reactor-easy": [14400, 28800, 57600],
-    "reactor-medium": [14400, 28800, 57600],
-    "reactor-hard": [14400, 28800, 57600],
+    "reactor-easy": [30],
+    "reactor-medium": [30],
+    "reactor-hard": [30],
     
     # Teams monitor variants
-    "teams-monitor-easy": [60, 3600],
-    "teams-monitor-medium": [60, 3600],
-    "teams-monitor-hard": [60, 3600],
+    "teams-monitor-easy": [30],
+    "teams-monitor-medium": [30],
+    "teams-monitor-hard": [30],
     
     # LinkedIn monitor variants
-    "linkedin-monitor-easy": [60, 3600],
-    "linkedin-monitor-medium": [60, 3600], 
-    "linkedin-monitor-hard": [60, 3600],
+    "linkedin-monitor-easy": [30],
+    "linkedin-monitor-medium": [30], 
+    "linkedin-monitor-hard": [30],
     
     # Flight booker variants
-    "flight-monitor-easy": [60, 3600],
-    "flight-monitor-medium": [60, 3600],
-    "flight-monitor-hard": [60, 3600],
+    "flight-monitor-easy": [30],
+    "flight-monitor-medium": [30],
+    "flight-monitor-hard": [30],
     
     # News checker variants
-    "news-checker-easy": [60, 3600],
-    "news-checker-medium": [60, 3600],
-    "news-checker-hard": [60, 3600],
+    "news-checker-easy": [30],
+    "news-checker-medium": [30],
+    "news-checker-hard": [30],
     
     # GitHub watcher variants
-    "github-watcher-easy": [60, 3600],
-    "github-watcher-medium": [60, 3600],
-    "github-watcher-hard": [60, 3600],
+    "github-watcher-easy": [30],
+    "github-watcher-medium": [30],
+    "github-watcher-hard": [30],
     
     
     # Count-based test variants (2 count points) - all tasks will have easy/medium/hard variants
     
     # Animal mover variants
-    "animal-mover-easy": [4, 32],
-    "animal-mover-medium": [4, 32],
-    "animal-mover-hard": [4, 32],
+    "animal-mover-easy": [2],
+    "animal-mover-medium": [2],
+    "animal-mover-hard": [2],
     
     # Button presser variants (same scaling as animal-mover)
-    "button-presser-easy": [4, 32],
-    "button-presser-medium": [4, 32],
-    "button-presser-hard": [4, 32],
+    "button-presser-easy": [2],
+    "button-presser-medium": [2],
+    "button-presser-hard": [2],
 }

@@ -98,6 +98,95 @@ class MagenticUIAutonomousSystem(BaseSystem):
         self.verbose = verbose
         self.pretty_output = pretty_output
 
+    def _calculate_dynamic_timeout_silent(self, task: BaseTask) -> int:
+        """Calculate timeout without printing (for display purposes)."""
+        # Default timeout in seconds
+        default_timeout = 60 * self.timeout_minutes
+        
+        # Check if this is a SentinelBench task with parameter_value
+        if (hasattr(task, 'metadata') and task.metadata and 
+            isinstance(task.metadata, dict) and 
+            'parameter_value' in task.metadata):
+            
+            parameter_value = task.metadata['parameter_value']
+            
+            # Duration-based task timeout mappings (in minutes)
+            if (hasattr(task, 'id') and task.id and 
+                any(task_name in task.id for task_name in [
+                    'reactor', 'teams-monitor', 'linkedin-monitor', 
+                    'flight-monitor', 'news-checker', 'github-watcher'
+                ])):
+                
+                duration_timeouts = {
+                    30: 10,     # 30s task -> 10min timeout
+                    60: 15,     # 60s task -> 15min timeout
+                    300: 30,    # 5min task -> 30min timeout
+                    900: 60,    # 15min task -> 60min timeout
+                    3600: 120,  # 1h task -> 2h timeout
+                    7200: 180,  # 2h task -> 3h timeout
+                }
+                
+                timeout_minutes = duration_timeouts.get(parameter_value, self.timeout_minutes)
+                return timeout_minutes * 60
+            
+            # Count-based task timeout mappings (in minutes)
+            elif (hasattr(task, 'id') and task.id and 
+                  any(task_name in task.id for task_name in ['animal-mover', 'button-presser'])):
+                
+                count_timeouts = {
+                    2: 10,   # 2 actions -> 10min timeout
+                    4: 15,   # 4 actions -> 15min timeout
+                    8: 30,   # 8 actions -> 30min timeout
+                    16: 60,  # 16 actions -> 60min timeout
+                    32: 120, # 32 actions -> 2h timeout
+                    64: 180, # 64 actions -> 3h timeout
+                }
+                
+                timeout_minutes = count_timeouts.get(parameter_value, self.timeout_minutes)
+                return timeout_minutes * 60
+        
+        return default_timeout
+
+    def _get_timeout_display_info(self, task: BaseTask, timeout_seconds: int) -> str:
+        """Get formatted timeout display string."""
+        timeout_minutes = int(timeout_seconds / 60)
+        
+        # Check if this is a SentinelBench task with parameter_value
+        if (hasattr(task, 'metadata') and task.metadata and 
+            isinstance(task.metadata, dict) and 
+            'parameter_value' in task.metadata):
+            
+            parameter_value = task.metadata['parameter_value']
+            
+            # Duration-based tasks
+            if (hasattr(task, 'id') and task.id and 
+                any(task_name in task.id for task_name in [
+                    'reactor', 'teams-monitor', 'linkedin-monitor', 
+                    'flight-monitor', 'news-checker', 'github-watcher'
+                ])):
+                
+                # Format duration display properly
+                if parameter_value < 60:
+                    duration_display = f"{parameter_value}s"
+                elif parameter_value < 3600:
+                    duration_display = f"{int(parameter_value/60)}min"
+                else:
+                    duration_display = f"{int(parameter_value/3600)}h"
+                
+                return f"{timeout_minutes}min for {duration_display} task"
+            
+            # Count-based tasks
+            elif (hasattr(task, 'id') and task.id and 
+                  any(task_name in task.id for task_name in ['animal-mover', 'button-presser'])):
+                
+                return f"{timeout_minutes}min for {parameter_value} actions"
+        
+        return f"{timeout_minutes}min (default)"
+
+    def _calculate_dynamic_timeout(self, task: BaseTask) -> int:
+        """Calculate timeout (reuses silent calculation)."""
+        return self._calculate_dynamic_timeout_silent(task)
+
     def get_answer(
         self, task_id: str, task: BaseTask, output_dir: str
     ) -> BaseCandidate:
@@ -127,6 +216,22 @@ class MagenticUIAutonomousSystem(BaseSystem):
             messages_so_far: List[LogEventSystem] = []
 
             task_question: str = task.question
+            
+            # Debug: Print the task information
+            sentinel_status = "✅ ENABLED" if self.sentinel_tasks else "❌ DISABLED"
+            
+            # Get timeout info for display (without printing it yet)
+            timeout_seconds = self._calculate_dynamic_timeout_silent(task)
+            timeout_display = self._get_timeout_display_info(task, timeout_seconds)
+            
+            print(f"\n🎯 \033[1;34m=== TASK INITIALIZATION ===\033[0m")
+            print(f"📋 Task ID: \033[1;33m{task_id}\033[0m")
+            print(f"🌐 Start URL: \033[1;32m{task.url_path}\033[0m")
+            print(f"🛡️ Sentinel Tasks: \033[1;35m{sentinel_status}\033[0m")
+            print(f"⏱️ Timeout: \033[1;31m{timeout_display}\033[0m")
+            print(f"📝 Task Prompt: \033[1;36m{task_question}\033[0m")
+            print(f"\033[1;34m==========================\033[0m\n")
+            
             # Adapted from MagenticOne. Minor change is to allow an explanation of the final answer before the final answer.
             FINAL_ANSWER_PROMPT = f"""
             output a FINAL ANSWER to the task.
@@ -145,8 +250,10 @@ class MagenticUIAutonomousSystem(BaseSystem):
             """
             # Step 2: Create the Magentic-UI team
             # TERMINATION CONDITION
+            # Dynamic timeout calculation for SentinelBench duration-based tasks
+            timeout_seconds = self._calculate_dynamic_timeout(task)
             termination_condition = TimeoutTermination(
-                timeout_seconds=60 * self.timeout_minutes
+                timeout_seconds=timeout_seconds
             )
             model_context_token_limit = 110000
             # ORCHESTRATOR CONFIGURATION
@@ -252,7 +359,8 @@ class MagenticUIAutonomousSystem(BaseSystem):
             else:
                 task_message = TextMessage(content=task_question, source="user")
             # Step 4: Run the team on the task with explicit timeout wrapper
-            timeout_seconds = 60 * self.timeout_minutes
+            # Dynamic timeout calculation for SentinelBench duration-based tasks
+            timeout_seconds = self._calculate_dynamic_timeout(task)
             last_message_str = ""
             try:
                 if self.pretty_output:
@@ -262,6 +370,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
                         
                         # Create a custom stream processor that captures messages for logging
                         async def message_processor():
+                            nonlocal last_message_str  # Ensure we can modify the outer variable
                             async for message in team.run_stream(task=task_message):
                                 # Store log events for file saving
                                 message_str: str = ""
@@ -303,6 +412,17 @@ class MagenticUIAutonomousSystem(BaseSystem):
                         
                         # Use PrettyConsole to process the stream
                         await PrettyConsole(message_processor(), debug=self.verbose)
+                        
+                        # After PrettyConsole finishes, extract answer from messages_so_far as fallback
+                        # This ensures we get the final answer even if last_message_str wasn't set correctly
+                        if not last_message_str and messages_so_far:
+                            # Find the last message from Orchestrator with final_answer type
+                            for message in reversed(messages_so_far):
+                                if (message.source == "Orchestrator" and 
+                                    hasattr(message, 'metadata') and 
+                                    message.metadata.get('type') == 'final_answer'):
+                                    last_message_str = message.content
+                                    break
                     
                     await asyncio.wait_for(run_with_pretty_console(), timeout=timeout_seconds)
                 else:
