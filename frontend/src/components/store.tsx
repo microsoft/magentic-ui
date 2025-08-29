@@ -26,6 +26,10 @@ export interface GeneralConfig {
   server_url: string; // Optional server URL for VNC/live view
   advanced_agent_settings?: boolean; // Whether advanced agent settings are enabled
   default_model?: any; // The default model for all agents in basic mode
+  sentinel_plan: {
+    enable_sentinel_steps: boolean;
+    dynamic_sentinel_sleep: boolean;
+  };
 }
 
 const defaultConfig: GeneralConfig = {
@@ -43,6 +47,10 @@ const defaultConfig: GeneralConfig = {
   mcp_agent_configs: [],
   run_without_docker: false,
   browser_headless: true,
+  sentinel_plan: {
+    enable_sentinel_steps: false,
+    dynamic_sentinel_sleep: false,
+  },
   model_client_configs: {
     orchestrator: DEFAULT_OPENAI,
     web_surfer: DEFAULT_OPENAI,

@@ -325,6 +325,9 @@ const RenderPlan: React.FC<RenderPlanProps> = memo(
       enabled: step.enabled !== false,
       open: step.open || false,
       agent_name: step.agent_name || "",
+      // Include sentinel fields if present
+      ...(step.sleep_duration !== undefined && { sleep_duration: step.sleep_duration }),
+      ...(step.condition !== undefined && { condition: step.condition }),
     }));
 
     const [planSteps, setPlanSteps] = useState<IPlanStep[]>(initialPlanSteps);

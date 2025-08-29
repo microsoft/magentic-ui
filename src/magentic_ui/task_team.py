@@ -104,7 +104,7 @@ async def get_task_team(
         memory_controller_key=magentic_ui_config.memory_controller_key,
         allow_follow_up_input=magentic_ui_config.allow_follow_up_input,
         final_answer_prompt=magentic_ui_config.final_answer_prompt,
-        sentinel_tasks=magentic_ui_config.sentinel_tasks,
+        sentinel_plan=magentic_ui_config.sentinel_plan,
     )
     websurfer_model_client = magentic_ui_config.model_client_configs.web_surfer
     if websurfer_model_client is None:
