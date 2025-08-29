@@ -416,11 +416,20 @@ class MagenticUIAutonomousSystem(BaseSystem):
                         # After PrettyConsole finishes, extract answer from messages_so_far as fallback
                         # This ensures we get the final answer even if last_message_str wasn't set correctly
                         if not last_message_str and messages_so_far:
-                            # Find the last message from Orchestrator with final_answer type
+                            # Try multiple strategies to find the final answer
                             for message in reversed(messages_so_far):
+                                # Strategy 1: Look for final_answer type metadata
                                 if (message.source == "Orchestrator" and 
                                     hasattr(message, 'metadata') and 
                                     message.metadata.get('type') == 'final_answer'):
+                                    last_message_str = message.content
+                                    break
+                                # Strategy 2: Look for FINAL ANSWER pattern in any message
+                                elif "FINAL ANSWER:" in message.content:
+                                    last_message_str = message.content
+                                    break
+                                # Strategy 3: Look for Final Answer pattern in any message
+                                elif message.content.startswith("Final Answer:"):
                                     last_message_str = message.content
                                     break
                     
@@ -471,11 +480,37 @@ class MagenticUIAutonomousSystem(BaseSystem):
                     await asyncio.wait_for(run_with_timeout(), timeout=timeout_seconds)
                 
                 # how the final answer is formatted:  "Final Answer: FINAL ANSWER: Actual final answer"
-
-                if last_message_str.startswith("Final Answer:"):
+                
+                # Robust answer extraction with multiple fallback strategies
+                if last_message_str and last_message_str.startswith("Final Answer:"):
                     answer = last_message_str[len("Final Answer:") :].strip()
                     # remove the "FINAL ANSWER:" part and get the string after it
-                    answer = answer.split("FINAL ANSWER:")[1].strip()
+                    if "FINAL ANSWER:" in answer:
+                        answer = answer.split("FINAL ANSWER:")[1].strip()
+                else:
+                    # Fallback 1: Search messages_so_far for final answer patterns
+                    answer_found = False
+                    for message in reversed(messages_so_far):
+                        content = message.content
+                        
+                        # Try different final answer patterns
+                        if "FINAL ANSWER:" in content:
+                            answer = content.split("FINAL ANSWER:")[-1].strip()
+                            answer_found = True
+                            break
+                        elif content.startswith("Final Answer:"):
+                            answer_part = content[len("Final Answer:"):].strip()
+                            if "FINAL ANSWER:" in answer_part:
+                                answer = answer_part.split("FINAL ANSWER:")[-1].strip()
+                            else:
+                                answer = answer_part
+                            answer_found = True
+                            break
+                    
+                    # Fallback 2: If no answer found, set a clear error message
+                    if not answer_found:
+                        answer = "ERROR: Could not extract final answer from agent responses"
+                        logger.error(f"Failed to extract answer for task {task_id}. last_message_str was: '{last_message_str}'")
 
             except asyncio.TimeoutError:
                 logger.warning(f"Task {task_id} timed out after {timeout_seconds} seconds")
