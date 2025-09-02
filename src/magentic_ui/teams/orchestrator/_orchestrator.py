@@ -234,14 +234,14 @@ class Orchestrator(BaseGroupChatManager):
         date_today = datetime.now().strftime("%Y-%m-%d")
         if self._config.autonomous_execution:
             return get_orchestrator_system_message_planning_autonomous(
-                self._config.sentinel_tasks
+                self._config.sentinel_plan.enable_sentinel_steps
             ).format(
                 date_today=date_today,
                 team=self._team_description,
             )
         else:
             return get_orchestrator_system_message_planning(
-                self._config.sentinel_tasks
+                self._config.sentinel_plan.enable_sentinel_steps
             ).format(
                 date_today=date_today,
                 team=self._team_description,
@@ -255,9 +255,9 @@ class Orchestrator(BaseGroupChatManager):
                 + ", ".join(self._config.allowed_websites)
             )
 
-        return get_orchestrator_plan_prompt_json(self._config.sentinel_tasks).format(
-            team=team, additional_instructions=additional_instructions
-        )
+        return get_orchestrator_plan_prompt_json(
+            self._config.sentinel_plan.enable_sentinel_steps
+        ).format(team=team, additional_instructions=additional_instructions)
 
     def _get_task_ledger_replan_plan_prompt(
         self, task: str, team: str, plan: str
@@ -268,7 +268,9 @@ class Orchestrator(BaseGroupChatManager):
                 "Only use the following websites if possible: "
                 + ", ".join(self._config.allowed_websites)
             )
-        return get_orchestrator_plan_replan_json(self._config.sentinel_tasks).format(
+        return get_orchestrator_plan_replan_json(
+            self._config.sentinel_plan.enable_sentinel_steps
+        ).format(
             task=task,
             team=team,
             plan=plan,
@@ -290,13 +292,13 @@ class Orchestrator(BaseGroupChatManager):
 
         # Determine step_type based on the current step
         step_type = "PlanStep"
-        if self._config.sentinel_tasks and isinstance(
+        if self._config.sentinel_plan.enable_sentinel_steps and isinstance(
             self._state.plan[step_index], SentinelPlanStep
         ):
             step_type = "SentinelPlanStep"
 
         return get_orchestrator_progress_ledger_prompt(
-            self._config.sentinel_tasks
+            self._config.sentinel_plan.enable_sentinel_steps
         ).format(
             task=task,
             plan=plan,
@@ -331,7 +333,9 @@ class Orchestrator(BaseGroupChatManager):
         return validate_ledger_json(json_response, self._agent_execution_names)
 
     def _validate_plan_json(self, json_response: Dict[str, Any]) -> bool:
-        return validate_plan_json(json_response, self._config.sentinel_tasks)
+        return validate_plan_json(
+            json_response, self._config.sentinel_plan.enable_sentinel_steps
+        )
 
     async def validate_group_state(
         self, messages: List[BaseChatMessage] | None
@@ -1010,7 +1014,8 @@ class Orchestrator(BaseGroupChatManager):
 
         current_step = self._state.plan[self._state.current_step_idx]
         is_sentinel_step = (
-            isinstance(current_step, SentinelPlanStep) and self._config.sentinel_tasks
+            isinstance(current_step, SentinelPlanStep)
+            and self._config.sentinel_plan.enable_sentinel_steps
         )
 
         # Broadcast the next step
@@ -1391,6 +1396,8 @@ class Orchestrator(BaseGroupChatManager):
                 # Check if condition is met
                 condition_met = None
                 reason = None
+                suggested_sleep_duration = step.sleep_duration
+                suggested_sleep_duration_reason = "No reason provided"
                 # For integer condition, check if we've reached the required iterations
                 if isinstance(step.condition, int):
                     condition_met = iteration >= step.condition
@@ -1415,6 +1422,7 @@ class Orchestrator(BaseGroupChatManager):
                         content=ORCHESTRATOR_SENTINEL_CONDITION_CHECK_PROMPT.format(
                             step_description=step_description,
                             condition=step.condition,
+                            current_sleep_duration=step.sleep_duration,
                         ),
                         source=self._name,
                     )
@@ -1429,8 +1437,14 @@ class Orchestrator(BaseGroupChatManager):
                     assert isinstance(response_json, dict)
                     condition_met = response_json.get("condition_met", None)
                     reason = response_json.get("reason", None)
-                # If condition met, return to complete the step
+                    suggested_sleep_duration = response_json.get(
+                        "sleep_duration", step.sleep_duration
+                    )
+                    suggested_sleep_duration_reason = response_json.get(
+                        "sleep_duration_reason", "No reason provided"
+                    )
 
+                # If condition met, return to complete the step
                 if condition_met:
                     log_msg = f"Condition satisfied: {reason}."
                     await self._log_message_agentchat(
@@ -1446,12 +1460,23 @@ class Orchestrator(BaseGroupChatManager):
                     )
                     return
                 else:
+                    # Determine sleep duration based on dynamic sleep configuration
+                    if self._config.sentinel_plan.dynamic_sentinel_sleep:
+                        sleep_duration = suggested_sleep_duration
+                    else:
+                        sleep_duration = step.sleep_duration
+
                     # Sleep before the next check
                     await self._log_message_agentchat(
-                        f"(Check #{iteration}) Condition not satisfied: {reason} \n Sleeping for {step.sleep_duration}s before next check.",
+                        f"(Check #{iteration}) Condition not satisfied: {reason} \n Sleeping for {sleep_duration}s before next check.",
                         metadata={"internal": "no", "type": "sentinel_sleep"},
                     )
-                    await asyncio.sleep(step.sleep_duration)
+                    if self._config.sentinel_plan.dynamic_sentinel_sleep:
+                        await self._log_message_agentchat(
+                            f"Reason for suggested sleep duration: {suggested_sleep_duration_reason}",
+                            metadata={"internal": "no", "type": "sentinel_sleep"},
+                        )
+                    await asyncio.sleep(sleep_duration)
 
             # exception
             except asyncio.CancelledError:
