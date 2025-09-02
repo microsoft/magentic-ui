@@ -97,7 +97,7 @@ class TeamManager:
         internal_run_dir = internal_workspace_root / Path(run_suffix)
         external_run_dir = external_workspace_root / Path(run_suffix)
         # Can only make dir on internal, as it is what a potential docker container sees.
-        # TO-ANSWER: why?
+        # TO-ANSWER: why ?
         logger.info(f"Creating run dirs: {internal_run_dir} and {external_run_dir}")
         if self.inside_docker:
             internal_run_dir.mkdir(parents=True, exist_ok=True)
