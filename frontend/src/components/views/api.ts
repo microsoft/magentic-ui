@@ -458,7 +458,31 @@ export class SettingsAPI {
   }
 }
 
+export class McpAPI {
+  private getBaseUrl(): string {
+    return getServerUrl();
+  }
+
+  private getHeaders(): HeadersInit {
+    return {
+      "Content-Type": "application/json",
+    };
+  }
+
+  async testMcpServer(serverConfig: any): Promise<any> {
+    const response = await fetch(`${this.getBaseUrl()}/mcp/test-mcp-server`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify({ server_config: serverConfig }),
+    });
+    const data = await response.json();
+    // The MCP endpoint returns the response directly without status/data wrapper
+    return data;
+  }
+}
+
 export const teamAPI = new TeamAPI();
 export const sessionAPI = new SessionAPI();
 export const planAPI = new PlanAPI();
 export const settingsAPI = new SettingsAPI();
+export const mcpAPI = new McpAPI();

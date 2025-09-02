@@ -1,8 +1,8 @@
 import { ModelConfigSchema } from "./tabs/agentSettings/modelSelector/modelConfigForms/types";
-import { MCPAgentConfigSchema } from "./tabs/agentSettings/mcpAgentsSettings/types";
+import { MCPAgentConfigSchema } from "../features/McpServersConfig/types";
 import { GeneralSettingsSchema } from "./types";
 
-function extractZodErrors(error: any): string[] {
+export function extractZodErrors(error: any): string[] {
   if (!error.errors) return [error.message || String(error)];
   return error.errors.map((e: any) => {
     const path = e.path.length ? `${e.path.join(".")}: ` : "";
