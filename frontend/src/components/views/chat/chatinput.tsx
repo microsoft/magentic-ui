@@ -4,6 +4,7 @@ import {
   PauseCircleIcon,
 } from "@heroicons/react/24/outline";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { appContext } from "../../../hooks/provider";
 import { IStatus } from "../../types/app";
 import {
@@ -94,6 +95,8 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       runStatus === "active" ||
       runStatus === "pausing" ||
       inputRequest?.input_type === "approval";
+
+    const { t } = useTranslation();
 
     // Handle textarea auto-resize
     React.useEffect(() => {
@@ -189,7 +192,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
               setFileList((prev) => [...prev, uploadFile]);
 
               // Show successful paste notification
-              message.success(`File pasted successfully`);
+              message.success(t('chatInput.imagePastedSuccessfully'));
             }
           }
 
@@ -247,12 +250,12 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                 notificationApi.info({
                   message: (
                     <span className="text-sm">
-                      Large Text Converted to File
+                      {t('chatInput.largeTextConvertedToFile')}
                     </span>
                   ),
                   description: (
                     <span className="text-sm text-secondary">
-                      Your pasted text has been attached as a file.
+                      {t('chatInput.largeTextConvertedToFileDescription')}
                     </span>
                   ),
                   duration: 3,
@@ -340,6 +343,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
             setIsRelevantPlansVisible(false);
           }
         } catch (error) {
+          console.error("Error searching plans:", error);
         } finally {
           setIsSearching(false);
         }
@@ -462,11 +466,11 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
     const getFileIcon = (file: UploadFile) => {
       const fileType = file.type || "";
       const fileName = file.name || "";
-
+      
       if (fileType.startsWith("image/")) {
         return <ImageIcon className="w-4 h-4" />;
       }
-
+      
       // Check for specific file types based on extension
       const extension = fileName.split(".").pop()?.toLowerCase();
       switch (extension) {
@@ -483,7 +487,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
         case "7z":
           return <FileTextIcon className="w-4 h-4 text-yellow-500" />;
         default:
-          return <FileTextIcon className="w-4 h-4" />;
+      return <FileTextIcon className="w-4 h-4" />;
       }
     };
 
@@ -645,7 +649,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
 
         {/* Plan View Modal */}
         <Modal
-          title={`Plan: ${attachedPlan?.task || "Untitled Plan"}`}
+          title={`${t('chatInput.plan')}: ${attachedPlan?.task || t('planCard.untitledPlan')}`}
           open={isPlanModalVisible}
           onCancel={handlePlanModalClose}
           footer={null}
@@ -699,12 +703,12 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                     }}
                     placeholder={
                       runStatus === "awaiting_input"
-                        ? "Type your response here and let Magentic-UI know of any changes in the browser."
+                        ? t('chat.inputPlaceholder')
                         : enable_upload
                         ? dragOver
-                          ? "Drop files here..."
-                          : "Type your message here..."
-                        : "Type your message here..."
+                          ? t('chatInput.dropFilesHere')
+                          : t('chatInput.typeMessageHere')
+                        : t('chatInput.typeMessageHere')
                     }
                     disabled={isInputDisabled}
                   />
@@ -735,15 +739,15 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                             <Upload {...uploadProps} showUploadList={false}>
                               <span className="flex items-center gap-2">
                                 <PaperclipIcon className="w-4 h-4" />
-                                Attach File
+                                {t('chatInput.attachFile')}
                               </span>
                             </Upload>
                           </Menu.Item>
                           <Menu.Divider />
-                          <Menu.SubMenu key="attach-plan" title="Attach Plan">
+                          <Menu.SubMenu key="attach-plan" title={t('chatInput.attachPlan')}>
                             {allPlans.length === 0 ? (
                               <Menu.Item disabled key="no-plans">
-                                No plans available
+                                {t('chatInput.noPlansAvailable')}
                               </Menu.Item>
                             ) : (
                               allPlans.map((plan: any) => (
@@ -751,7 +755,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                                   key={plan.id || plan.task}
                                   onClick={() => handleUsePlan(plan)}
                                 >
-                                  {plan.task}
+                                    {plan.task}
                                 </Menu.Item>
                               ))
                             )}
@@ -762,7 +766,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                     >
                       <Tooltip
                         title={
-                          <span className="text-sm">Attach File or Plan</span>
+                          <span className="text-sm">{t('chatInput.attachFileOrPlan')}</span>
                         }
                         placement="top"
                       >
@@ -788,18 +792,18 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                   </button>
                 )}
                 {
-                  <button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={isInputDisabled}
-                    className={`bg-magenta-800 transition duration-300 rounded flex justify-center items-center w-11 h-9 ${
-                      isInputDisabled
-                        ? "cursor-not-allowed"
-                        : "hover:bg-magenta-900"
-                    }`}
-                  >
-                    <PaperAirplaneIcon className="h-6 w-6 text-white" />
-                  </button>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={isInputDisabled}
+                  className={`bg-magenta-800 transition duration-300 rounded flex justify-center items-center w-11 h-9 ${
+                    isInputDisabled
+                      ? "cursor-not-allowed"
+                      : "hover:bg-magenta-900"
+                  }`}
+                >
+                  <PaperAirplaneIcon className="h-6 w-6 text-white" />
+                </button>
                 }
               </div>
             </div>

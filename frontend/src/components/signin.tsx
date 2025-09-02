@@ -1,4 +1,5 @@
 import { Modal, Input, message } from "antd";
+import { useTranslation } from "react-i18next";
 import { setLocalStorage } from "./utils";
 import { appContext } from "../hooks/provider";
 import * as React from "react";
@@ -10,6 +11,7 @@ type SignInModalProps = {
 };
 
 const SignInModal = ({ isVisible, onClose }: SignInModalProps) => {
+  const { t } = useTranslation();
   const { user, setUser } = React.useContext(appContext);
   const [email, setEmail] = React.useState(user?.email || "default");
 
@@ -22,7 +24,7 @@ const SignInModal = ({ isVisible, onClose }: SignInModalProps) => {
   const handleSignIn = () => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      message.error("Username cannot be empty");
+      message.error(t("signIn.usernameCannotBeEmpty"));
       return;
     }
     setUser({ ...user, email: trimmedEmail, name: trimmedEmail });
@@ -39,12 +41,12 @@ const SignInModal = ({ isVisible, onClose }: SignInModalProps) => {
       onCancel={isAlreadySignedIn ? onClose : undefined}
     >
       <span className="text-lg">
-        Enter a username.<br></br> A change of username will create a new profile.
+        {t("signIn.enterUsername")}<br></br> {t("signIn.changeUsernameWillCreateNewProfile")}
       </span>
       <div className="mb-4">
         <Input
           type="text"
-          placeholder="Enter a username"
+          placeholder={t("signIn.enterUsername")}
           value={email}
           onChange={handleEmailChange}
           className="shadow-sm"
@@ -55,7 +57,7 @@ const SignInModal = ({ isVisible, onClose }: SignInModalProps) => {
           variant="primary"
           onClick={handleSignIn}
         >
-          Sign In
+          {t("signIn.signIn")}
         </Button>
       </div>
     </Modal>

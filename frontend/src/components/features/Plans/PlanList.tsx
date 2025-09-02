@@ -5,6 +5,7 @@ import {
   UploadOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import { appContext } from "../../../hooks/provider";
 import { PlanAPI, SessionAPI } from "../../views/api";
 import PlanCard from "./PlanCard";
@@ -62,6 +63,7 @@ const PlanList: React.FC<PlanListProps> = ({
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [newPlanId, setNewPlanId] = useState<number | null>(null);
+  const { t } = useTranslation();
 
   const userId = user?.email || "";
 
@@ -78,7 +80,7 @@ const PlanList: React.FC<PlanListProps> = ({
     } catch (err) {
       console.error("Error fetching plans:", err);
       setError(
-        `An error occurred: ${err instanceof Error ? err.message : String(err)}`
+        `${t('plans.errorOccurred')}: ${err instanceof Error ? err.message : String(err)}`
       );
     } finally {
       setLoading(false);
@@ -90,13 +92,13 @@ const PlanList: React.FC<PlanListProps> = ({
       fetchPlans();
     } else {
       setLoading(false);
-      setError("Please sign in to view your plans");
+      setError(t('plans.pleaseSignIn'));
     }
   }, [user?.email]);
 
   const handleDeletePlan = (planId: number) => {
     setPlans((prevPlans) => prevPlans.filter((plan) => plan.id !== planId));
-    message.success("Plan deleted successfully");
+    message.success(t('plans.planDeletedSuccessfully'));
   };
 
   const handlePlanSaved = (updatedPlan: IPlan) => {
@@ -110,25 +112,25 @@ const PlanList: React.FC<PlanListProps> = ({
   const handleUsePlan = async (plan: IPlan) => {
     try {
       message.loading({
-        content: "Creating new session from plan...",
+        content: t('plans.creatingNewSession'),
         key: "sessionCreation",
       });
 
       const sessionResponse = await sessionAPI.createSession(
         {
-          name: `Plan: ${plan.task}`,
+          name: `${t('plans.planPrefix')}: ${plan.task}`,
           team_id: undefined, // TODO: remove team_id if not needed
         },
         userId
       );
 
       if (onCreateSessionFromPlan && sessionResponse.id) {
-        onCreateSessionFromPlan(sessionResponse.id, `Plan: ${plan.task}`, plan);
+        onCreateSessionFromPlan(sessionResponse.id, `${t('plans.planPrefix')}: ${plan.task}`, plan);
       }
     } catch (error) {
       console.error("Error using plan:", error);
       message.error({
-        content: "Error creating session",
+        content: t('plans.errorCreatingSession'),
         key: "sessionCreation",
       });
     }
@@ -139,21 +141,21 @@ const PlanList: React.FC<PlanListProps> = ({
       setIsCreatingPlan(true);
 
       const newPlan = normalizePlanData(
-        { task: "New Plan", steps: [] },
+        { task: t('plans.newPlan'), steps: [] },
         userId
       );
 
       const response = await planAPI.createPlan(newPlan, userId);
 
       if (response && response.id) {
-        message.success("New plan created successfully");
+        message.success(t('plans.newPlanCreatedSuccessfully'));
         setNewPlanId(response.id); // Store the new plan ID
         fetchPlans(); // Refresh the list to include the new plan
       }
     } catch (err) {
       console.error("Error creating new plan:", err);
       message.error(
-        `Failed to create plan: ${
+        `${t('plans.failedToCreatePlan')}: ${
           err instanceof Error ? err.message : String(err)
         }`
       );
@@ -171,8 +173,7 @@ const PlanList: React.FC<PlanListProps> = ({
         planData = JSON.parse(fileContent);
       } catch (parseError) {
         message.error({
-          content:
-            "Invalid JSON file format. Please check your file and try again.",
+          content: t('plans.invalidJsonFormat'),
           duration: 5,
         });
         return;
@@ -180,25 +181,24 @@ const PlanList: React.FC<PlanListProps> = ({
 
       if (!planData || typeof planData !== "object") {
         message.error({
-          content:
-            "Invalid plan format. The file does not contain a valid plan structure.",
+          content: t('plans.invalidPlanFormat'),
           duration: 5,
         });
         return;
       }
 
-      const newPlan = normalizePlanData(planData, userId, "Imported Plan");
+      const newPlan = normalizePlanData(planData, userId, t('plans.importedPlan'));
 
       const response = await planAPI.createPlan(newPlan, userId);
 
       if (response && response.id) {
-        message.success("Plan imported successfully");
+        message.success(t('plans.planImportedSuccessfully'));
         fetchPlans(); // Refresh to get the new plan with its ID
       }
     } catch (err) {
       console.error("Error importing plan:", err);
       message.error({
-        content: `Failed to import plan: ${
+        content: `${t('plans.failedToImportPlan')}: ${
           err instanceof Error ? err.message : String(err)
         }`,
         duration: 5,
@@ -237,7 +237,7 @@ const PlanList: React.FC<PlanListProps> = ({
       if (file.type === "application/json" || file.name.endsWith(".json")) {
         handleImportPlan(file);
       } else {
-        message.error("Please upload a JSON file");
+        message.error(t('plans.pleaseUploadJsonFile'));
       }
     }
   };
@@ -250,7 +250,7 @@ const PlanList: React.FC<PlanListProps> = ({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Spin size="large" tip="Loading plans..." />
+        <Spin size="large" tip={t('plans.loadingPlans')} />
       </div>
     );
   }
@@ -263,7 +263,7 @@ const PlanList: React.FC<PlanListProps> = ({
           className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary/80"
           onClick={() => window.location.reload()}
         >
-          Retry
+          {t('common.retry')}
         </button>
       </div>
     );
@@ -299,33 +299,33 @@ const PlanList: React.FC<PlanListProps> = ({
           }}
         >
           <div className="text-xl font-semibold text-primary">
-            Drop your plan file here to import
+            {t('plans.dropPlanFileHere')}
           </div>
         </div>
       )}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Your Saved Plans</h1>
+        <h1 className="text-2xl font-bold">{t('plans.yourSavedPlans')}</h1>
         <div className="flex items-center gap-2 w-1/3">
-          <Tooltip title="Create a new empty plan">
+          <Tooltip title={t('plans.createNewEmptyPlan')}>
             <Button
               icon={<PlusOutlined />}
               onClick={handleCreatePlan}
               className="flex items-center"
             >
-              Create
+              {t('plans.create')}
             </Button>
           </Tooltip>
-          <Tooltip title="Import a plan from a JSON file">
+          <Tooltip title={t('plans.importPlanFromJson')}>
             <Button
               icon={<UploadOutlined />}
               onClick={() => fileInputRef.current?.click()}
               className="flex items-center"
             >
-              Import
+              {t('plans.import')}
             </Button>
           </Tooltip>
           <Input
-            placeholder="Search plans..."
+            placeholder={t('plans.searchPlans')}
             prefix={<SearchOutlined className="text-primary" />}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -361,18 +361,18 @@ const PlanList: React.FC<PlanListProps> = ({
             <SearchOutlined
               style={{ fontSize: "48px", marginBottom: "16px" }}
             />
-            <p>No plans found matching "{searchTerm}"</p>
+            <p>{t('plans.noPlansFoundMatching', { searchTerm })}</p>
             <Button
               type="link"
               onClick={() => setSearchTerm("")}
               className="mt-2"
             >
-              Clear search
+              {t('plans.clearSearch')}
             </Button>
           </div>
         ) : (
           <div className="col-span-3 flex flex-col items-center justify-center py-12 text-primary">
-            <p>No plans yet. Create one or import an existing plan.</p>
+            <p>{t('plans.noPlansYet')}</p>
           </div>
         )}
       </div>

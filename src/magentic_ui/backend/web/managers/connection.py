@@ -33,6 +33,7 @@ from ...datamodel import (
     TeamResult,
 )
 from ...teammanager import TeamManager
+from ...i18n.translations import get_text, get_language_from_settings
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,17 @@ class WebSocketManager:
             usage="",
             duration=0,
         ).model_dump()
+
+    async def _get_user_language(self, run_id: int) -> str:
+        """get user language from settings"""
+        try:
+            run = await self._get_run(run_id)
+            if run and run.user_id:
+                user_settings = await self._get_settings(run.user_id)
+                return get_language_from_settings(user_settings)
+        except Exception as e:
+            logger.warning(f"Failed to get user language for run {run_id}: {e}")
+        return "en-US"
 
     async def connect(self, websocket: WebSocket, run_id: int) -> bool:
         try:
@@ -269,6 +281,18 @@ class WebSocketManager:
                     )
                     await self._update_run_status(run_id, RunStatus.COMPLETE)
             else:
+                # get user language and generate cancel message
+                language = await self._get_user_language(run_id)
+                cancel_message = get_text("backend.run_cancelled_by_user", language)
+                self._cancel_message = TeamResult(
+                    task_result=TaskResult(
+                        messages=[TextMessage(source="user", content=cancel_message)],
+                        stop_reason=cancel_message,
+                    ),
+                    usage="",
+                    duration=0,
+                ).model_dump()
+                
                 await self._send_message(
                     run_id,
                     {
@@ -412,10 +436,10 @@ class WebSocketManager:
                     except asyncio.TimeoutError:
                         # Stop the run if timeout occurs
                         logger.warning(f"Input response timeout for run {run_id}")
-                        await self.stop_run(
-                            run_id,
-                            "Magentic-UI timed out while waiting for your input. To resume, please enter a follow-up message in the input box or you can simply type 'continue'.",
-                        )
+                        # get user language
+                        language = await self._get_user_language(run_id)
+                        timeout_message = get_text("backend.magentic_ui_timed_out_waiting_for_input", language)
+                        await self.stop_run(run_id, timeout_message)
                         raise
                 else:
                     raise ValueError(f"No input queue for run {run_id}")
@@ -514,6 +538,10 @@ class WebSocketManager:
             )
             await self.disconnect(run_id)
         except Exception as e:
+            # check if the error is related to GroupChatError or Unhandled message in agent container
+            if "GroupChatError" in str(e) or "Unhandled message in agent container" in str(e):
+                logger.warning(f"Ignoring GroupChatError in _send_message for run {run_id}: {e}")
+            
             logger.error(f"Error sending message for run {run_id}: {e}, {message}")
             # Don't try to send error message here to avoid potential recursive loop
             await self._update_run_status(run_id, RunStatus.ERROR, str(e))
@@ -528,10 +556,14 @@ class WebSocketManager:
             error (Exception): Exception that occurred
         """
         if run_id not in self._closed_connections:
+            # get user language
+            language = await self._get_user_language(run_id)
+            error_message = get_text("backend.error_occurred_while_processing", language)
+            
             error_result = TeamResult(
                 task_result=TaskResult(
-                    messages=[TextMessage(source="system", content=str(error))],
-                    stop_reason="An error occurred while processing this run",
+                    messages=[TextMessage(source="system", content=error_message)],
+                    stop_reason=error_message,
                 ),
                 usage="",
                 duration=0,
@@ -674,15 +706,18 @@ class WebSocketManager:
                     self._cancellation_tokens[run_id].cancel()
                 run = await self._get_run(run_id)
                 if run and run.status == RunStatus.ACTIVE:
+                    # get user language
+                    language = await self._get_user_language(run_id)
+                    shutdown_message = get_text("backend.run_interrupted_by_server_shutdown", language)
                     interrupted_result = TeamResult(
                         task_result=TaskResult(
                             messages=[
                                 TextMessage(
                                     source="system",
-                                    content="Run interrupted by server shutdown",
+                                    content=shutdown_message,
                                 )
                             ],
-                            stop_reason="server_shutdown",
+                            stop_reason=shutdown_message,
                         ),
                         usage="",
                         duration=0,
