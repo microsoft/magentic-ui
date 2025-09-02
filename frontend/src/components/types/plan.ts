@@ -7,6 +7,9 @@ export interface IPlanStep {
   enabled?: boolean;
   open?: boolean;
   agent_name?: string;
+  // Sentinel step fields - only present for SentinelPlanSteps
+  sleep_duration?: number;
+  condition?: number | string;
 }
 
 /**
@@ -84,6 +87,9 @@ export function convertToIPlanSteps(jsonString: string): IPlanStep[] {
       details: item.details || "",
       enabled: item.enabled !== undefined ? item.enabled : true,
       agent_name: item.agent_name || "",
+      // Include sentinel fields if present
+      ...(item.sleep_duration !== undefined && { sleep_duration: item.sleep_duration }),
+      ...(item.condition !== undefined && { condition: item.condition }),
     }));
 
     return planSteps;
@@ -104,10 +110,13 @@ export function convertPlanStepsToJsonString(steps: IPlanStep[]): string {
 
   const filteredSteps = steps.filter(step => step.enabled !== false);
 
-  const cleanedSteps = filteredSteps.map(({ title, details, agent_name }) => ({
+  const cleanedSteps = filteredSteps.map(({ title, details, agent_name, sleep_duration, condition }) => ({
     title,
     details,
     agent_name,
+    // Include sentinel fields if present
+    ...(sleep_duration !== undefined && { sleep_duration }),
+    ...(condition !== undefined && { condition }),
   }));
 
   return JSON.stringify(cleanedSteps);

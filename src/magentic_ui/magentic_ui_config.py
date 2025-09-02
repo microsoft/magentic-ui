@@ -7,6 +7,18 @@ from .agents.mcp import McpAgentConfig
 from .types import Plan
 
 
+class SentinelPlanConfig(BaseModel):
+    """Configuration for sentinel plan functionality.
+
+    Attributes:
+        enable_sentinel_steps (bool): Whether sentinel plan steps are enabled. Default: False.
+        dynamic_sentinel_sleep (bool): Whether to dynamically adapt sleep duration based on LLM response. Default: False.
+    """
+
+    enable_sentinel_steps: bool = False
+    dynamic_sentinel_sleep: bool = False
+
+
 class ModelClientConfigs(BaseModel):
     """Configurations for the model clients.
     Attributes:
@@ -80,7 +92,7 @@ class MagenticUIConfig(BaseModel):
         inside_docker (bool, optional): Whether to run inside a docker container. Default: True.
         browser_headless (bool, optional): Whether to run a headless browser or not. Default: False.
         browser_local (bool, optional): Whether to run a local browser (as opposed to dockerized browser). Default: False.
-        sentinel_tasks (bool, optional): Whether to enable SentinelPlanStep functionality. Default: False.
+        sentinel_plan (SentinelPlanConfig, optional): Configuration for sentinel plan functionality. Default: SentinelPlanConfig().
         run_without_docker (bool, optional): If docker is not available, run without docker for browser, remove coder and filesurfer agents. Default: False.
         network_name (str, optional): The name of the network to use for the browser. Default: "my-network".
     """
@@ -113,7 +125,7 @@ class MagenticUIConfig(BaseModel):
     answer: Optional[str] = None
     inside_docker: bool = True
     browser_local: bool = False
-    sentinel_tasks: bool = False
+    sentinel_plan: SentinelPlanConfig = Field(default_factory=SentinelPlanConfig)
     run_without_docker: bool = False
     browser_headless: bool = False
     network_name: str = "my-network"

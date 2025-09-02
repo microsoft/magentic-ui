@@ -98,6 +98,29 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({
           </Flex>
           <Divider style={{ margin: "0px" }} />
 
+          <Flex align="center" justify="space-between" wrap gap="large">
+            <Flex align="center" justify="start" gap="small" wrap>
+              Enable Sentinel Steps
+              <Tooltip title="When enabled, sentinel plan steps will be included in the execution process">
+                <InfoCircleOutlined className="text-secondary hover:text-primary cursor-help" />
+              </Tooltip>
+            </Flex>
+            <Switch
+              checked={config.sentinel_plan?.enable_sentinel_steps || false}
+              checkedChildren="ON"
+              unCheckedChildren="OFF"
+              onChange={(checked) =>
+                handleUpdateConfig({
+                  sentinel_plan: {
+                    ...config.sentinel_plan,
+                    enable_sentinel_steps: checked
+                  }
+                })
+              }
+            />
+          </Flex>
+          <Divider style={{ margin: "0px" }} />
+
           <Flex align="center" justify="space-between" wrap gap="small">
             <Flex align="center" gap="small">
               Retrieve Relevant Plans

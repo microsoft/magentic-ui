@@ -22,7 +22,7 @@ You have access to the following tools:
 - scroll_up: Scroll the viewport up towards the beginning
 - scroll_down: Scroll the viewport down towards the end
 - visit_url: Navigate directly to a provided URL
-- web_search: Perform a web search query on Bing.com
+- web_search: Perform a web search query on a search engine
 - history_back: Go back one page in browser history
 - refresh_page: Refresh the current page
 - keypress: Press one or more keyboard keys in sequence
@@ -116,7 +116,7 @@ You have access to the following tools and you must use a single tool to respond
 - tool_name: "scroll_up", tool_args: {{}} - Scroll the viewport up towards the beginning
 - tool_name: "scroll_down", tool_args: {{}} - Scroll the viewport down towards the end
 - tool_name: "visit_url", tool_args: {{"url": str}} - Navigate directly to a URL. The url arg specifies where to navigate to.
-- tool_name: "web_search", tool_args: {{"query": str}} - Perform a web search on Bing.com. The query arg is the search term to use.
+- tool_name: "web_search", tool_args: {{"query": str}} - Perform a web search on a search engine. The query arg is the search term to use.
 - tool_name: "answer_question", tool_args: {{"question": str}} - Use to answer questions about the webpage. The question arg specifies what to answer about the page content.
 - tool_name: "history_back", tool_args: {{}} - Go back one page in browser history
 - tool_name: "refresh_page", tool_args: {{}} - Refresh the current page
@@ -145,7 +145,7 @@ Helpful tips to ensure success:
     - If stuck, try alternative approaches.
     - Do not repeat the same actions consecutively if they are not working.
     - When filling a form, make sure to scroll down to ensure you fill the entire form.
-    - Sometimes, searching bing for the method to do something in the general can be more helpful than searching for specific details.
+    - Sometimes, searching using the web_search tool for the method to do something in the general can be more helpful than searching for specific details.
 
 Output an answer in pure JSON format according to the following schema. The JSON object must be parsable as-is. DO NOT OUTPUT ANYTHING OTHER THAN JSON, AND DO NOT DEVIATE FROM THIS SCHEMA:
 
