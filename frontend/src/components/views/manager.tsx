@@ -391,6 +391,7 @@ export const SessionManager: React.FC = () => {
             getSessionSocket={getSessionSocket}
             visible={session?.id === s.id}
             onRunStatusChange={updateSessionRunStatus}
+            onSubMenuChange={setActiveSubMenuItem}
           />
         </div>
       );

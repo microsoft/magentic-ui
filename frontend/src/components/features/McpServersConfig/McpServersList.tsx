@@ -27,6 +27,30 @@ const AddMcpServerCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
   </Card>
 );
 
+
+// Helper function: Extract MCP servers from agent configurations
+export const extractMcpServers = (agents: MCPAgentConfig[]): MCPServerInfo[] => {
+  const serversList: MCPServerInfo[] = [];
+
+  agents.forEach((agent) => {
+    agent.mcp_servers.forEach((server: NamedMCPServerConfig) => {
+      serversList.push({
+        agentName: agent.name,
+        agentDescription: agent.description,
+        serverName: server.server_name,
+        serverType: server.server_params.type,
+        serverParams: server.server_params,
+        connectionStatus: server.connection_status ? {
+          isConnected: server.connection_status.is_connected,
+          toolsFound: server.connection_status.tools_found,
+        } : undefined,
+      });
+    });
+  });
+
+  return serversList;
+};
+
 const McpServersList: React.FC = () => {
   const { user } = React.useContext(appContext);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,29 +59,6 @@ const McpServersList: React.FC = () => {
   const [settings, setSettings] = useState<any>(null);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<MCPServerInfo | undefined>();
-
-  // Helper function: Extract MCP servers from agent configurations
-  const extractMcpServers = (agents: MCPAgentConfig[]): MCPServerInfo[] => {
-    const serversList: MCPServerInfo[] = [];
-
-    agents.forEach((agent) => {
-      agent.mcp_servers.forEach((server: NamedMCPServerConfig) => {
-        serversList.push({
-          agentName: agent.name,
-          agentDescription: agent.description,
-          serverName: server.server_name,
-          serverType: server.server_params.type,
-          serverParams: server.server_params,
-          connectionStatus: server.connection_status ? {
-            isConnected: server.connection_status.is_connected,
-            toolsFound: server.connection_status.tools_found,
-          } : undefined,
-        });
-      });
-    });
-
-    return serversList;
-  };
 
   useEffect(() => {
     const fetchMCPServers = async () => {

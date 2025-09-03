@@ -81,6 +81,9 @@ class Session(SQLModel, table=True):
         sa_column=Column(Integer, ForeignKey("team.id", ondelete="CASCADE")),
     )
     name: Optional[str] = None
+    selected_mcp_configs: Optional[List[dict[str, Any]]] = Field(
+        default_factory=list, sa_column=Column(JSON)
+    )
 
 
 class RunStatus(str, Enum):

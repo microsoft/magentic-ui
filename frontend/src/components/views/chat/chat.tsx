@@ -50,6 +50,7 @@ interface ChatViewProps {
   ) => WebSocket | null;
   visible?: boolean;
   onRunStatusChange: (sessionId: number, status: BaseRunStatus) => void;
+  onSubMenuChange: React.Dispatch<React.SetStateAction<string>>;
 }
 
 type PlanUpdateHandler = (plan: IPlanStep[]) => void;
@@ -75,6 +76,7 @@ export default function ChatView({
   getSessionSocket,
   visible = true,
   onRunStatusChange,
+  onSubMenuChange,
 }: ChatViewProps) {
   const serverUrl = getServerUrl();
   const [error, setError] = React.useState<IStatus | null>({
@@ -98,6 +100,10 @@ export default function ChatView({
     React.useState(true);
   const [showDetailViewer, setShowDetailViewer] = React.useState(true);
   const [hasFinalAnswer, setHasFinalAnswer] = React.useState(false);
+  
+  // MCP Server selection state - lifted from ChatInput
+  const [selectedMcpServers, setSelectedMcpServers] = React.useState<string[]>([]);
+
 
   // Context and config
   const [activeSocket, setActiveSocket] = React.useState<WebSocket | null>(
@@ -163,6 +169,17 @@ export default function ChatView({
         // Reset socket
         setActiveSocket(null);
         activeSocketRef.current = null;
+
+        // Restore previously selected MCP servers from session
+        if (session.selected_mcp_configs && session.selected_mcp_configs.length > 0) {
+          // Extract server names from saved configs for UI state
+          const serverNames = session.selected_mcp_configs.map(config => 
+            config.name || config.id
+          ).filter(Boolean);
+          setSelectedMcpServers(serverNames);
+        } else {
+          setSelectedMcpServers([]);
+        }
 
         // Only load data if component is visible
         const latestRun = await loadSessionRun();
@@ -717,11 +734,83 @@ export default function ChatView({
 
       // Load latest settings from database
       let currentSettings = settingsConfig;
+      let savedMcpConfigs = session?.selected_mcp_configs || [];
+      
       if (user?.email) {
         try {
           currentSettings = (await settingsAPI.getSettings(
             user.email
           )) as GeneralConfig;
+          
+          // Use saved session configs or filter current settings based on selection
+          let mcpConfigsToUse = currentSettings.mcp_agent_configs;
+          
+          if (selectedMcpServers.length > 0) {
+            // Prefer saved session configs if available, otherwise filter current settings
+            if (session?.selected_mcp_configs && session.selected_mcp_configs.length > 0) {
+              mcpConfigsToUse = session.selected_mcp_configs;
+              savedMcpConfigs = session.selected_mcp_configs;
+            } else {
+              // Filter current settings and save to session for future use
+              const selectedConfigs = currentSettings.mcp_agent_configs.filter(config => 
+                selectedMcpServers.includes(config.name || config.id)
+              );
+              
+              mcpConfigsToUse = selectedConfigs;
+              savedMcpConfigs = selectedConfigs;
+              
+              // Save the FULL configs to session
+              if (session?.id) {
+                try {
+                  await sessionAPI.updateSession(session.id, {
+                    selected_mcp_configs: selectedConfigs
+                  }, user.email);
+                  
+                  // Update local session state
+                  onSessionNameChange({
+                    id: session.id,
+                    selected_mcp_configs: selectedConfigs
+                  });
+                } catch (error) {
+                  console.error("Failed to save MCP configs to session:", error);
+                }
+              }
+            }
+            
+            // Use the determined configs
+            currentSettings = {
+              ...currentSettings,
+              mcp_agent_configs: mcpConfigsToUse
+            };
+          } else {
+            // No MCP servers selected - use empty array and save empty state
+            mcpConfigsToUse = [];
+            savedMcpConfigs = [];
+            
+            // Save empty selection to session
+            if (session?.id) {
+              try {
+                await sessionAPI.updateSession(session.id, {
+                  selected_mcp_configs: []
+                }, user.email);
+                
+                // Update local session state
+                onSessionNameChange({
+                  id: session.id,
+                  selected_mcp_configs: []
+                });
+              } catch (error) {
+                console.error("Failed to save empty MCP configs to session:", error);
+              }
+            }
+            
+            // Use empty MCP configs
+            currentSettings = {
+              ...currentSettings,
+              mcp_agent_configs: []
+            };
+          }
+          
           useSettingsStore.getState().updateConfig(currentSettings);
         } catch (error) {
           console.error("Failed to load settings:", error);
@@ -782,6 +871,7 @@ export default function ChatView({
       const sessionData = {
         id: session?.id,
         name: query.slice(0, 50),
+        selected_mcp_configs: savedMcpConfigs,
       };
       onSessionNameChange(sessionData);
     } catch (error) {
@@ -1135,6 +1225,9 @@ export default function ChatView({
                     chatInputRef={chatInputRef}
                     onExecutePlan={handleExecutePlan}
                     enable_upload={true} // Or true if needed
+                    selectedMcpServers={selectedMcpServers}
+                    onSelectedMcpServersChange={setSelectedMcpServers}
+                    onSubMenuChange={onSubMenuChange}
                   />
                 )}
               </>
@@ -1180,6 +1273,12 @@ export default function ChatView({
                   onPause={handlePause}
                   enable_upload={true}
                   onExecutePlan={handleExecutePlan}
+                  onSubMenuChange={onSubMenuChange}
+                  mcpSelectorDisabled={
+                    currentRun?.status === "awaiting_input" ||
+                    currentRun?.status === "paused"}
+                  selectedMcpServers={selectedMcpServers}
+                  onSelectedMcpServersChange={setSelectedMcpServers}
                 />
               </div>
               <SampleTasks
