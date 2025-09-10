@@ -145,6 +145,7 @@ class AggregateMcpWorkbench(Workbench, Component[AggregateMcpWorkbenchConfig]):
         name: str,
         arguments: Mapping[str, Any] | None = None,
         cancellation_token: CancellationToken | None = None,
+        call_id: str | None = None,
     ) -> ToolResult:
         try:
             # Split the server name from teh tool name
