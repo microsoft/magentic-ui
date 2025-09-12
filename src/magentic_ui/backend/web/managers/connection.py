@@ -78,7 +78,7 @@ class WebSocketManager:
             ),
             usage="",
             duration=0,
-        ).model_dump()
+        ).model_dump(mode="json")
 
     def _get_stop_message(self, reason: str) -> dict[str, Any]:
         return TeamResult(
@@ -88,7 +88,7 @@ class WebSocketManager:
             ),
             usage="",
             duration=0,
-        ).model_dump()
+        ).model_dump(mode="json")
 
     async def connect(self, websocket: WebSocket, run_id: int) -> bool:
         try:
@@ -162,7 +162,7 @@ class WebSocketManager:
 
             state = None
             if run:
-                run.task = MessageConfig(content=task, source="user").model_dump()
+                run.task = MessageConfig(content=task, source="user").model_dump(mode="json")
                 run.status = RunStatus.ACTIVE
                 state = run.state
                 self.db_manager.upsert(run)
@@ -253,7 +253,7 @@ class WebSocketManager:
                         await self._save_message(run_id, message)
                     # Capture final result if it's a TeamResult
                     elif isinstance(message, TeamResult):
-                        final_result = message.model_dump()
+                        final_result = message.model_dump(mode="json")
                     self._team_managers[run_id] = team_manager  # Track the team manager
             if (
                 not cancellation_token.is_cancelled()
@@ -308,7 +308,7 @@ class WebSocketManager:
                 created_at=datetime.now(),
                 session_id=run.session_id,
                 run_id=run_id,
-                config=message.model_dump(),
+                config=message.model_dump(mode="json"),
                 user_id=run.user_id,  # Pass the user_id from the run object
             )
             self.db_manager.upsert(db_message)
@@ -333,7 +333,7 @@ class WebSocketManager:
         if run:
             run.status = status
             if team_result:
-                run.team_result = team_result
+                run.team_result = team_result.model_dump(mode="json") if isinstance(team_result, TeamResult) else team_result
             if error:
                 run.error_message = error
             self.db_manager.upsert(run)
@@ -535,7 +535,7 @@ class WebSocketManager:
                 ),
                 usage="",
                 duration=0,
-            ).model_dump()
+            ).model_dump(mode="json")
 
             await self._send_message(
                 run_id,
@@ -583,7 +583,7 @@ class WebSocketManager:
             elif isinstance(message, TeamResult):
                 return {
                     "type": "result",
-                    "data": message.model_dump(),
+                    "data": message.model_dump(mode="json"),
                     "status": "complete",
                 }
             elif isinstance(message, ModelClientStreamingChunkEvent):
@@ -597,7 +597,7 @@ class WebSocketManager:
                     ToolCallExecutionEvent,
                 ),
             ):
-                return {"type": "message", "data": message.model_dump()}
+                return {"type": "message", "data": message.model_dump(mode="json")}
             elif isinstance(message, str):
                 return {
                     "type": "message",
@@ -686,7 +686,7 @@ class WebSocketManager:
                         ),
                         usage="",
                         duration=0,
-                    ).model_dump()
+                    ).model_dump(mode="json")
 
                     run.status = RunStatus.STOPPED
                     run.team_result = interrupted_result

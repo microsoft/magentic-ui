@@ -14,7 +14,7 @@ from autogen_core import (
     CancellationToken,
 )
 from autogen_agentchat import EVENT_LOGGER_NAME, TRACE_LOGGER_NAME
-from autogen_agentchat.base import ChatAgent, TerminationCondition, TaskResult
+from autogen_agentchat.base import ChatAgent, Team, TerminationCondition, TaskResult
 from autogen_agentchat.state import TeamState, BaseState
 from autogen_agentchat.teams import BaseGroupChat
 from autogen_agentchat.messages import BaseAgentEvent, BaseChatMessage, MessageFactory
@@ -29,6 +29,8 @@ event_logger = logging.getLogger(EVENT_LOGGER_NAME)
 
 
 class GroupChatConfig(BaseModel):
+    name: str
+    description: str
     participants: List[ComponentModel]
     model_client: ComponentModel
     orchestrator_config: Dict[str, Any]
@@ -56,7 +58,9 @@ class GroupChat(BaseGroupChat, Component[GroupChatConfig]):
 
     def __init__(
         self,
-        participants: List[ChatAgent],
+        name: str,
+        description: str,
+        participants: List[ChatAgent | Team],
         model_client: ChatCompletionClient,
         orchestrator_config: OrchestratorConfig,
         runtime: AgentRuntime | None = None,
@@ -65,6 +69,8 @@ class GroupChat(BaseGroupChat, Component[GroupChatConfig]):
         memory_provider: MemoryControllerProvider | None = None,
     ):
         super().__init__(
+            name,
+            description,
             participants,
             group_chat_manager_name="Orchestrator",
             group_chat_manager_class=Orchestrator,
@@ -117,6 +123,7 @@ class GroupChat(BaseGroupChat, Component[GroupChatConfig]):
         *,
         task: str | BaseChatMessage | Sequence[BaseChatMessage] | None = None,
         cancellation_token: CancellationToken | None = None,
+        output_task_messages: bool = True,
     ) -> AsyncGenerator[BaseAgentEvent | BaseChatMessage | TaskResult, None]:
         async for message in super().run_stream(
             task=task, cancellation_token=cancellation_token
@@ -159,6 +166,8 @@ class GroupChat(BaseGroupChat, Component[GroupChatConfig]):
 
     def _to_config(self) -> GroupChatConfig:
         return GroupChatConfig(
+            name=self._name,
+            description=self._description,
             participants=[agent.dump_component() for agent in self._participants],
             model_client=self._model_client.dump_component(),
             orchestrator_config=self._orchestrator_config.model_dump(),
@@ -170,6 +179,8 @@ class GroupChat(BaseGroupChat, Component[GroupChatConfig]):
     @classmethod
     def _from_config(cls, config: GroupChatConfig) -> "GroupChat":
         return cls(
+            name=config.name,
+            description=config.description,
             participants=[
                 ChatAgent.load_component(agent) for agent in config.participants
             ],
@@ -229,7 +240,7 @@ class GroupChat(BaseGroupChat, Component[GroupChatConfig]):
         )
 
     @property
-    def participants(self) -> List[ChatAgent]:
+    def participants(self) -> List[ChatAgent | Team]:
         """
         Get the list of participants in the group chat.
 

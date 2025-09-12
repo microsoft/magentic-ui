@@ -604,8 +604,8 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       };
     }, [isRelevantPlansVisible]);
 
-      onSubMenuChange("mcp_servers");
-    }, [onSubMenuChange])
+    const goToMcpServersTab = React.useCallback(() => {onSubMenuChange("mcp_servers") 
+    }, [onSubMenuChange]);
     
     const handleMcpServerSelectionChange = React.useCallback((newSelection: string[]) => {
       onSelectedMcpServersChange(newSelection);

@@ -90,6 +90,6 @@ class McpAgent(AssistantAgent):
             # Dump the component so we can load it
             workbench_component = workbench.dump_component()
             # Create a copy of the config with the workbench set to the dumped AggregateMcpWorkbench
-            config = config.model_copy(update={"workbench": workbench_component})
+            config = config.model_copy(update={"workbench": [workbench_component]})
 
         return super()._from_config(config)

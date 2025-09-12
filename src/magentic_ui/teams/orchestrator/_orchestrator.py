@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Mapping, Callable
+from typing import Any, Dict, List, Optional, Mapping, Callable, Sequence
 import io
 import PIL.Image
 from autogen_core import Image as AGImage
@@ -343,7 +343,7 @@ class Orchestrator(BaseGroupChatManager):
         pass
 
     async def select_speaker(
-        self, thread: List[BaseAgentEvent | BaseChatMessage]
+        self, thread: Sequence[BaseAgentEvent | BaseChatMessage]
     ) -> str:
         """Not used in this class."""
         return ""
@@ -407,7 +407,7 @@ class Orchestrator(BaseGroupChatManager):
         await self._output_message_queue.put(message)
 
         await self.publish_message(
-            GroupChatAgentResponse(agent_response=Response(chat_message=message)),
+            GroupChatAgentResponse(response=Response(chat_message=message), name=self._name),
             topic_id=DefaultTopicId(type=self._group_topic_type),
             cancellation_token=cancellation_token,
         )
@@ -540,11 +540,11 @@ class Orchestrator(BaseGroupChatManager):
         self, message: GroupChatAgentResponse, ctx: MessageContext
     ) -> None:
         delta: List[BaseChatMessage] = []
-        if message.agent_response.inner_messages is not None:
-            for inner_message in message.agent_response.inner_messages:
+        if message.response.inner_messages is not None:
+            for inner_message in message.response.inner_messages:
                 delta.append(inner_message)  # type: ignore
-        self._state.message_history.append(message.agent_response.chat_message)
-        delta.append(message.agent_response.chat_message)
+        self._state.message_history.append(message.response.chat_message)
+        delta.append(message.response.chat_message)
 
         if self._termination_condition is not None:
             stop_message = await self._termination_condition(delta)

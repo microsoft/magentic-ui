@@ -25,7 +25,7 @@ from autogen_core import (
 from pydantic import BaseModel
 from typing_extensions import Self
 
-from autogen_agentchat.base import ChatAgent, TerminationCondition, TaskResult
+from autogen_agentchat.base import ChatAgent, Team, TerminationCondition, TaskResult
 from autogen_agentchat.messages import (
     BaseAgentEvent,
     BaseChatMessage,
@@ -123,7 +123,7 @@ class RoundRobinGroupChatManager(BaseGroupChatManager):
         self._is_paused = round_robin_state.is_paused
 
     async def select_speaker(
-        self, thread: List[BaseAgentEvent | BaseChatMessage]
+        self, thread: Sequence[BaseAgentEvent | BaseChatMessage]
     ) -> str:
         """Select a speaker from the participants in a round-robin fashion."""
         if self._is_paused:
@@ -196,14 +196,14 @@ class RoundRobinGroupChatManager(BaseGroupChatManager):
         """Handle an agent's response in the group chat."""
         # Add any inner messages to the thread
         delta: List[BaseChatMessage] = []
-        if message.agent_response.inner_messages is not None:
-            for inner_message in message.agent_response.inner_messages:
+        if message.response.inner_messages is not None:
+            for inner_message in message.response.inner_messages:
                 delta.append(inner_message)  # type: ignore
                 self._message_thread.append(inner_message)  # type: ignore
 
         # Add the agent's response to the thread
-        self._message_thread.append(message.agent_response.chat_message)
-        delta.append(message.agent_response.chat_message)
+        self._message_thread.append(message.response.chat_message)
+        delta.append(message.response.chat_message)
 
         # Check termination condition
         if self._termination_condition is not None:
@@ -252,7 +252,7 @@ class RoundRobinGroupChat(BaseGroupChat, Component[RoundRobinGroupChatConfig]):
 
     def __init__(
         self,
-        participants: List[ChatAgent],
+        participants: List[ChatAgent | Team],
         termination_condition: TerminationCondition | None = None,
         max_turns: int | None = None,
         runtime: AgentRuntime | None = None,
@@ -260,6 +260,8 @@ class RoundRobinGroupChat(BaseGroupChat, Component[RoundRobinGroupChatConfig]):
         | None = None,
     ) -> None:
         super().__init__(
+            "CustomRoundRobinGroupChat",
+            "A group chat manager that selects the next speaker in a round-robin fashion.",
             participants,
             group_chat_manager_name="RoundRobinGroupChatManager",
             group_chat_manager_class=RoundRobinGroupChatManager,
@@ -317,7 +319,7 @@ class RoundRobinGroupChat(BaseGroupChat, Component[RoundRobinGroupChatConfig]):
 
     @classmethod
     def _from_config(cls, config: RoundRobinGroupChatConfig) -> Self:
-        participants = [
+        participants: List[ChatAgent | Team] = [
             ChatAgent.load_component(participant) for participant in config.participants
         ]
         termination_condition = (
@@ -379,7 +381,7 @@ class RoundRobinGroupChat(BaseGroupChat, Component[RoundRobinGroupChatConfig]):
         )
 
     @property
-    def participants(self) -> List[ChatAgent]:
+    def participants(self) -> List[ChatAgent | Team]:
         """
         Get the list of participants in the group chat.
 
@@ -393,6 +395,7 @@ class RoundRobinGroupChat(BaseGroupChat, Component[RoundRobinGroupChatConfig]):
         *,
         task: str | BaseChatMessage | Sequence[BaseChatMessage] | None = None,
         cancellation_token: CancellationToken | None = None,
+        output_task_messages: bool = True,
     ) -> AsyncGenerator[BaseAgentEvent | BaseChatMessage | TaskResult, None]:
         async for message in super().run_stream(
             task=task, cancellation_token=cancellation_token

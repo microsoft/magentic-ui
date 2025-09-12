@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Union
 
 from autogen_agentchat.agents import UserProxyAgent
-from autogen_agentchat.base import ChatAgent
+from autogen_agentchat.base import ChatAgent, Team
 from autogen_core import ComponentModel
 from autogen_core.models import ChatCompletionClient
 
@@ -237,7 +237,7 @@ async def get_task_team(
     else:
         memory_provider = None
 
-    team_participants: List[ChatAgent] = [
+    team_participants: List[ChatAgent | Team] = [
         web_surfer,
         user_proxy,
     ]
@@ -248,6 +248,8 @@ async def get_task_team(
     team_participants.extend(mcp_agents)
 
     team = GroupChat(
+        name="task_team",
+        description="A team of agents that can help with the task",
         participants=team_participants,
         orchestrator_config=orchestrator_config,
         model_client=model_client_orch,

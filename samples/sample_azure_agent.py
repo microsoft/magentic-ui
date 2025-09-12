@@ -274,6 +274,8 @@ async def get_task_team_with_azure_agent(
         )
 
         team = GroupChat(
+            name="azure_agent_team",
+            description="A team of agents that can help with complex math and logic tasks",
             participants=[
                 web_surfer,
                 user_proxy,
