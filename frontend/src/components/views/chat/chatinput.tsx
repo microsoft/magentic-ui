@@ -623,11 +623,44 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
           />
         )}
 
-        {/* Attached Items Preview */}
-        {(attachedPlan || fileList.length > 0) && (
+        {/* Selected MCP Tools Display */}
+        {selectedMcpServers.length > 0 && (
           <div
             className={`-mb-2 mx-1 ${darkMode === "dark" ? "bg-[#333333]" : "bg-gray-100"
               } rounded-t border-b-0 p-2 flex border flex-wrap gap-2`}
+          >
+            {selectedMcpServers.map((serverName) => (
+              <div
+                key={serverName}
+                className={`flex items-center gap-1 ${darkMode === "dark"
+                  ? "bg-[#444444] text-white"
+                  : "bg-white text-black"
+                  } rounded px-2 py-1 text-xs`}
+              >
+                <span className="truncate max-w-[150px]">🔧 {serverName}</span>
+                {runStatus === "created" && (
+                  <Button
+                    type="text"
+                    size="small"
+                    className="p-0 ml-1 flex items-center justify-center"
+                    onClick={() =>
+                      onSelectedMcpServersChange(
+                        selectedMcpServers.filter((s) => s !== serverName)
+                      )
+                    }
+                    icon={<XIcon className="w-3 h-3" />}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Attached Items Preview */}
+        {(attachedPlan || fileList.length > 0) && (
+          <div
+            className={`${selectedMcpServers.length > 0 ? '-mt-2' : '-mb-2'} mx-1 ${darkMode === "dark" ? "bg-[#333333]" : "bg-gray-100"
+              } ${selectedMcpServers.length > 0 ? 'rounded-b border-t-0' : 'rounded-t border-b-0'} p-2 flex border flex-wrap gap-2`}
           >
             {/* Attached Plan */}
             {attachedPlan && (
@@ -754,13 +787,15 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                   }`}
               >
 
-                <McpServerSelector
-                  servers={mcpServers}
-                  onAddMcpServer={goToMcpServersTab}
-                  runStatus={runStatus}
-                  value={selectedMcpServers}
-                  onChange={handleMcpServerSelectionChange}
-                />
+                {runStatus === "created" && (
+                  <McpServerSelector
+                    servers={mcpServers}
+                    onAddMcpServer={goToMcpServersTab}
+                    runStatus={runStatus}
+                    value={selectedMcpServers}
+                    onChange={handleMcpServerSelectionChange}
+                  />
+                )}
 
                 {/* File upload button replaced with Dropdown */}
                 {enable_upload && (

@@ -38,7 +38,6 @@ export const McpServerSelector: React.FC<McpServerSelectorProps> = ({ servers, o
         }))
     }, [servers])
 
-
     const selectComponent = (
         <Select
             mode="multiple"
@@ -51,6 +50,7 @@ export const McpServerSelector: React.FC<McpServerSelectorProps> = ({ servers, o
             prefix={<WrenchScrewdriverIcon width={22} />}
             suffixIcon={null}
             popupMatchSelectWidth={false}
+            maxTagCount={0}
             popupRender={(menu) => (
                 <>
                     {menu}
