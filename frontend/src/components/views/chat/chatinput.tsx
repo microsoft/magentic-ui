@@ -33,7 +33,6 @@ import PlanView from "./plan";
 import { McpServerSelector } from "../../features/McpServerSelector/McpServerSelector";
 import { MCPAgentConfig, MCPServerInfo } from "../../features/McpServersConfig/types";
 import { extractMcpServers } from "../../features/McpServersConfig/McpServersList";
-
 // Threshold for large text files (in characters)
 const LARGE_TEXT_THRESHOLD = 1500;
 
@@ -105,9 +104,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       runStatus === "active" ||
       runStatus === "pausing" ||
       inputRequest?.input_type === "approval";
-
     const [mcpServers, setMcpServers] = React.useState<MCPServerInfo[]>([]);
-    
     // Handle textarea auto-resize
     React.useEffect(() => {
       if (textAreaRef.current) {
@@ -156,19 +153,18 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
           setIsLoading(false);
         }
       };
-
       const fetchMCPServers = async () => {
         if (!user?.email) {
           console.error("User not authenticated");
           setIsLoading(false);
           return;
         }
-  
+
         try {
           setIsLoading(true);
-  
+
           // Get user's latest settings from database
-          const settings = await settingsAPI.getSettings(user.email);  
+          const settings = await settingsAPI.getSettings(user.email);
           const mcpAgentConfigs: MCPAgentConfig[] = settings.mcp_agent_configs || [];
           const mcpServers = extractMcpServers(mcpAgentConfigs);
           setMcpServers(mcpServers);
@@ -178,10 +174,10 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
           setIsLoading(false);
         }
       };
-  
+
       fetchMCPServers();
       fetchAllPlans();
-    }, [userId, user?.email]); // Added user?.email to properly track when user changes
+    }, [userId, user?.email]);
 
     // Add paste event listener for images and large text
     const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -607,10 +603,11 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
     const goToMcpServersTab = React.useCallback(() => {
       onSubMenuChange("mcp_servers");
     }, [onSubMenuChange]);
-    
+
     const handleMcpServerSelectionChange = React.useCallback((newSelection: string[]) => {
       onSelectedMcpServersChange(newSelection);
     }, [onSelectedMcpServersChange]);
+
 
     return (
       <div className="mt-2 w-full relative">
@@ -629,18 +626,16 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
         {/* Attached Items Preview */}
         {(attachedPlan || fileList.length > 0) && (
           <div
-            className={`-mb-2 mx-1 ${
-              darkMode === "dark" ? "bg-[#333333]" : "bg-gray-100"
-            } rounded-t border-b-0 p-2 flex border flex-wrap gap-2`}
+            className={`-mb-2 mx-1 ${darkMode === "dark" ? "bg-[#333333]" : "bg-gray-100"
+              } rounded-t border-b-0 p-2 flex border flex-wrap gap-2`}
           >
             {/* Attached Plan */}
             {attachedPlan && (
               <div
-                className={`flex items-center gap-1 ${
-                  darkMode === "dark"
-                    ? "bg-[#444444] text-white"
-                    : "bg-white text-black"
-                } rounded px-2 py-1 text-xs cursor-pointer hover:opacity-80 transition-opacity`}
+                className={`flex items-center gap-1 ${darkMode === "dark"
+                  ? "bg-[#444444] text-white"
+                  : "bg-white text-black"
+                  } rounded px-2 py-1 text-xs cursor-pointer hover:opacity-80 transition-opacity`}
                 onClick={handlePlanClick}
               >
                 <span className="truncate max-w-[150px]">
@@ -663,11 +658,10 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
             {fileList.map((file) => (
               <div
                 key={file.uid}
-                className={`flex items-center gap-1 ${
-                  darkMode === "dark"
-                    ? "bg-[#444444] text-white"
-                    : "bg-white text-black"
-                } rounded px-2 py-1 text-xs`}
+                className={`flex items-center gap-1 ${darkMode === "dark"
+                  ? "bg-[#444444] text-white"
+                  : "bg-white text-black"
+                  } rounded px-2 py-1 text-xs`}
               >
                 {getFileIcon(file)}
                 <span className="truncate max-w-[150px]">{file.name}</span>
@@ -701,95 +695,78 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
               task={attachedPlan.task || ""}
               plan={attachedPlan.steps || []}
               viewOnly={true}
-              setPlan={() => {}}
+              setPlan={() => { }}
             />
           )}
         </Modal>
 
-        <div className="mt-2 rounded shadow-sm">
+        <div className="mt-2 rounded shadow-sm flex">
           <div
-            className={`flex flex-col w-full ${dragOver ? "opacity-50" : ""}`}
+            className={`flex w-full ${dragOver ? "opacity-50" : ""}`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            {/* First row: Textarea full width */}
-            <div className={`w-full border-t border-l border-r border-accent rounded-t-lg ${
-                    darkMode === "dark"
-                      ? "bg-[#444444] text-white"
-                      : "bg-white text-black"
-                  }`}>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSubmit();
-                }}
-              >
-                <textarea
-                  id="queryInput"
-                  name="queryInput"
-                  onPaste={handlePaste}
-                  ref={textAreaRef}
-                  defaultValue={""}
-                  onChange={handleTextChange}
-                  onKeyDown={handleKeyDown}
-                  className={`flex items-center w-full resize-none p-2 ${
-                    darkMode === "dark"
-                      ? "bg-[#444444] text-white"
-                      : "bg-white text-black"
-                  } ${
-                    isInputDisabled ? "cursor-not-allowed" : ""
-                  } focus:outline-none rounded-t-lg`}
-                  style={{
-                    maxHeight: "120px",
-                    overflowY: "auto",
-                    minHeight: "50px",
-                  }}
-                  placeholder={
-                    runStatus === "awaiting_input"
-                      ? "Type your response here and let Magentic-UI know of any changes in the browser."
-                      : enable_upload
-                      ? dragOver
-                        ? "Drop files here..."
-                        : "Type your message here..."
-                      : "Type your message here..."
-                  }
-                  disabled={isInputDisabled}
-                />
-              </form>
-            </div>
-
-            {/* Second row: MCP Selector (flexible) + Buttons (right-aligned) */}
             <div className="flex w-full">
-              {/* MCP Selector - flexible width */}
-              <div className={`flex-1 border-l border-b border-accent p-2 rounded-bl-lg flex justify-start items-center ${
-                      darkMode === "dark"
-                        ? "bg-[#444444] text-white"
-                        : "bg-white text-black"
-                    }`}>
-                <McpServerSelector 
-                  servers={mcpServers} 
-                  onAddMcpServer={goToMcpServersTab} 
+              <div className="flex-1">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSubmit();
+                  }}
+                >
+                  <textarea
+                    id="queryInput"
+                    name="queryInput"
+                    onPaste={handlePaste}
+                    ref={textAreaRef}
+                    defaultValue={""}
+                    onChange={handleTextChange}
+                    onKeyDown={handleKeyDown}
+                    className={`flex items-center w-full resize-none border-l border-t border-b border-accent p-2 pl-5 rounded-l-lg ${darkMode === "dark"
+                      ? "bg-[#444444] text-white"
+                      : "bg-white text-black"
+                      } ${isInputDisabled ? "cursor-not-allowed" : ""
+                      } focus:outline-none`}
+                    style={{
+                      maxHeight: "120px",
+                      overflowY: "auto",
+                      minHeight: "50px",
+                    }}
+                    placeholder={
+                      runStatus === "awaiting_input"
+                        ? "Type your response here and let Magentic-UI know of any changes in the browser."
+                        : enable_upload
+                          ? dragOver
+                            ? "Drop files here..."
+                            : "Type your message here..."
+                          : "Type your message here..."
+                    }
+                    disabled={isInputDisabled}
+                  />
+                </form>
+              </div>
+
+              <div
+                className={`flex items-center justify-center gap-2 border-t border-r border-b border-accent px-2 rounded-r-lg ${darkMode === "dark"
+                  ? "bg-[#444444] text-white"
+                  : "bg-white text-black"
+                  }`}
+              >
+
+                <McpServerSelector
+                  servers={mcpServers}
+                  onAddMcpServer={goToMcpServersTab}
                   runStatus={runStatus}
                   value={selectedMcpServers}
                   onChange={handleMcpServerSelectionChange}
                 />
-              </div>
 
-              {/* Buttons - right-aligned */}
-              <div
-                className={`flex items-center justify-center gap-2 border-r border-b border-accent px-2 rounded-br-lg ${
-                  darkMode === "dark"
-                    ? "bg-[#444444] text-white"
-                    : "bg-white text-black"
-                }`}
-              >
                 {/* File upload button replaced with Dropdown */}
                 {enable_upload && (
                   <div
-                    className={`${
-                      isInputDisabled ? "pointer-events-none opacity-50" : ""
-                    }`}
+                    className={`${isInputDisabled ? "pointer-events-none opacity-50" : ""
+                      }`}
                   >
                     <Dropdown
                       overlay={
@@ -858,11 +835,10 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                     type="button"
                     onClick={handleSubmit}
                     disabled={isInputDisabled}
-                    className={`bg-magenta-800 transition duration-300 rounded flex justify-center items-center w-11 h-9 ${
-                      isInputDisabled
-                        ? "cursor-not-allowed"
-                        : "hover:bg-magenta-900"
-                    }`}
+                    className={`bg-magenta-800 transition duration-300 rounded flex justify-center items-center w-11 h-9 ${isInputDisabled
+                      ? "cursor-not-allowed"
+                      : "hover:bg-magenta-900"
+                      }`}
                   >
                     <PaperAirplaneIcon className="h-6 w-6 text-white" />
                   </button>

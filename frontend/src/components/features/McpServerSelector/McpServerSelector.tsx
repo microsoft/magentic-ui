@@ -48,15 +48,15 @@ export const McpServerSelector: React.FC<McpServerSelectorProps> = ({ servers, o
             onChange={handleChange}
             options={options}
             className="mcp-selector"
-            prefix={<Flex gap={4} className={mcpSelectorPrefixClassNames}><WrenchScrewdriverIcon width={20} /><Typography>Tools</Typography></Flex>}
+            prefix={<WrenchScrewdriverIcon width={22} />}
             suffixIcon={null}
             popupMatchSelectWidth={false}
             popupRender={(menu) => (
                 <>
                     {menu}
                     <Divider style={{ margin: '8px 0' }} />
-                    <Button 
-                        type="text" 
+                    <Button
+                        type="text"
                         onClick={handleAddServer}
                         style={{ width: '100%', padding: '0px 12px', marginBottom: "6px" }}
                         className="mcp-selector-add-mcp-server-button"

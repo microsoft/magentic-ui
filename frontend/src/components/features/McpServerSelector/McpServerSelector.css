@@ -14,15 +14,12 @@
 
 .mcp-selector .ant-select-selection-wrap {
   align-items: center;
-  padding: 5px;
+  padding: 0px;
 }
 
 /* Style the prefix with semi-transparent border */
 .mcp-selector-prefix {
-  padding: 5px;
   border-style: solid;
-  border-width: 1px;
-  border-radius: 5px;
   border-color: transparent !important;
   transition: border-color 0.2s ease;
   display: inline-flex;
