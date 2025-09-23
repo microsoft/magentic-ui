@@ -423,13 +423,16 @@ class PlaywrightController:
         # If downloads are enabled, start listening for a download event before navigation.
         if self.downloads_folder:
             try:
+
                 async def wait_for_download():
                     try:
-                        return await page.wait_for_event("download", timeout=self._timeout_load * 5000)
+                        return await page.wait_for_event(
+                            "download", timeout=self._timeout_load * 5000
+                        )
                     except Exception:
                         # Silently ignore timeout and other exceptions in background task
                         return None
-                
+
                 # Create a timeout for the download listener - use a longer timeout
                 download_future = asyncio.create_task(wait_for_download())
             except Exception as e:
@@ -665,13 +668,16 @@ class PlaywrightController:
         # Start listening for a download event if downloads are enabled
         if self.downloads_folder:
             try:
+
                 async def wait_for_download():
                     try:
-                        return await page.wait_for_event("download", timeout=self._timeout_load * 2000)
+                        return await page.wait_for_event(
+                            "download", timeout=self._timeout_load * 2000
+                        )
                     except Exception:
                         # Silently ignore timeout and other exceptions in background task
                         return None
-                
+
                 download_future = asyncio.create_task(wait_for_download())
             except Exception as e:
                 logger.warning(f"Failed to set up download listener: {e}")
