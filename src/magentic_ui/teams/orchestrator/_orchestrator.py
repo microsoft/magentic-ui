@@ -486,11 +486,11 @@ class Orchestrator(BaseGroupChatManager):
                     )
                 retries += 1
             await self._log_message_agentchat(
-                "Failed to get a valid JSON response after multiple retries",
+                f"Failed to get a valid JSON response after multiple retries {retries}, last error: {exception_message} and response: {response.content}",
                 internal=False,
             )
             raise ValueError(
-                "Failed to get a valid JSON response after multiple retries"
+                f"Failed to get a valid JSON response after multiple retries {retries}, last error: {exception_message} and response: {response.content}"
             )
         except Exception as e:
             await self._log_message_agentchat(

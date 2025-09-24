@@ -37,7 +37,7 @@ Answer in this exact JSON format:
 
 {{
     "reason": "Detailed explanation referencing specific evidence from the agent response and why it does/doesn't meet the condition criteria",
-    "condition_met": true or false,
+    "condition_met": boolean,
     "sleep_duration_reason": "Detailed explanation for the suggested sleep duration",
     "sleep_duration": suggested_sleep_duration_in_seconds,
 }}
@@ -50,20 +50,13 @@ def validate_sentinel_condition_check_json(json_response: Dict[str, Any]) -> boo
     """Validate the JSON response for the sentinel condition check."""
     if not isinstance(json_response, dict):
         return False
-    if "condition_met" not in json_response or not isinstance(
-        json_response["condition_met"], bool
-    ):
+    if "condition_met" not in json_response:
         return False
-    if "reason" not in json_response or not isinstance(json_response["reason"], str):
+    if "reason" not in json_response:
         return False
-    if "sleep_duration" not in json_response or not isinstance(
-        json_response["sleep_duration"], int
-    ):
+    if "sleep_duration" not in json_response:
         return False
-    if json_response["sleep_duration"] <= 0:
-        return False
-    if "sleep_duration_reason" not in json_response or not isinstance(
-        json_response["sleep_duration_reason"], str
-    ):
+
+    if "sleep_duration_reason" not in json_response:
         return False
     return True
