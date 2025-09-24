@@ -189,6 +189,9 @@ class Orchestrator(BaseGroupChatManager):
         # Setup internal variables
         self._setup_internals()
 
+        # Pause monitoring for sentinel steps
+        self._pause_event = asyncio.Event()
+
     def _setup_internals(self) -> None:
         """
         Setup internal variables used in orchestrator
@@ -442,6 +445,8 @@ class Orchestrator(BaseGroupChatManager):
         """
         retries = 0
         exception_message = ""
+        response_content = "[NOT SET]"
+
         try:
             while retries < self._config.max_json_retries:
                 # Re-initialize model context to meet token limit quota
@@ -453,7 +458,6 @@ class Orchestrator(BaseGroupChatManager):
                         UserMessage(content=exception_message, source=self._name)
                     )
                 token_limited_messages = await self._model_context.get_messages()
-
                 response = await self._model_client.create(
                     token_limited_messages,
                     json_output=True
@@ -462,6 +466,7 @@ class Orchestrator(BaseGroupChatManager):
                     cancellation_token=cancellation_token,
                 )
                 assert isinstance(response.content, str)
+                response_content = response.content
                 try:
                     json_response = json.loads(response.content)
                     # Use the validate_json function to check the response
@@ -486,11 +491,11 @@ class Orchestrator(BaseGroupChatManager):
                     )
                 retries += 1
             await self._log_message_agentchat(
-                f"Failed to get a valid JSON response after multiple retries {retries}, last error: {exception_message} and response: {response.content}",
+                f"Failed to get a valid JSON response after multiple retries {retries}, last error: {exception_message} and response: {response_content}",
                 internal=False,
             )
             raise ValueError(
-                f"Failed to get a valid JSON response after multiple retries {retries}, last error: {exception_message} and response: {response.content}"
+                f"Failed to get a valid JSON response after multiple retries {retries}, last error: {exception_message} and response: {response_content}"
             )
         except Exception as e:
             await self._log_message_agentchat(
@@ -530,10 +535,12 @@ class Orchestrator(BaseGroupChatManager):
     async def pause(self) -> None:
         """Pause the group chat manager."""
         self._state.is_paused = True
+        self._pause_event.set()
 
     async def resume(self) -> None:
         """Resume the group chat manager."""
         self._state.is_paused = False
+        self._pause_event.clear()
 
     @event
     async def handle_agent_response(  # type: ignore
@@ -1066,9 +1073,12 @@ class Orchestrator(BaseGroupChatManager):
                 f"Executing sentinel step: {current_step.title}",
                 metadata={"internal": "no", "type": "sentinel_start"},
             )
-            await self._execute_sentinel_step(current_step, cancellation_token)
-            # assume sentinel step is completed
-            self._state.current_step_idx += 1  # moves to the next step
+            sentinel_completed = await self._execute_sentinel_step(
+                current_step, cancellation_token
+            )
+            if sentinel_completed:
+                # sentinel step is completed, move to the next step
+                self._state.current_step_idx += 1  # moves to the next step
             await self._orchestrate_step(cancellation_token)
 
     async def _replan(self, reason: str, cancellation_token: CancellationToken) -> None:
@@ -1289,12 +1299,15 @@ class Orchestrator(BaseGroupChatManager):
 
     async def _execute_sentinel_step(
         self, step: "SentinelPlanStep", cancellation_token: CancellationToken
-    ) -> None:
+    ) -> bool:
         """Execute a sentinel step with periodic checks of the specified condition.
 
         Args:
             step: The sentinel step to execute
             cancellation_token: Cancellation token to stop execution
+
+        Returns:
+            bool: True if the sentinel step completed successfully, False if paused
         """
         # Number of times to iterate over the condition
         iteration = 0
@@ -1343,7 +1356,7 @@ class Orchestrator(BaseGroupChatManager):
             try:
                 # Check if task is cancelled
                 if cancellation_token.is_cancelled():
-                    return
+                    return False
 
                 # increases iteration count
                 iteration += 1
@@ -1458,7 +1471,7 @@ class Orchestrator(BaseGroupChatManager):
                             source="user",
                         )
                     )
-                    return
+                    return True
                 else:
                     # Determine sleep duration based on dynamic sleep configuration
                     if self._config.sentinel_plan.dynamic_sentinel_sleep:
@@ -1476,12 +1489,37 @@ class Orchestrator(BaseGroupChatManager):
                             f"Reason for suggested sleep duration: {suggested_sleep_duration_reason}",
                             metadata={"internal": "no", "type": "sentinel_sleep"},
                         )
-                    await asyncio.sleep(sleep_duration)
+
+                    # Interruptible sleep using pause monitoring
+                    sleep_task = asyncio.create_task(asyncio.sleep(sleep_duration))
+                    pause_task = asyncio.create_task(self._pause_event.wait())
+
+                    # Wait for either sleep to complete or pause to be triggered
+                    _, pending = await asyncio.wait(
+                        [sleep_task, pause_task], return_when=asyncio.FIRST_COMPLETED
+                    )
+
+                    # Cancel any remaining tasks
+                    for task in pending:
+                        task.cancel()
+                        try:
+                            await task
+                        except asyncio.CancelledError:
+                            pass
+
+                    # Check if we were paused during sleep
+                    if self._state.is_paused:
+                        await self._log_message_agentchat(
+                            f"Sentinel step '{step.title}' was paused during sleep. Will resume when unpaused.",
+                            metadata={"internal": "no", "type": "sentinel_paused"},
+                        )
+                        # Return False to indicate the sentinel step was paused and not completed
+                        return False
 
             # exception
             except asyncio.CancelledError:
                 # Handle cancellation
-                return
+                return False
             except Exception as e:
                 # Log the exception before re-raising
                 trace_logger.error(f"Error in sentinel step execution: {e}")
