@@ -1490,16 +1490,11 @@ class Orchestrator(BaseGroupChatManager):
                             metadata={"internal": "no", "type": "sentinel_sleep"},
                         )
 
-                    # Interruptible sleep using pause monitoring
                     sleep_task = asyncio.create_task(asyncio.sleep(sleep_duration))
                     pause_task = asyncio.create_task(self._pause_event.wait())
-
-                    # Wait for either sleep to complete or pause to be triggered
                     _, pending = await asyncio.wait(
                         [sleep_task, pause_task], return_when=asyncio.FIRST_COMPLETED
                     )
-
-                    # Cancel any remaining tasks
                     for task in pending:
                         task.cancel()
                         try:
@@ -1513,14 +1508,10 @@ class Orchestrator(BaseGroupChatManager):
                             f"Sentinel step '{step.title}' was paused during sleep. Will resume when unpaused.",
                             metadata={"internal": "no", "type": "sentinel_paused"},
                         )
-                        # Return False to indicate the sentinel step was paused and not completed
                         return False
 
-            # exception
             except asyncio.CancelledError:
-                # Handle cancellation
                 return False
             except Exception as e:
-                # Log the exception before re-raising
                 trace_logger.error(f"Error in sentinel step execution: {e}")
                 raise
