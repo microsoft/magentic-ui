@@ -141,7 +141,7 @@ class PlaywrightController:
             self._page_script = fh.read()
 
         # Initialize WebpageTextUtils
-        self._text_utils = WebpageTextUtilsPlaywright()
+        self._text_utils = WebpageTextUtilsPlaywright()  # type: ignore[no-untyped-call]
 
     async def on_new_page(self, page: Page) -> None:
         """
@@ -424,9 +424,9 @@ class PlaywrightController:
         if self.downloads_folder:
             try:
 
-                async def wait_for_download():
+                async def wait_for_download() -> Optional[Download]:
                     try:
-                        return await page.wait_for_event(
+                        return await page.wait_for_event(  # type: ignore[no-any-return]
                             "download", timeout=self._timeout_load * 5000
                         )
                     except Exception:
@@ -434,7 +434,7 @@ class PlaywrightController:
                         return None
 
                 # Create a timeout for the download listener - use a longer timeout
-                download_future = asyncio.create_task(wait_for_download())
+                download_future = asyncio.create_task(wait_for_download())  # type: ignore[arg-type]
             except Exception as e:
                 logger.warning(f"Failed to set up download listener: {e}")
                 download_future = None
@@ -669,16 +669,16 @@ class PlaywrightController:
         if self.downloads_folder:
             try:
 
-                async def wait_for_download():
+                async def wait_for_download() -> Optional[Download]:
                     try:
-                        return await page.wait_for_event(
+                        return await page.wait_for_event(  # type: ignore[no-any-return]
                             "download", timeout=self._timeout_load * 2000
                         )
                     except Exception:
                         # Silently ignore timeout and other exceptions in background task
                         return None
 
-                download_future = asyncio.create_task(wait_for_download())
+                download_future = asyncio.create_task(wait_for_download())  # type: ignore[arg-type]
             except Exception as e:
                 logger.warning(f"Failed to set up download listener: {e}")
                 download_future = None
