@@ -9,6 +9,12 @@ The overall step we're trying to complete is:
 
 Current sleep duration: {current_sleep_duration} seconds
 
+Timing Information:
+- Current time: {current_time}
+- Time since started: {time_since_started:.1f} seconds
+- Number of checks done so far: {checks_done}
+- Time since last check: {time_since_last_check:.1f} seconds
+
 Rules to follow:
 - Finding information ABOUT the condition is NOT the same as the condition being met
 - Future events, timers, or pending actions do NOT count as condition fulfillment

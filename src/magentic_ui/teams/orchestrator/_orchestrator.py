@@ -1312,6 +1312,10 @@ class Orchestrator(BaseGroupChatManager):
         # Number of times to iterate over the condition
         iteration = 0
 
+        # Time tracking variables
+        start_time = datetime.now()
+        last_check_time = None
+
         # The agent tasked with this sentinel step
         agent_name = step.agent_name
 
@@ -1360,6 +1364,17 @@ class Orchestrator(BaseGroupChatManager):
 
                 # increases iteration count
                 iteration += 1
+
+                # Update time tracking
+                current_time = datetime.now()
+                time_since_started = (current_time - start_time).total_seconds()
+                if last_check_time is not None:
+                    time_since_last_check = (
+                        current_time - last_check_time
+                    ).total_seconds()
+                else:
+                    time_since_last_check = 0.0
+                last_check_time = current_time
 
                 # loads the initial state of the agent
                 if can_save_load and initial_agent_state is not None:
@@ -1436,6 +1451,10 @@ class Orchestrator(BaseGroupChatManager):
                             step_description=step_description,
                             condition=step.condition,
                             current_sleep_duration=step.sleep_duration,
+                            current_time=current_time.strftime("%Y-%m-%d %H:%M:%S"),
+                            time_since_started=time_since_started,
+                            checks_done=iteration,
+                            time_since_last_check=time_since_last_check,
                         ),
                         source=self._name,
                     )
