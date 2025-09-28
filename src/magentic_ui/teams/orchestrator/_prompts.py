@@ -386,11 +386,19 @@ To make progress on the request, please answer the following questions, includin
 
     - is_current_step_complete: Is the current step complete? (True if complete, or False if the current step is not yet complete)
     - need_to_replan: Do we need to create a new plan? (True if user has sent new instructions and the current plan can't address it. True if the current plan cannot address the user request because we are stuck in a loop, facing significant barriers, or the current approach is not working. False if we can continue with the current plan. Most of the time we don't need a new plan.)
-    - instruction_or_question: Provide complete instructions to accomplish the current step with all context needed about the task and the plan. Provide a very detailed reasoning chain for how to complete the step. If the next agent is the user, pose it directly as a question that is short. Otherwise pose it as something you will do.
+    - instruction_or_question: 
+        Provide complete instructions to accomplish the current step with all context needed about the task and the plan. Provide a very detailed reasoning chain for how to complete the step.
+
+        If the current step is a sentinel step, the instruction_or_question has to be the instruction to check the condition of the sentinel step and should not include information on how much to sleep or how many times to repeat the step.
+        
+        If the next agent is the user, pose it directly as a question that is short. Otherwise pose it as something you will do.
+    
     - agent_name: Decide which team member should complete the current step from the list of team members: {names}. 
     - progress_summary: Summarize the progress made so far to the user in a short way (maximum two sentences, preferably one sentence) but providing enough information to the user to know what has been completed and what is going well and what is not going well if any.
 
 Important: it is important to obey the user request and any messages they have sent previously.
+
+Important: if the next agent is the user, the instruction_or_question must be a short question that the user can answer or an instruction the user can follow. Do not make it too complicated for the user.
 
 {additional_instructions}
 

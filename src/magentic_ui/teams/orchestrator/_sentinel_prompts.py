@@ -17,9 +17,10 @@ Timing Information:
 
 Rules to follow:
 - Finding information ABOUT the condition is NOT the same as the condition being met
-- Future events, timers, or pending actions do NOT count as condition fulfillment
 - The condition must be CURRENTLY and DEFINITIVELY satisfied in the present moment
-- If there was no effort made to check the condition, for instance because of CAPTCHAs, or there were other issues preventing the agent from completing the task, return error_encountered: true
+- If there was no effort made to check the condition, for instance because of CAPTCHAs, or there were other issues preventing the agent from completing the task, return error_encountered: true and condition_met: false
+- If there is no point in checking again because the condition can never be met or the world will not change further, return condition_met: true. This will make the system move on to the next step. For example, if we are checking if a sports game score has changed, but the game is already over, return condition_met: true.
+
 
 - Helpful hints:
     - If the agent provides a screenshot, use the screenshot to determine ground truth in addition to the agent's answer.
@@ -27,7 +28,6 @@ Rules to follow:
 Condition to Evaluate:
 '{condition}'
 
-When in doubt between "condition met" and "condition not met",  choose "condition not met". It's better to wait longer than to incorrectly complete a monitoring task.
 
 For the sleep_duration field, suggest an intelligent new sleep duration in seconds based on the current state and progress observed. Consider:
 - If progress is rapid or near completion, suggest shorter intervals
@@ -82,7 +82,7 @@ Use **SentinelPlanStep** when the step involves:
 - Periodic tasks (e.g., "check daily", "monitor weekly")
 - An action that repeats a specific number of times (e.g., "check 5 times with 30s between each check")
 
-Never create multiple separate steps for the same repeated action.
+In most cases do not create multiple separate steps for the same repeated action.
     
 If a task needs to be repeated multiple times (e.g., "check 5 times with 30s between each", "verify twice with 10s intervals"), you MUST create EXACTLY ONE SentinelPlanStep with the appropriate condition value, NOT multiple separate steps. 
 
@@ -91,6 +91,11 @@ BAD: Creating "Step 1: Check first time", "Step 2: Check second time"
 
 The condition parameter handles ALL repetition automatically - the system will execute the same step multiple times based on the condition value.
 
+However, if you need to two different sleep durations or two different conditions, you can create multiple SentinelPlanSteps.
+For instance, if we want to check the score of a game that starts in 6 hours, we can create two SentinelPlanSteps:
+- SentinelPlanStep 1: sleep_duration: 300, condition: "the game has started"
+- SentinelPlanStep 2: sleep_duration: 30, condition: "the score has changed"
+Or something similar.
 
 # Step Format
 

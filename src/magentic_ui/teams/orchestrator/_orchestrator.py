@@ -1073,7 +1073,7 @@ class Orchestrator(BaseGroupChatManager):
                 metadata={"internal": "no", "type": "sentinel_start"},
             )
             sentinel_completed = await self._execute_sentinel_step(
-                current_step, cancellation_token
+                current_step, progress_ledger, cancellation_token
             )
             if sentinel_completed:
                 # sentinel step is completed, move to the next step
@@ -1297,7 +1297,10 @@ class Orchestrator(BaseGroupChatManager):
         self._state = new_state
 
     async def _execute_sentinel_step(
-        self, step: "SentinelPlanStep", cancellation_token: CancellationToken
+        self,
+        step: "SentinelPlanStep",
+        progress_ledger: Dict[str, Any],
+        cancellation_token: CancellationToken,
     ) -> bool:
         """Execute a sentinel step with periodic checks of the specified condition.
 
@@ -1353,7 +1356,7 @@ class Orchestrator(BaseGroupChatManager):
         initial_agent_state = None
         can_save_load = hasattr(agent, "save_state") and hasattr(agent, "load_state")  # type: ignore
         if can_save_load:
-            initial_agent_state = await agent.save_state()  # type: ignore
+            initial_agent_state = await agent.save_state()  #n type: ignore
         num_errors_encountered = 0
         MAX_SENTINEL_STEP_ERRORS_ALLOWED = 3
         just_encountered_error = False
@@ -1381,16 +1384,20 @@ class Orchestrator(BaseGroupChatManager):
 
                 # loads the initial state of the agent
                 if can_save_load and initial_agent_state is not None:
-                    if agent_name == self._web_agent_topic:
+                    if agent_name == self._web_agent_topic: 
                         await agent.load_state(initial_agent_state, load_browser=False)  # type: ignore
                     else:
                         await agent.load_state(initial_agent_state)  # type: ignore
 
                 # creates a BaseChatMessage instance and turns into a sequence
-                # TODO: provide more context about the task to agent
+                instruction_from_ledger = progress_ledger["instruction_or_question"][
+                    "answer"
+                ]
+                content = f"Your high level goal: {step_details}, the following might be useful but rely on the high level goal more: {instruction_from_ledger}"
+
                 sentinel_task_agent_message = [
                     TextMessage(
-                        content=step_details,
+                        content=content,
                         source="user",
                     )
                 ]
@@ -1440,11 +1447,17 @@ class Orchestrator(BaseGroupChatManager):
                     assert isinstance(
                         last_agent_message, MultiModalMessage | TextMessage
                     )
-                    context.append(
-                        UserMessage(
-                            content=last_agent_message.content,
-                            source=agent_name,
-                        )
+                    context.extend(
+                        [
+                            UserMessage(
+                                content=f"Progress untill this step: {progress_ledger['progress_summary']}",
+                                source=self._name,
+                            ),
+                            UserMessage(
+                                content=last_agent_message.content,
+                                source=agent_name,
+                            ),
+                        ]
                     )
 
                     # gets the structured prompt for the condition check

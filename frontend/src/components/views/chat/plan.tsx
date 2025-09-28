@@ -317,7 +317,7 @@ const PlanView: React.FC<PlanProps> = ({
                 <div className=" text-[var(--color-text-primary)]">
                   <AutoResizeTextarea
                     key={`sentinel-textarea-${index}`}
-                    value={item.details + ' every ' + formatDuration(item.sleep_duration || 0) + ' until ' + (item.condition || 'condition is met')}
+                    value={item.details + ' EVERY ' + formatDuration(item.sleep_duration || 0) + ' UNTILL ' + (item.condition || 'condition is met')}
                     onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateDetails(index, e.target.value)}
                     onBlur={() => setFocusedIndex(null)}
                     autoFocus
