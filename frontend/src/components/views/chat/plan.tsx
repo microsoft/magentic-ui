@@ -281,7 +281,10 @@ const PlanView: React.FC<PlanProps> = ({
       onMouseLeave={() => setHoveredIndex(null)}
     >
       <div className="flex flex-row gap-2">
+
         <div className="flex flex-col items-center justify-center">
+          <Clock className="h-5 w-5 ml-1 mr-1" />
+
           <div className="flex items-center">
             <span
               {...(!viewOnly ? provided.dragHandleProps : {})}
@@ -297,32 +300,48 @@ const PlanView: React.FC<PlanProps> = ({
                 )}
               </div>
             </div>
+
           </div>
+
         </div>
         <div className="border-transparent p-1 px-2 mt-2.5 flex-1 rounded">
           <div className="space-y-2">
-            <div className="bg-[var(--color-bg-tertiary)] rounded p-3 border border-[var(--color-border-primary)]">
+            <div className={`${viewOnly ? "" : "bg-[var(--color-bg-tertiary)] rounded p-3 border border-[var(--color-border-primary)]"}`}>
 
               <div>
 
-                <AutoResizeTextarea
-                  key={`sentinel-textarea-${index}`}
-                  value={item.details}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateDetails(index, e.target.value)}
-                  onBlur={() => setFocusedIndex(null)}
-                  autoFocus
-                  className={`w-full p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded border ${!item.details.trim() ? "border-orange-300" : "border-[var(--color-border-primary)]"} ${viewOnly ? "cursor-default focus:outline-none" : ""}`}
-                  readOnly={viewOnly}
-                  placeholder="Enter sentinel step description"
-                />
+
               </div>
 
               {viewOnly ? (
                 <div className=" text-[var(--color-text-primary)]">
-                  Every <span className="font-medium">{formatDuration(item.sleep_duration || 0)}</span> until <span className="font-medium">{item.condition || 'condition is met'}</span>
+                  <AutoResizeTextarea
+                    key={`sentinel-textarea-${index}`}
+                    value={item.details + ' every ' + formatDuration(item.sleep_duration || 0) + ' until ' + (item.condition || 'condition is met')}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateDetails(index, e.target.value)}
+                    onBlur={() => setFocusedIndex(null)}
+                    autoFocus
+                    className={`w-full p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded border ${!item.details.trim() ? "border-orange-300" : "border-[var(--color-border-primary)]"} ${viewOnly ? "cursor-default focus:outline-none" : ""}`}
+                    readOnly={true}
+                    placeholder="Enter sentinel step description"
+                  />
                 </div>
+
               ) : (
+
                 <div className="space-y-2 text-[var(--color-text-primary)]">
+                  <AutoResizeTextarea
+                    key={`sentinel-textarea-${index}`}
+                    value={item.details}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateDetails(index, e.target.value)}
+                    onBlur={() => setFocusedIndex(null)}
+                    autoFocus
+                    className={`w-full p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded border ${!item.details.trim() ? "border-orange-300" : "border-[var(--color-border-primary)]"} ${viewOnly ? "cursor-default focus:outline-none" : ""}`}
+                    readOnly={viewOnly}
+                    placeholder="Enter sentinel step description"
+                  />
+
+
                   {/* Line 1: Every */}
                   <div className="flex items-center gap-1">
                     <span>Every</span> <Clock className="h-5 w-5 ml-1 mr-1" />

@@ -1039,7 +1039,6 @@ class Orchestrator(BaseGroupChatManager):
             await self._publish_group_chat_message(
                 message_to_send.content, cancellation_token, internal=True
             )
-        # TODO: add sentinel step execution here if sentinel step
         json_step_execution = {
             "title": self._state.plan[self._state.current_step_idx].title,
             "index": self._state.current_step_idx,
@@ -1355,6 +1354,9 @@ class Orchestrator(BaseGroupChatManager):
         can_save_load = hasattr(agent, "save_state") and hasattr(agent, "load_state")  # type: ignore
         if can_save_load:
             initial_agent_state = await agent.save_state()  # type: ignore
+        num_errors_encountered = 0
+        MAX_SENTINEL_STEP_ERRORS_ALLOWED = 3
+        just_encountered_error = False
 
         while True:
             try:
@@ -1364,6 +1366,7 @@ class Orchestrator(BaseGroupChatManager):
 
                 # increases iteration count
                 iteration += 1
+                just_encountered_error = False
 
                 # Update time tracking
                 current_time = datetime.now()
@@ -1467,6 +1470,27 @@ class Orchestrator(BaseGroupChatManager):
                         cancellation_token,
                     )
                     assert isinstance(response_json, dict)
+                    error_encountered = response_json.get("error_encountered", False)
+                    if error_encountered:
+                        just_encountered_error = True
+                        num_errors_encountered += 1
+                        if num_errors_encountered >= MAX_SENTINEL_STEP_ERRORS_ALLOWED:
+                            await self._log_message_agentchat(
+                                f"Maximum error limit reached during sentinel condition checks. Aborting sentinel step '{step.title}'.",
+                                metadata={
+                                    "internal": "no",
+                                    "type": "sentinel_error",
+                                },
+                            )
+                            # inform orchestrator that the step has failed
+                            self._state.message_history.append(
+                                TextMessage(
+                                    content=f"Sentinel step '{step.title}' aborted due to repeated errors during condition checks.",
+                                    source="user",
+                                )
+                            )
+                            return False
+
                     condition_met = response_json.get("condition_met", None)
                     reason = response_json.get("reason", None)
                     suggested_sleep_duration = response_json.get(
@@ -1497,7 +1521,9 @@ class Orchestrator(BaseGroupChatManager):
                         sleep_duration = suggested_sleep_duration
                     else:
                         sleep_duration = step.sleep_duration
-
+                    if just_encountered_error:
+                        # if we just encountered an error, we force a shorter sleep duration
+                        sleep_duration = min(sleep_duration, 30)  # cap at 30 secs
                     # Sleep before the next check
                     await self._log_message_agentchat(
                         f"(Check #{iteration}) Condition not satisfied: {reason} \n Sleeping for {sleep_duration}s before next check.",

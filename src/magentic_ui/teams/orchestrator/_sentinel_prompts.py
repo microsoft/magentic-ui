@@ -19,6 +19,7 @@ Rules to follow:
 - Finding information ABOUT the condition is NOT the same as the condition being met
 - Future events, timers, or pending actions do NOT count as condition fulfillment
 - The condition must be CURRENTLY and DEFINITIVELY satisfied in the present moment
+- If there was no effort made to check the condition, for instance because of CAPTCHAs, or there were other issues preventing the agent from completing the task, return error_encountered: true
 
 - Helpful hints:
     - If the agent provides a screenshot, use the screenshot to determine ground truth in addition to the agent's answer.
@@ -46,10 +47,11 @@ A good default if there are no good contextual clues for checking is usually 1 m
 Answer in this exact JSON format:
 
 {{
-    "reason": "Detailed explanation referencing specific evidence from the agent response and why it does/doesn't meet the condition criteria",
+    "reason": "very short explanation (short sentence) why the condition is or isn't met",
     "condition_met": boolean,
     "sleep_duration_reason": "Detailed explanation for the suggested sleep duration",
     "sleep_duration": suggested_sleep_duration_in_seconds,
+    "error_encountered": boolean
 }}
 
 Only output the JSON object and nothing else.
@@ -193,7 +195,8 @@ def validate_sentinel_condition_check_json(json_response: Dict[str, Any]) -> boo
         return False
     if "sleep_duration" not in json_response:
         return False
-
     if "sleep_duration_reason" not in json_response:
+        return False
+    if "error_encountered" not in json_response:
         return False
     return True
