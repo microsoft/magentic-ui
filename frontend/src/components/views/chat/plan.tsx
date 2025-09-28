@@ -197,10 +197,11 @@ const PlanView: React.FC<PlanProps> = ({
     <div
       ref={provided.innerRef}
       {...provided.draggableProps}
-      className="flex flex-row gap-2"
+      className="border-2 border-transparent rounded p-2"
       onMouseEnter={() => setHoveredIndex(index)}
       onMouseLeave={() => setHoveredIndex(null)}
     >
+      <div className="flex flex-row gap-2">
       <div className="flex items-center">
         <span
           {...(!viewOnly ? provided.dragHandleProps : {})}
@@ -241,33 +242,35 @@ const PlanView: React.FC<PlanProps> = ({
         </div>
       </div>
     </div>
+    </div>
   );
 
   const renderSentinelStep = (item: IPlanStep, index: number, provided: any) => (
     <div
       ref={provided.innerRef}
       {...provided.draggableProps}
-      className="flex flex-row gap-2"
+      className="border-2 border-dashed border-blue-400 rounded bg-blue-50/30 dark:bg-blue-900/10 p-2"
       onMouseEnter={() => setHoveredIndex(index)}
       onMouseLeave={() => setHoveredIndex(null)}
     >
-      <div className="flex items-center">
-        <span
-          {...(!viewOnly ? provided.dragHandleProps : {})}
-          className={`flex items-center justify-center font-semibold p-1.5 ${!viewOnly ? "cursor-grab" : ""}`}
-        >
-          Step {index + 1}
-        </span>
-        <div className="flex items-center ml-2">
-          <div className="text-gray-600 dark:text-gray-300">
-            {React.cloneElement(
-              getAgentIcon(item.agent_name) || (<AgentIcon />),
-              { tooltip: getAgentName(item.agent_name) }
-            )}
+      <div className="flex flex-row gap-2">
+        <div className="flex items-center">
+          <span
+            {...(!viewOnly ? provided.dragHandleProps : {})}
+            className={`flex items-center justify-center font-semibold p-1.5 ${!viewOnly ? "cursor-grab" : ""}`}
+          >
+            Step {index + 1}
+          </span>
+          <div className="flex items-center ml-2">
+            <div className="text-gray-600 dark:text-gray-300">
+              {React.cloneElement(
+                getAgentIcon(item.agent_name) || (<AgentIcon />),
+                { tooltip: getAgentName(item.agent_name) }
+              )}
+            </div>
           </div>
         </div>
-      </div>
-      <div className="border-2 border-dashed border-blue-400 rounded p-1 px-2 mt-2.5 flex-1 bg-blue-50/30 dark:bg-blue-900/10">
+        <div className="border-transparent p-1 px-2 mt-2.5 flex-1 rounded">
         <div className="space-y-2">
           <div>
             <AutoResizeTextarea
@@ -324,15 +327,16 @@ const PlanView: React.FC<PlanProps> = ({
           </div>
         </div>
 
-        {!viewOnly && (
-          <div className={`flex items-center justify-end mt-2 transition-opacity ${hoveredIndex === index ? "opacity-100" : "opacity-0"}`}>
-            <Trash2
-              role="button"
-              onClick={() => deleteLocalPlan(index)}
-              className="h-5 w-5 text-[var(--color-text-secondary)] hover:text-red-500"
-            />
-          </div>
-        )}
+          {!viewOnly && (
+            <div className={`flex items-center justify-end mt-2 transition-opacity ${hoveredIndex === index ? "opacity-100" : "opacity-0"}`}>
+              <Trash2
+                role="button"
+                onClick={() => deleteLocalPlan(index)}
+                className="h-5 w-5 text-[var(--color-text-secondary)] hover:text-red-500"
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -355,7 +359,7 @@ const PlanView: React.FC<PlanProps> = ({
             onClick={() => setIsCollapsed(false)}
           >
             <ClipboardList className="h-5 w-5 mr-2 flex-shrink-0" />
-            <h2 className="">Plan for: {task}</h2>
+            <h2 className="mb-3">Plan for: {task}</h2>
           </div>
         ) : (
           <>
@@ -373,7 +377,7 @@ const PlanView: React.FC<PlanProps> = ({
                   {viewOnly && (
                     <ClipboardList className="h-5 w-5 mr-2 flex-shrink-0" />
                   )}
-                  <h2 className="">Plan for: {task}</h2>
+                  <h2 className="mb-3">Plan for: {task}</h2>
                 </div>
               </div>
             )}
