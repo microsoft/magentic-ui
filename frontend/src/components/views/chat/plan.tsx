@@ -7,7 +7,7 @@ import React, {
   useCallback,
 } from "react";
 import { ChevronDownIcon, PlusIcon } from "@heroicons/react/24/outline";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, Clock } from "lucide-react";
 import {
   DragDropContext,
   Droppable,
@@ -56,6 +56,32 @@ const isSentinelStep = (step: IPlanStep): boolean => {
   return step.sleep_duration !== undefined && step.condition !== undefined;
 };
 
+const formatDuration = (seconds: number): string => {
+  if (seconds < 60) {
+    return `${seconds} second${seconds !== 1 ? 's' : ''}`;
+  } else if (seconds < 3600) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    if (remainingSeconds === 0) {
+      return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+    } else {
+      return `${minutes} minute${minutes !== 1 ? 's' : ''} ${remainingSeconds} second${remainingSeconds !== 1 ? 's' : ''}`;
+    }
+  } else {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
+    let result = `${hours} hour${hours !== 1 ? 's' : ''}`;
+    if (minutes > 0) {
+      result += ` ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+    }
+    if (remainingSeconds > 0) {
+      result += ` ${remainingSeconds} second${remainingSeconds !== 1 ? 's' : ''}`;
+    }
+    return result;
+  }
+};
+
 
 interface PlanProps {
   task: string;
@@ -87,6 +113,7 @@ const PlanView: React.FC<PlanProps> = ({
   const { user } = useContext(appContext);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [focusedDurationIndex, setFocusedDurationIndex] = useState<number | null>(null);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">(
     "saved"
   );
@@ -202,58 +229,6 @@ const PlanView: React.FC<PlanProps> = ({
       onMouseLeave={() => setHoveredIndex(null)}
     >
       <div className="flex flex-row gap-2">
-      <div className="flex items-center">
-        <span
-          {...(!viewOnly ? provided.dragHandleProps : {})}
-          className={`flex items-center justify-center font-semibold p-1.5 ${!viewOnly ? "cursor-grab" : ""}`}
-        >
-          Step {index + 1}
-        </span>
-        <div className="flex items-center ml-2">
-          <div className="text-gray-600 dark:text-gray-300">
-            {React.cloneElement(
-              getAgentIcon(item.agent_name) || (<AgentIcon />),
-              { tooltip: getAgentName(item.agent_name) }
-            )}
-          </div>
-        </div>
-      </div>
-      <div className="border-transparent p-1 px-2 mt-2.5 flex-1 rounded">
-        <div className="flex items-center">
-          <AutoResizeTextarea
-            key={`textarea-${index}`}
-            value={item.details}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateDetails(index, e.target.value)}
-            onBlur={() => setFocusedIndex(null)}
-            autoFocus
-            className={`flex-1 p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded ${!item.details.trim() ? "border border-orange-300" : ""} ${viewOnly ? "cursor-default focus:outline-none" : ""}`}
-            readOnly={viewOnly}
-            placeholder="Enter step details"
-          />
-          {!viewOnly && (
-            <div className={`flex items-center transition-opacity ${hoveredIndex === index ? "opacity-100" : "opacity-0"}`}>
-              <Trash2
-                role="button"
-                onClick={() => deleteLocalPlan(index)}
-                className="h-5 w-5 text-[var(--color-text-secondary)] ml-2 hover:text-red-500"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-    </div>
-  );
-
-  const renderSentinelStep = (item: IPlanStep, index: number, provided: any) => (
-    <div
-      ref={provided.innerRef}
-      {...provided.draggableProps}
-      className="border-2 border-dashed border-blue-400 rounded bg-blue-50/30 dark:bg-blue-900/10 p-2"
-      onMouseEnter={() => setHoveredIndex(index)}
-      onMouseLeave={() => setHoveredIndex(null)}
-    >
-      <div className="flex flex-row gap-2">
         <div className="flex items-center">
           <span
             {...(!viewOnly ? provided.dragHandleProps : {})}
@@ -271,61 +246,128 @@ const PlanView: React.FC<PlanProps> = ({
           </div>
         </div>
         <div className="border-transparent p-1 px-2 mt-2.5 flex-1 rounded">
-        <div className="space-y-2">
-          <div>
+          <div className="flex items-center">
             <AutoResizeTextarea
-              key={`sentinel-textarea-${index}`}
+              key={`textarea-${index}`}
               value={item.details}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateDetails(index, e.target.value)}
               onBlur={() => setFocusedIndex(null)}
               autoFocus
-              className={`w-full p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded border ${!item.details.trim() ? "border-orange-300" : "border-[var(--color-border-primary)]"} ${viewOnly ? "cursor-default focus:outline-none" : ""}`}
+              className={`flex-1 p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded ${!item.details.trim() ? "border border-orange-300" : ""} ${viewOnly ? "cursor-default focus:outline-none" : ""}`}
               readOnly={viewOnly}
-              placeholder="Enter sentinel step description"
+              placeholder="Enter step details"
             />
+            {!viewOnly && (
+              <div className={`flex items-center transition-opacity ${hoveredIndex === index ? "opacity-100" : "opacity-0"}`}>
+                <Trash2
+                  role="button"
+                  onClick={() => deleteLocalPlan(index)}
+                  className="h-5 w-5 text-[var(--color-text-secondary)] ml-2 hover:text-red-500"
+                />
+              </div>
+            )}
           </div>
+        </div>
+      </div>
+    </div>
+  );
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
-                Sleep Duration (seconds)
-              </label>
-              {viewOnly ? (
-                <div className="p-1.5 text-sm bg-[var(--color-bg-secondary)] rounded border border-[var(--color-border-primary)] text-[var(--color-text-primary)]">
-                  {item.sleep_duration || 0}s
-                </div>
-              ) : (
-                <input
-                  type="number"
-                  value={item.sleep_duration || ''}
-                  onChange={(e) => updateSentinelField(index, 'sleep_duration', parseInt(e.target.value) || 0)}
-                  className="w-full p-1.5 text-sm rounded bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border border-[var(--color-border-primary)]"
-                  placeholder="0"
-                  min="0"
-                />
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
-                Condition
-              </label>
-              {viewOnly ? (
-                <div className="p-1.5 text-sm bg-[var(--color-bg-secondary)] rounded border border-[var(--color-border-primary)] text-[var(--color-text-primary)]">
-                  {item.condition || 'None'}
-                </div>
-              ) : (
-                <input
-                  type="text"
-                  value={item.condition || ''}
-                  onChange={(e) => updateSentinelField(index, 'condition', e.target.value)}
-                  className="w-full p-1.5 text-sm rounded bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border border-[var(--color-border-primary)]"
-                  placeholder="Enter condition"
-                />
-              )}
+  const renderSentinelStep = (item: IPlanStep, index: number, provided: any) => (
+    <div
+      ref={provided.innerRef}
+      {...provided.draggableProps}
+      className="border-2 border-transparent rounded p-2"
+      onMouseEnter={() => setHoveredIndex(index)}
+      onMouseLeave={() => setHoveredIndex(null)}
+    >
+      <div className="flex flex-row gap-2">
+        <div className="flex flex-col items-center justify-center">
+          <div className="flex items-center">
+            <span
+              {...(!viewOnly ? provided.dragHandleProps : {})}
+              className={`flex items-center justify-center font-semibold p-1.5 ${!viewOnly ? "cursor-grab" : ""}`}
+            >
+              Step {index + 1}
+            </span>
+            <div className="flex items-center ml-2">
+              <div className="text-gray-600 dark:text-gray-300">
+                {React.cloneElement(
+                  getAgentIcon(item.agent_name) || (<AgentIcon />),
+                  { tooltip: getAgentName(item.agent_name) }
+                )}
+              </div>
             </div>
           </div>
         </div>
+        <div className="border-transparent p-1 px-2 mt-2.5 flex-1 rounded">
+          <div className="space-y-2">
+            <div className="bg-[var(--color-bg-tertiary)] rounded p-3 border border-[var(--color-border-primary)]">
+
+              <div>
+
+                <AutoResizeTextarea
+                  key={`sentinel-textarea-${index}`}
+                  value={item.details}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateDetails(index, e.target.value)}
+                  onBlur={() => setFocusedIndex(null)}
+                  autoFocus
+                  className={`w-full p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded border ${!item.details.trim() ? "border-orange-300" : "border-[var(--color-border-primary)]"} ${viewOnly ? "cursor-default focus:outline-none" : ""}`}
+                  readOnly={viewOnly}
+                  placeholder="Enter sentinel step description"
+                />
+              </div>
+
+              {viewOnly ? (
+                <div className=" text-[var(--color-text-primary)]">
+                  Every <span className="font-medium">{formatDuration(item.sleep_duration || 0)}</span> until <span className="font-medium">{item.condition || 'condition is met'}</span>
+                </div>
+              ) : (
+                <div className="space-y-2 text-[var(--color-text-primary)]">
+                  {/* Line 1: Every */}
+                  <div className="flex items-center gap-1">
+                    <span>Every</span> <Clock className="h-5 w-5 ml-1 mr-1" />
+
+                    {focusedDurationIndex === index ? (
+                      <>
+                        <input
+                          type="number"
+                          value={item.sleep_duration || ''}
+                          onChange={(e) => updateSentinelField(index, 'sleep_duration', parseInt(e.target.value) || 0)}
+                          onFocus={() => setFocusedDurationIndex(index)}
+                          onBlur={() => setFocusedDurationIndex(null)}
+                          className="inline-block w-16 px-1 py-0.5 text-sm rounded bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] font-medium border border-[var(--color-border-primary)] text-center"
+                          placeholder="0"
+                          min="0"
+                          autoFocus
+                        />
+                        <span className="text-[var(--color-text-secondary)]">seconds</span>
+                      </>
+                    ) : (
+                      <span
+                        onClick={() => setFocusedDurationIndex(index)}
+                        className="font-medium cursor-pointer bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-secondary)] px-1 py-0.5 rounded border border-[var(--color-border-primary)] hover:border-blue-400"
+                      >
+                        {formatDuration(item.sleep_duration || 0)}
+                      </span>
+                    )}
+
+                  </div>
+
+                  {/* Line 2: Until */}
+                  <div className="flex items-start gap-1">
+                    <span className="mr-9">Until</span>
+                    <AutoResizeTextarea
+                      value={String(item.condition || '')}
+                      onChange={(e) => updateSentinelField(index, 'condition', e.target.value)}
+                      className="flex-1 px-1 py-0.5 rounded bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] font-medium border border-[var(--color-border-primary)]"
+                      placeholder="enter condition"
+                      maxRows={6}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
           {!viewOnly && (
             <div className={`flex items-center justify-end mt-2 transition-opacity ${hoveredIndex === index ? "opacity-100" : "opacity-0"}`}>
