@@ -7,20 +7,22 @@ Supports both single run analysis and comparison between two runs.
 
 Usage:
     # Single run analysis without sentinel:
-    python analyze_dimensions.py --run-dir runs/MagenticUI_web_surfer_only/SentinelBench/test/0 \
+    python single_task_performance.py \
+                                 --run-dir runs/MagenticUI_web_surfer_only/SentinelBench/test/0 \
                                  --task-name button-presser \
                                  --model gpt-5-mini \
                                  --output-dir plots/button-presser \
     
     # Single run analysis with sentinel:
-    python analyze_dimensions.py --run-dir runs/MagenticUI_web_surfer_only/SentinelBench/test/1 \
+    python single_task_performance.py \
+                                 --run-dir runs/MagenticUI_web_surfer_only/SentinelBench/test/1 \
                                  --task-name button-presser \
                                  --model gpt-5-mini \
                                  --output-dir plots/button-presser \
                                  --sentinel
 
     # Comparison between two runs (e.g., with vs without sentinel):
-    python src/magentic_ui/eval/benchmarks/sentinelbench/analyze_dimensions.py \
+    python single_task_performance.py \
                                  --run-dir runs/MagenticUI_web_surfer_only/SentinelBench/test/0 \
                                  --compare-with runs/MagenticUI_web_surfer_only/SentinelBench/test/1 \
                                  --task-name button-presser \

@@ -2,7 +2,7 @@ import os
 import json
 import time
 import importlib
-from typing import Optional, Type
+from typing import Optional, Type, Any
 from .models import AllTaskTypes, AllCandidateTypes
 
 
@@ -78,7 +78,7 @@ class BaseSystem:
         with open(answer_path, "w", encoding="utf-8") as f:
             f.write(answer.model_dump_json(indent=2))
 
-    def save_partial_state(self, task_id: str, output_dir: str, **kwargs) -> None:
+    def save_partial_state(self, task_id: str, output_dir: str, **kwargs: Any) -> None:
         """
         Save partial state information for interrupted runs.
         Subclasses can override this to save system-specific partial state.

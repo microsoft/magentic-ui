@@ -14,7 +14,7 @@ USAGE:
     python missing_runs_checker.py \
         --base-path runs/MagenticUI_web_surfer_only/SentinelBench/test \
         --jsonl-path data/SentinelBench/test.jsonl \
-        --directories 0 1 2
+        --directories=0 --directories=1 --directories=2
 
 ARGUMENTS:
     --base-path: Base path where run directories are located (default: runs/MagenticUI_web_surfer_only/SentinelBench/test)
@@ -331,8 +331,9 @@ def check_missing_runs(
     for task in expected_tasks:
         if task in EXPECTED_DIMENSIONS:
             expected_per_dir = len(EXPECTED_DIMENSIONS[task])
+            total_expected_for_task = expected_per_dir * len(directories)
             print(
-                f"  {task}: {expected_per_dir} dimensions × 2 directories = {expected_per_dir * 2} expected runs"
+                f"  {task}: {expected_per_dir} dimensions × {len(directories)} directories = {total_expected_for_task} expected runs"
             )
 
     # Timeout statistics by task
