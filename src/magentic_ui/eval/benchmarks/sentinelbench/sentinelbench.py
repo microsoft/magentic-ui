@@ -140,9 +140,16 @@ class SentinelBenchBenchmark(Benchmark):
 
             # Add optional fields if they exist and are not empty
             if row_dict.get("relative_vs_absolute"):
-                base_metadata["relative_vs_absolute"] = str(row_dict["relative_vs_absolute"])
-            if "adversarial_attacks" in row_dict and row_dict["adversarial_attacks"] is not None:
-                base_metadata["adversarial_attacks"] = str(row_dict["adversarial_attacks"])
+                base_metadata["relative_vs_absolute"] = str(
+                    row_dict["relative_vs_absolute"]
+                )
+            if (
+                "adversarial_attacks" in row_dict
+                and row_dict["adversarial_attacks"] is not None
+            ):
+                base_metadata["adversarial_attacks"] = str(
+                    row_dict["adversarial_attacks"]
+                )
             if row_dict.get("failure_tolerance"):
                 base_metadata["failure_tolerance"] = str(row_dict["failure_tolerance"])
 

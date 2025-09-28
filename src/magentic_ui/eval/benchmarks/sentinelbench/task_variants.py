@@ -4,16 +4,6 @@ Configuration for SentinelBench task variants with different parameters and time
 
 from typing import Dict, List, Any, cast
 
-try:
-    from ...models import BaseTask  # type: ignore
-except ImportError:
-    # Handle case when running tools directly (not as module)
-    import sys
-    from pathlib import Path
-
-    sys.path.append(str(Path(__file__).parent.parent.parent))
-    from models import BaseTask  # type: ignore
-
 # Define task variants with different parameter values for SentinelBench
 SENTINELBENCH_TASK_VARIANTS = {
     # Time-based variants
@@ -262,18 +252,16 @@ def calculate_sentinelbench_timeout(
     default_timeout = 60 * default_timeout_minutes
 
     # Check if this is a SentinelBench task with parameter_value
-    if (
-        hasattr(task, "metadata")
-        and task.metadata
-        and isinstance(task.metadata, dict)
-    ):
+    if hasattr(task, "metadata") and task.metadata and isinstance(task.metadata, dict):
         task_metadata: Any = getattr(task, "metadata", {})
         metadata: Dict[str, Any] = cast(Dict[str, Any], task_metadata)
         if "parameter_value" in metadata:
             parameter_value: Any = metadata["parameter_value"]
 
             # Get base task ID (remove parameter part if present)
-            base_task_id = task.id.split("/")[0] if hasattr(task, "id") and task.id else ""
+            base_task_id = (
+                task.id.split("/")[0] if hasattr(task, "id") and task.id else ""
+            )
 
             # Duration-based tasks
             if base_task_id in DURATION_TASKS:
@@ -306,16 +294,14 @@ def get_timeout_display_info(task: Any, timeout_seconds: int) -> str:
     timeout_minutes = int(timeout_seconds / 60)
 
     # Check if this is a SentinelBench task with parameter_value
-    if (
-        hasattr(task, "metadata")
-        and task.metadata
-        and isinstance(task.metadata, dict)
-    ):
+    if hasattr(task, "metadata") and task.metadata and isinstance(task.metadata, dict):
         task_metadata: Any = getattr(task, "metadata", {})
         metadata: Dict[str, Any] = cast(Dict[str, Any], task_metadata)
         if "parameter_value" in metadata:
             parameter_value: Any = metadata["parameter_value"]
-            base_task_id = task.id.split("/")[0] if hasattr(task, "id") and task.id else ""
+            base_task_id = (
+                task.id.split("/")[0] if hasattr(task, "id") and task.id else ""
+            )
 
             # Duration-based tasks
             if base_task_id in DURATION_TASKS:

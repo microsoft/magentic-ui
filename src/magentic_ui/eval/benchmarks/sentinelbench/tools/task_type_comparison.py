@@ -5,7 +5,7 @@ Analyze SentinelBench performance by task type (duration vs count based).
 Creates combined plots showing accuracy, latency, and cost scaling averaged across task types.
 
 Usage:
-    python analyze_task_types.py --sentinel-csv plots/FINAL/all_tasks_with_sentinel.csv \
+    python task_type_comparison.py --sentinel-csv plots/FINAL/all_tasks_with_sentinel.csv \
                                  --non-sentinel-csv plots/FINAL/all_tasks_without_sentinel.csv \
                                  --model gpt-5-mini \
                                  --output-dir plots/task_types
