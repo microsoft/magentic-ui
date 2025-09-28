@@ -131,6 +131,15 @@ const PlanView: React.FC<PlanProps> = ({
     handlePlanChange(newPlan);
   };
 
+  const updateSentinelField = (index: number, field: 'sleep_duration' | 'condition', value: number | string) => {
+    const newPlan = [...localPlan];
+    newPlan[index] = {
+      ...newPlan[index],
+      [field]: value,
+    };
+    handlePlanChange(newPlan);
+  };
+
   const deleteLocalPlan = (index: number) => {
     const newPlan = localPlan.filter((_, i) => i !== index);
     handlePlanChange(newPlan);
@@ -184,6 +193,150 @@ const PlanView: React.FC<PlanProps> = ({
 
   const noop = () => { };
 
+  const renderRegularStep = (item: IPlanStep, index: number, provided: any) => (
+    <div
+      ref={provided.innerRef}
+      {...provided.draggableProps}
+      className="flex flex-row gap-2"
+      onMouseEnter={() => setHoveredIndex(index)}
+      onMouseLeave={() => setHoveredIndex(null)}
+    >
+      <div className="flex items-center">
+        <span
+          {...(!viewOnly ? provided.dragHandleProps : {})}
+          className={`flex items-center justify-center font-semibold p-1.5 ${!viewOnly ? "cursor-grab" : ""}`}
+        >
+          Step {index + 1}
+        </span>
+        <div className="flex items-center ml-2">
+          <div className="text-gray-600 dark:text-gray-300">
+            {React.cloneElement(
+              getAgentIcon(item.agent_name) || (<AgentIcon />),
+              { tooltip: getAgentName(item.agent_name) }
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="border-transparent p-1 px-2 mt-2.5 flex-1 rounded">
+        <div className="flex items-center">
+          <AutoResizeTextarea
+            key={`textarea-${index}`}
+            value={item.details}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateDetails(index, e.target.value)}
+            onBlur={() => setFocusedIndex(null)}
+            autoFocus
+            className={`flex-1 p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded ${!item.details.trim() ? "border border-orange-300" : ""} ${viewOnly ? "cursor-default focus:outline-none" : ""}`}
+            readOnly={viewOnly}
+            placeholder="Enter step details"
+          />
+          {!viewOnly && (
+            <div className={`flex items-center transition-opacity ${hoveredIndex === index ? "opacity-100" : "opacity-0"}`}>
+              <Trash2
+                role="button"
+                onClick={() => deleteLocalPlan(index)}
+                className="h-5 w-5 text-[var(--color-text-secondary)] ml-2 hover:text-red-500"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSentinelStep = (item: IPlanStep, index: number, provided: any) => (
+    <div
+      ref={provided.innerRef}
+      {...provided.draggableProps}
+      className="flex flex-row gap-2"
+      onMouseEnter={() => setHoveredIndex(index)}
+      onMouseLeave={() => setHoveredIndex(null)}
+    >
+      <div className="flex items-center">
+        <span
+          {...(!viewOnly ? provided.dragHandleProps : {})}
+          className={`flex items-center justify-center font-semibold p-1.5 ${!viewOnly ? "cursor-grab" : ""}`}
+        >
+          Step {index + 1}
+        </span>
+        <div className="flex items-center ml-2">
+          <div className="text-gray-600 dark:text-gray-300">
+            {React.cloneElement(
+              getAgentIcon(item.agent_name) || (<AgentIcon />),
+              { tooltip: getAgentName(item.agent_name) }
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="border-2 border-dashed border-blue-400 rounded p-1 px-2 mt-2.5 flex-1 bg-blue-50/30 dark:bg-blue-900/10">
+        <div className="space-y-2">
+          <div>
+            <AutoResizeTextarea
+              key={`sentinel-textarea-${index}`}
+              value={item.details}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateDetails(index, e.target.value)}
+              onBlur={() => setFocusedIndex(null)}
+              autoFocus
+              className={`w-full p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded border ${!item.details.trim() ? "border-orange-300" : "border-[var(--color-border-primary)]"} ${viewOnly ? "cursor-default focus:outline-none" : ""}`}
+              readOnly={viewOnly}
+              placeholder="Enter sentinel step description"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
+                Sleep Duration (seconds)
+              </label>
+              {viewOnly ? (
+                <div className="p-1.5 text-sm bg-[var(--color-bg-secondary)] rounded border border-[var(--color-border-primary)] text-[var(--color-text-primary)]">
+                  {item.sleep_duration || 0}s
+                </div>
+              ) : (
+                <input
+                  type="number"
+                  value={item.sleep_duration || ''}
+                  onChange={(e) => updateSentinelField(index, 'sleep_duration', parseInt(e.target.value) || 0)}
+                  className="w-full p-1.5 text-sm rounded bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border border-[var(--color-border-primary)]"
+                  placeholder="0"
+                  min="0"
+                />
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
+                Condition
+              </label>
+              {viewOnly ? (
+                <div className="p-1.5 text-sm bg-[var(--color-bg-secondary)] rounded border border-[var(--color-border-primary)] text-[var(--color-text-primary)]">
+                  {item.condition || 'None'}
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  value={item.condition || ''}
+                  onChange={(e) => updateSentinelField(index, 'condition', e.target.value)}
+                  className="w-full p-1.5 text-sm rounded bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border border-[var(--color-border-primary)]"
+                  placeholder="Enter condition"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {!viewOnly && (
+          <div className={`flex items-center justify-end mt-2 transition-opacity ${hoveredIndex === index ? "opacity-100" : "opacity-0"}`}>
+            <Trash2
+              role="button"
+              onClick={() => deleteLocalPlan(index)}
+              className="h-5 w-5 text-[var(--color-text-secondary)] hover:text-red-500"
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <>
       {!viewOnly && onRegeneratePlan && (
@@ -236,73 +389,9 @@ const PlanView: React.FC<PlanProps> = ({
                         isDragDisabled={viewOnly}
                       >
                         {(provided) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            className="flex flex-row gap-2"
-                            onMouseEnter={() => setHoveredIndex(index)}
-                            onMouseLeave={() => setHoveredIndex(null)}
-                          >
-                            <div className="flex items-center">
-                              <span
-                                {...(!viewOnly ? provided.dragHandleProps : {})}
-                                className={`flex items-center justify-center  font-semibold p-1.5 ${!viewOnly ? "cursor-grab" : ""
-                                  }`}
-                              >
-                                Step {index + 1}
-                              </span>
-                              <div className="flex items-center ml-2">
-                                <div className="text-gray-600 dark:text-gray-300">
-                                  {React.cloneElement(
-                                    getAgentIcon(item.agent_name) || (
-                                      <AgentIcon />
-                                    ),
-                                    {
-                                      tooltip: getAgentName(item.agent_name),
-                                    }
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="border-transparent p-1  px-2 mt-2.5 flex-1 rounded">
-                              <div className="flex items-center">
-                                {
-                                  <AutoResizeTextarea
-                                    key={`textarea-${index}`}
-                                    value={item.details}
-                                    onChange={(
-                                      e: React.ChangeEvent<HTMLTextAreaElement>
-                                    ) => updateDetails(index, e.target.value)}
-                                    onBlur={() => setFocusedIndex(null)}
-                                    autoFocus
-                                    className={`flex-1 p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded ${!item.details.trim()
-                                        ? "border border-orange-300"
-                                        : ""
-                                      } ${viewOnly
-                                        ? "cursor-default focus:outline-none"
-                                        : ""
-                                      }`}
-                                    readOnly={viewOnly}
-                                    placeholder="Enter step details"
-                                  />
-                                }
-                                {!viewOnly && (
-                                  <div
-                                    className={`flex items-center transition-opacity ${hoveredIndex === index
-                                        ? "opacity-100"
-                                        : "opacity-0"
-                                      }`}
-                                  >
-                                    <Trash2
-                                      role="button"
-                                      onClick={() => deleteLocalPlan(index)}
-                                      className="h-5 w-5 text-[var(--color-text-secondary)] ml-2 hover:text-red-500"
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+                          isSentinelStep(item)
+                            ? renderSentinelStep(item, index, provided)
+                            : renderRegularStep(item, index, provided)
                         )}
                       </Draggable>
                     ))}
