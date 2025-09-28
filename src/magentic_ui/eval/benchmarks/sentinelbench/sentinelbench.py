@@ -26,7 +26,7 @@ class SentinelBenchBenchmark(Benchmark):
         self,
         name: str = "SentinelBench",
         data_dir: Union[str, None] = None,
-        base_website_path: str = "http://10.255.255.254:5173/",
+        base_website_path: str = "https://sentinel-bench.vercel.app/",
         task_variants: Optional[Dict[str, List[Union[int, float]]]] = None,
     ):
         """
@@ -36,7 +36,7 @@ class SentinelBenchBenchmark(Benchmark):
             name: Name of the benchmark
             data_dir: Directory containing the benchmark data
             base_website_path: The base path of the website to use for the SentinelBench.
-                              Make sure it ends with a slash. Default is http://10.255.255.254:5173/ for local testing.
+                              Make sure it ends with a slash. Defaults to https://sentinel-bench.vercel.app/
             task_variants: Dict of task_id -> list of parameter values.
                           E.g., {"reactor-easy": [60, 120, 3600]} for different duration values
         """
@@ -49,15 +49,12 @@ class SentinelBenchBenchmark(Benchmark):
         self.task_variants = task_variants or {}
         self.default_params = SENTINELBENCH_DEFAULT_PARAMS
 
-        logging_msg = (
+        logging.info(
             f"[SentinelBench] Using base website path: {self.base_website_path}"
         )
-        if self.base_website_path == "http://10.255.255.254:5173/":
-            logging_msg += """
-            SentinelBench is currently configured for local testing at 10.255.255.254:5173.
-            Make sure you have the SentinelBench website running locally with 'npm run dev -- --host 0.0.0.0' before executing evaluations.
-            """
-        logging.info(logging_msg)
+        logging.info(
+            "[SentinelBench] Make sure the SentinelBench website is running and accessible at the provided URL before executing evaluations."
+        )
 
     def download_dataset(self) -> None:
         """

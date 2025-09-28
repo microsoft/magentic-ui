@@ -2,7 +2,7 @@
 """
 🚀 SentinelBench Task Comparison Runner
 
-Beautiful CLI tool to compare performance between "With Sentinel" vs "Without Sentinel"
+Tool to compare performance between two runs (e.g., "With Sentinel" vs "Without Sentinel")
 across all SentinelBench tasks with comprehensive analysis and visualizations.
 
 This script:
@@ -12,14 +12,40 @@ This script:
 4. 📈 Generates comparison plots and statistics
 
 Usage Examples:
-    # Recommended: Complete evaluation with union alignment
+    # DEFAULT: Complete evaluation with union alignment (default setup with dirs 0 and 1)
     python full_benchmark_comparison.py --model gpt-5-mini --union-fill
 
-    # Conservative: Only shared dimensions
-    python full_benchmark_comparison.py --model gpt-5-mini --intersection-only
+    # CUSTOM DIRECTORIES: Use different directory numbers
+    python full_benchmark_comparison.py \
+        --model gpt-5-mini \
+        --union-fill \
+        --main-dir 99 \
+        --compare-dir 100 \
+        --main-label "Baseline Run" \
+        --compare-label "Enhanced Run" \
+        --output-dir plots/custom_comparison
 
-    # Quick test: Skip individual analysis
-    python full_benchmark_comparison.py --model gpt-5-mini --skip-individual
+    # CUSTOM PATHS: Use different base path and data file
+    python full_benchmark_comparison.py \
+        --model gpt-4o \
+        --union-fill \
+        --base-path runs/MyExperiment/SentinelBench/test \
+        --jsonl-path data/SentinelBench/custom_test.jsonl \
+        --output-dir plots/experiment_comparison
+
+    # FULL CONFIGURATION: All options specified
+    python full_benchmark_comparison.py \
+        --model gpt-5-mini \
+        --output-dir plots/comprehensive_analysis \
+        --base-path runs/MagenticUI_web_surfer_only/SentinelBench/test \
+        --main-dir 0 \
+        --compare-dir 1 \
+        --main-label "Without Sentinel" \
+        --compare-label "With Sentinel" \
+        --jsonl-path data/SentinelBench/test.jsonl \
+        --union-fill \
+        --check-messages
+
 """
 
 import subprocess
@@ -30,7 +56,15 @@ from pathlib import Path
 from typing import List, Dict, Annotated, Tuple, Optional, cast
 import logging
 import typer
+from typer import Option
 import sys
+
+# Configure typer to use rich for better formatting
+app = typer.Typer(
+    help="🚀 SentinelBench Task Comparison Runner",
+    rich_markup_mode="rich",
+    add_completion=False,
+)
 
 # Import from centralized task variants
 sys.path.append(str(Path(__file__).parent.parent))
@@ -48,20 +82,38 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def load_expected_tasks() -> Tuple[List[str], Dict[str, str]]:
+def load_expected_tasks(
+    jsonl_path: str = "data/SentinelBench/test.jsonl",
+) -> Tuple[List[str], Dict[str, str]]:
     """Load expected task IDs and passwords from test.jsonl file."""
-    jsonl_path = Path(
-        "/home/matheus/projects/magentic-ui/data/SentinelBench/test.jsonl"
-    )
+    # If path is relative, resolve it from the project root (where data/ directory is located)
+    if not Path(jsonl_path).is_absolute():
+        # Find project root by looking for the data/ directory
+        current_dir = Path.cwd()
+        project_root = None
 
-    if not jsonl_path.exists():
-        logger.error(f"test.jsonl not found at {jsonl_path}")
+        # Walk up the directory tree to find the project root
+        for parent in [current_dir] + list(current_dir.parents):
+            if (parent / "data" / "SentinelBench").exists():
+                project_root = parent
+                break
+
+        if project_root:
+            jsonl_path_obj = project_root / jsonl_path
+        else:
+            # Fallback: assume we're in project root
+            jsonl_path_obj = Path(jsonl_path)
+    else:
+        jsonl_path_obj = Path(jsonl_path)
+
+    if not jsonl_path_obj.exists():
+        logger.error(f"test.jsonl not found at {jsonl_path_obj}")
         return [], {}
 
     tasks: List[str] = []
     task_passwords: Dict[str, str] = {}
 
-    with open(jsonl_path, "r") as f:
+    with open(jsonl_path_obj, "r") as f:
         for line in f:
             line = line.strip()
             if line:
@@ -88,12 +140,11 @@ def check_run_exists(run_dir: Path, task_name: str, dimension: int) -> bool:
     if not task_dir.exists():
         return False
 
-    # Check for required files
+    # Check for required files - use score.json since it's created even for failed tasks
     times_file = task_dir / "times.json"
-    answer_files = list(task_dir.glob(f"{task_name}_{dimension}_answer.json"))
-    tokens_file = task_dir / "model_tokens_usage.json"
+    score_file = task_dir / "score.json"
 
-    return times_file.exists() and len(answer_files) > 0 and tokens_file.exists()
+    return times_file.exists() and score_file.exists()
 
 
 def check_run_validity(
@@ -157,66 +208,150 @@ def check_run_validity(
             return False
 
 
-def find_common_tasks() -> List[str]:
-    """Find tasks that have at least some runs (including failed runs) in both directories."""
-    base_path = Path("runs/MagenticUI_web_surfer_only/SentinelBench/test")
-    expected_tasks, _ = load_expected_tasks()  # task_passwords unused in this function
+def find_common_tasks(
+    base_path: str = "runs/MagenticUI_web_surfer_only/SentinelBench/test",
+    main_dir: str = "0",
+    compare_dir: str = "1",
+    jsonl_path: str = "data/SentinelBench/test.jsonl",
+    union_mode: bool = False,
+) -> List[str]:
+    """Find tasks that have at least some runs (including failed runs) based on actual directory structure."""
+    # Resolve base_path from project root if relative
+    if not Path(base_path).is_absolute():
+        current_dir = Path.cwd()
+        project_root = None
 
-    tasks_with_data_in_both: List[str] = []
+        for parent in [current_dir] + list(current_dir.parents):
+            if (parent / "data" / "SentinelBench").exists():
+                project_root = parent
+                break
 
-    for task_name in expected_tasks:
-        if task_name not in EXPECTED_DIMENSIONS:
-            logger.warning(f"Task '{task_name}' not in expected dimensions. Skipping.")
-            continue
-
-        expected_dims: List[int] = cast(List[int], EXPECTED_DIMENSIONS[task_name])
-
-        # Check if task has any runs (including failed runs) in both directories
-        dir0_has_data = False
-        dir1_has_data = False
-
-        for dimension in expected_dims:
-            # Always use check_run_exists to include failed runs by default
-            if check_run_exists(base_path / "0", task_name, dimension):
-                dir0_has_data = True
-            if check_run_exists(base_path / "1", task_name, dimension):
-                dir1_has_data = True
-
-        if dir0_has_data and dir1_has_data:
-            tasks_with_data_in_both.append(task_name)
-            logger.info(f"✅ {task_name}: Has runs in both directories")
+        if project_root:
+            base_path_obj = project_root / base_path
         else:
-            logger.info(
-                f"❌ {task_name}: Missing runs in {'dir 0' if not dir0_has_data else 'dir 1'}"
-            )
+            base_path_obj = Path(base_path)
+    else:
+        base_path_obj = Path(base_path)
 
-    return tasks_with_data_in_both
+    # First, discover what tasks actually exist in the directories
+    main_dir_path = base_path_obj / main_dir
+    compare_dir_path = base_path_obj / compare_dir
+
+    main_tasks: set[str] = set()
+    compare_tasks: set[str] = set()
+
+    # Scan main directory for existing tasks
+    if main_dir_path.exists():
+        for item in main_dir_path.iterdir():
+            if item.is_dir():
+                task_name = item.name
+                # Check if this task has any valid runs
+                if task_name in EXPECTED_DIMENSIONS:
+                    expected_dims = cast(List[int], EXPECTED_DIMENSIONS[task_name])
+                    for dimension in expected_dims:
+                        if check_run_exists(main_dir_path, task_name, dimension):
+                            main_tasks.add(task_name)
+                            break
+
+    # Scan compare directory for existing tasks
+    if compare_dir_path.exists():
+        for item in compare_dir_path.iterdir():
+            if item.is_dir():
+                task_name = item.name
+                # Check if this task has any valid runs
+                if task_name in EXPECTED_DIMENSIONS:
+                    expected_dims = cast(List[int], EXPECTED_DIMENSIONS[task_name])
+                    for dimension in expected_dims:
+                        if check_run_exists(compare_dir_path, task_name, dimension):
+                            compare_tasks.add(task_name)
+                            break
+
+    logger.info(f"📁 Found {len(main_tasks)} tasks in {main_dir}: {sorted(main_tasks)}")
+    logger.info(
+        f"📁 Found {len(compare_tasks)} tasks in {compare_dir}: {sorted(compare_tasks)}"
+    )
+
+    if union_mode:
+        # Union mode: include tasks from either directory
+        tasks_to_analyze: List[str] = list(main_tasks | compare_tasks)
+        logger.info(
+            f"🔄 Union mode: Including {len(tasks_to_analyze)} tasks from either directory"
+        )
+
+        for task_name in sorted(main_tasks | compare_tasks):
+            if task_name in main_tasks and task_name in compare_tasks:
+                logger.info(f"✅ {task_name}: Has runs in both directories")
+            elif task_name in main_tasks:
+                logger.info(
+                    f"📁 {task_name}: Only in {main_dir} (will fill artificial failed entries for {compare_dir})"
+                )
+            else:
+                logger.info(
+                    f"📁 {task_name}: Only in {compare_dir} (will fill artificial failed entries for {main_dir})"
+                )
+    else:
+        # Intersection mode: only include tasks present in both directories
+        tasks_to_analyze: List[str] = list(main_tasks & compare_tasks)
+        logger.info(
+            f"🔗 Intersection mode: Including {len(tasks_to_analyze)} tasks present in both directories"
+        )
+
+        for task_name in sorted(main_tasks | compare_tasks):
+            if task_name in tasks_to_analyze:
+                logger.info(f"✅ {task_name}: Has runs in both directories")
+            else:
+                missing_dir = compare_dir if task_name in main_tasks else main_dir
+                logger.info(f"❌ {task_name}: Missing runs in dir {missing_dir}")
+
+    return sorted(tasks_to_analyze)
 
 
 def run_analyze_dimensions(
     task_name: str,
     model: str,
     output_dir: str,
+    base_path: str = "runs/MagenticUI_web_surfer_only/SentinelBench/test",
+    main_dir: str = "0",
+    compare_dir: str = "1",
+    main_label: str = "Without Sentinel",
+    compare_label: str = "With Sentinel",
     intersection_only: bool = False,
     union_fill: bool = False,
 ) -> Tuple[Optional[str], Optional[str]]:
     """Run single_task_performance.py for a specific task and return CSV file paths."""
 
+    # Resolve base_path from project root if relative
+    if not Path(base_path).is_absolute():
+        current_dir = Path.cwd()
+        project_root = None
+
+        for parent in [current_dir] + list(current_dir.parents):
+            if (parent / "data" / "SentinelBench").exists():
+                project_root = parent
+                break
+
+        if project_root:
+            resolved_base_path = str(project_root / base_path)
+        else:
+            resolved_base_path = base_path
+    else:
+        resolved_base_path = base_path
+
     cmd = [
         "python",
-        "src/magentic_ui/eval/benchmarks/sentinelbench/tools/single_task_performance.py",
+        "single_task_performance.py",
         "--run-dir",
-        "runs/MagenticUI_web_surfer_only/SentinelBench/test/0/",
+        f"{resolved_base_path}/{main_dir}/",
         "--compare-with",
-        "runs/MagenticUI_web_surfer_only/SentinelBench/test/1/",
+        f"{resolved_base_path}/{compare_dir}/",
         "--task-name",
         task_name,
         "--model",
         model,
         "--main-label",
-        "Without Sentinel",
+        main_label,
         "--compare-label",
-        "With Sentinel",
+        compare_label,
         "--output-dir",
         output_dir,
         "--save-csv",
@@ -237,12 +372,16 @@ def run_analyze_dimensions(
 
         # Return expected CSV file paths
         base_name = f"{task_name.replace('/', '_').replace(' ', '_')}-comparison"
-        csv_without = os.path.join(
-            output_dir, f"{base_name}_without_sentinel_analysis.csv"
+        csv_main = os.path.join(
+            output_dir,
+            f"{base_name}_{main_label.lower().replace(' ', '_')}_analysis.csv",
         )
-        csv_with = os.path.join(output_dir, f"{base_name}_with_sentinel_analysis.csv")
+        csv_compare = os.path.join(
+            output_dir,
+            f"{base_name}_{compare_label.lower().replace(' ', '_')}_analysis.csv",
+        )
 
-        return csv_without, csv_with
+        return csv_main, csv_compare
 
     except subprocess.CalledProcessError as e:
         logger.error(f"❌ Failed to analyze {task_name}: {e}")
@@ -313,7 +452,7 @@ def run_comparison_analysis(
 
     cmd = [
         "python",
-        "experiments/eval/compare_sentinel_performance.py",
+        "task_type_comparison.py",
         "--non-sentinel-csv",
         csv_without,
         "--sentinel-csv",
@@ -338,44 +477,107 @@ def run_comparison_analysis(
         logger.error(f"STDERR: {e.stderr}")
 
 
+@app.command()
 def main(
-    # 🎯 Core Configuration
+    # Core Configuration
     model: Annotated[
-        str, typer.Option(help="🤖 Model name for cost calculation (e.g., gpt-5-mini)")
+        str,
+        Option(
+            help="[bold green]🎯 CORE:[/] 🤖 Model name for cost calculation (e.g., gpt-5-mini, gpt-4o)",
+            rich_help_panel="🎯 Core Configuration",
+        ),
     ],
     output_dir: Annotated[
         str,
-        typer.Option("--output-dir", help="📁 Directory to save plots and CSV files"),
+        Option(
+            "--output-dir",
+            help="📁 Directory to save plots and CSV files",
+            rich_help_panel="🎯 Core Configuration",
+        ),
     ] = "plots/FINAL",
-    # 🔍 Data Selection & Filtering
+    # Path & Directory Configuration
+    base_path: Annotated[
+        str,
+        Option(
+            "--base-path",
+            help="📁 Base path where run directories are located",
+            rich_help_panel="📂 Paths & Directories",
+        ),
+    ] = "runs/MagenticUI_web_surfer_only/SentinelBench/test",
+    main_dir: Annotated[
+        str,
+        Option(
+            "--main-dir",
+            help="📁 Main directory name (typically 'without sentinel')",
+            rich_help_panel="📂 Paths & Directories",
+        ),
+    ] = "0",
+    compare_dir: Annotated[
+        str,
+        Option(
+            "--compare-dir",
+            help="📁 Compare directory name (typically 'with sentinel')",
+            rich_help_panel="📂 Paths & Directories",
+        ),
+    ] = "1",
+    jsonl_path: Annotated[
+        str,
+        Option(
+            "--jsonl-path",
+            help="📄 Path to test.jsonl file with task definitions",
+            rich_help_panel="📂 Paths & Directories",
+        ),
+    ] = "data/SentinelBench/test.jsonl",
+    # Labeling & Display Options
+    main_label: Annotated[
+        str,
+        Option(
+            "--main-label",
+            help="🏷️  Label for main directory in plots and outputs",
+            rich_help_panel="🏷️  Labels & Display",
+        ),
+    ] = "Without Sentinel",
+    compare_label: Annotated[
+        str,
+        Option(
+            "--compare-label",
+            help="🏷️  Label for compare directory in plots and outputs",
+            rich_help_panel="🏷️  Labels & Display",
+        ),
+    ] = "With Sentinel",
+    # Data Selection & Validation
     check_messages: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--check-messages",
-            help="📝 Use messages.json for password validation instead of exact answer match",
+            help="📝 Use messages.json for password validation (substring search) instead of exact answer match",
+            rich_help_panel="🔍 Data Selection",
         ),
     ] = False,
-    # ⚖️ Dimension Alignment (choose one)
+    # Dimension Alignment Strategy (choose one)
     intersection_only: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--intersection-only",
-            help="🔗 Only include dimensions present in BOTH directories (AND operation)",
+            help="🔗 Only include dimensions present in BOTH directories (AND operation - conservative)",
+            rich_help_panel="⚖️  Dimension Alignment",
         ),
     ] = False,
     union_fill: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--union-fill",
-            help="🔄 Include ALL dimensions, fill missing with artificial entries (UNION operation)",
+            help="🔄 Include ALL dimensions, fill missing with artificial failed entries (UNION operation - comprehensive) [bold yellow]⭐ RECOMMENDED[/]",
+            rich_help_panel="⚖️  Dimension Alignment",
         ),
     ] = False,
-    # ⚙️ Processing Options
+    # Processing & Performance Options
     skip_individual: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--skip-individual",
-            help="⏩ Skip individual task analysis, only do combined analysis",
+            help="⏩ Skip individual task analysis, only generate combined analysis (faster)",
+            rich_help_panel="⚙️  Processing Options",
         ),
     ] = False,
 ):
@@ -418,7 +620,7 @@ def main(
 
     if union_fill:
         typer.echo(
-            "🔄 Union mode: Including ALL dimensions, filling missing with artificial entries"
+            "🔄 Union mode: Including ALL dimensions, filling missing with artificial failed entries"
         )
     elif intersection_only:
         typer.echo(
@@ -429,7 +631,9 @@ def main(
             "📊 Default mode: Including available dimensions from each directory independently"
         )
 
-    common_tasks = find_common_tasks()
+    common_tasks = find_common_tasks(
+        base_path, main_dir, compare_dir, jsonl_path, union_mode=union_fill
+    )
 
     if not common_tasks:
         typer.echo("❌ No tasks found with data in directories!", err=True)
@@ -446,7 +650,16 @@ def main(
         with typer.progressbar(common_tasks, label="Analyzing tasks") as tasks:
             for task_name in tasks:
                 csv_without, csv_with = run_analyze_dimensions(
-                    task_name, model, output_dir, intersection_only, union_fill
+                    task_name,
+                    model,
+                    output_dir,
+                    base_path,
+                    main_dir,
+                    compare_dir,
+                    main_label,
+                    compare_label,
+                    intersection_only,
+                    union_fill,
                 )
                 if csv_without and csv_with:
                     csv_file_pairs.append((csv_without, csv_with))
@@ -468,4 +681,4 @@ def main(
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    app()

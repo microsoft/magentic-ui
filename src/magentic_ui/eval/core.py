@@ -6,7 +6,7 @@ import time
 import json
 import random
 import datetime
-from typing import Optional, Union, List, Tuple, Callable, cast
+from typing import Optional, Union, List, Tuple, Callable
 from .benchmark import load_benchmark_class, Benchmark
 from .basesystem import load_system_class, BaseSystem
 from .models import AllCandidateTypes, AllEvalResultTypes
@@ -745,7 +745,7 @@ def evaluate_benchmark_func(
             system_class = load_system_class(system_name)
             system = system_class(system_name)
         elif callable(system_constructor):
-            system = cast(BaseSystem, system_constructor())
+            system = system_constructor()
         else:
             system = system_constructor
 

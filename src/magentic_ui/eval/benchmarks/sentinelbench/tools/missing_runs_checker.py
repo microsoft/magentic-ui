@@ -18,7 +18,7 @@ USAGE:
 
 ARGUMENTS:
     --base-path: Base path where run directories are located (default: runs/MagenticUI_web_surfer_only/SentinelBench/test)
-    --jsonl-path: Path to the test.jsonl file with task definitions (default: magentic-ui/data/SentinelBench/test.jsonl)
+    --jsonl-path: Path to the test.jsonl file with task definitions (default: data/SentinelBench/test.jsonl)
     --directories: The directories that house the different task runs (default: 0 and 1)
 
 The script validates runs by checking for required files (times.json, answer files,
@@ -49,7 +49,7 @@ EXPECTED_DIMENSIONS: Dict[str, List[int]] = SENTINELBENCH_TASK_VARIANTS  # type:
 
 
 def load_expected_tasks(
-    jsonl_path_str: str = "/home/matheus/projects/magentic-ui/data/SentinelBench/test.jsonl",
+    jsonl_path_str: str = "data/SentinelBench/test.jsonl",
 ) -> Tuple[List[str], Dict[str, str]]:
     """Load expected task IDs and passwords from test.jsonl file."""
     jsonl_path = Path(jsonl_path_str)
@@ -150,7 +150,7 @@ def check_run_validity(
 
 def check_missing_runs(
     base_path: str = "runs/MagenticUI_web_surfer_only/SentinelBench/test",
-    jsonl_path: str = "/home/matheus/projects/magentic-ui/data/SentinelBench/test.jsonl",
+    jsonl_path: str = "data/SentinelBench/test.jsonl",
     directories: Optional[List[str]] = None,
 ):
     """Check for missing runs and generate report."""
@@ -374,7 +374,7 @@ def main(
         help="Base path where run directories are located",
     ),
     jsonl_path: str = typer.Option(
-        "/home/matheus/projects/magentic-ui/data/SentinelBench/test.jsonl",
+        "data/SentinelBench/test.jsonl",
         "--jsonl-path",
         help="Path to the test.jsonl file with task definitions",
     ),
