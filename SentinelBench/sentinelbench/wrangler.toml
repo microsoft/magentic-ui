@@ -1,0 +1,8 @@
+name = "sentinelbench"
+compatibility_date = "2025-01-30"
+pages_build_output_dir = "./dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sentinelbench"
+database_id = "CLOUDFLARE_D1_DATABASE_ID"
