@@ -26,11 +26,13 @@ import {
 } from "lucide-react";
 import { InputRequest } from "../../types/datamodel";
 import { debounce } from "lodash";
-import { planAPI } from "../api";
+import { planAPI, settingsAPI } from "../api";
 import RelevantPlans from "./relevant_plans";
 import { IPlan } from "../../types/plan";
 import PlanView from "./plan";
-
+import { McpServerSelector } from "../../features/McpServerSelector/McpServerSelector";
+import { MCPAgentConfig, MCPServerInfo } from "../../features/McpServersConfig/types";
+import { extractMcpServers } from "../../features/McpServersConfig/McpServersList";
 // Threshold for large text files (in characters)
 const LARGE_TEXT_THRESHOLD = 1500;
 
@@ -50,6 +52,10 @@ interface ChatInputProps {
   onPause?: () => void;
   enable_upload?: boolean;
   onExecutePlan?: (plan: IPlan) => void;
+  onSubMenuChange: React.Dispatch<React.SetStateAction<string>>;
+  mcpSelectorDisabled: boolean;
+  selectedMcpServers: string[];
+  onSelectedMcpServersChange: (servers: string[]) => void;
 }
 
 const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
@@ -65,6 +71,10 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       onPause,
       enable_upload = false,
       onExecutePlan,
+      onSubMenuChange,
+      mcpSelectorDisabled,
+      selectedMcpServers,
+      onSelectedMcpServersChange
     },
     ref
   ) => {
@@ -94,7 +104,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       runStatus === "active" ||
       runStatus === "pausing" ||
       inputRequest?.input_type === "approval";
-
+    const [mcpServers, setMcpServers] = React.useState<MCPServerInfo[]>([]);
     // Handle textarea auto-resize
     React.useEffect(() => {
       if (textAreaRef.current) {
@@ -143,9 +153,31 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
           setIsLoading(false);
         }
       };
+      const fetchMCPServers = async () => {
+        if (!user?.email) {
+          console.error("User not authenticated");
+          setIsLoading(false);
+          return;
+        }
 
+        try {
+          setIsLoading(true);
+
+          // Get user's latest settings from database
+          const settings = await settingsAPI.getSettings(user.email);
+          const mcpAgentConfigs: MCPAgentConfig[] = settings.mcp_agent_configs || [];
+          const mcpServers = extractMcpServers(mcpAgentConfigs);
+          setMcpServers(mcpServers);
+        } catch (err) {
+          console.error("Failed to fetch MCP servers:", err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchMCPServers();
       fetchAllPlans();
-    }, [userId]);
+    }, [userId, user?.email]);
 
     // Add paste event listener for images and large text
     const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -568,6 +600,15 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       };
     }, [isRelevantPlansVisible]);
 
+    const goToMcpServersTab = React.useCallback(() => {
+      onSubMenuChange("mcp_servers");
+    }, [onSubMenuChange]);
+
+    const handleMcpServerSelectionChange = React.useCallback((newSelection: string[]) => {
+      onSelectedMcpServersChange(newSelection);
+    }, [onSelectedMcpServersChange]);
+
+
     return (
       <div className="mt-2 w-full relative">
         {notificationContextHolder}
@@ -582,21 +623,52 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
           />
         )}
 
+        {/* Selected MCP Tools Display */}
+        {selectedMcpServers.length > 0 && (
+          <div
+            className={`-mb-2 mx-1 ${darkMode === "dark" ? "bg-[#333333]" : "bg-gray-100"
+              } rounded-t border-b-0 p-2 flex border flex-wrap gap-2`}
+          >
+            {selectedMcpServers.map((serverName) => (
+              <div
+                key={serverName}
+                className={`flex items-center gap-1 ${darkMode === "dark"
+                  ? "bg-[#444444] text-white"
+                  : "bg-white text-black"
+                  } rounded px-2 py-1 text-xs`}
+              >
+                <span className="truncate max-w-[150px]">🔧 {serverName}</span>
+                {runStatus === "created" && (
+                  <Button
+                    type="text"
+                    size="small"
+                    className="p-0 ml-1 flex items-center justify-center"
+                    onClick={() =>
+                      onSelectedMcpServersChange(
+                        selectedMcpServers.filter((s) => s !== serverName)
+                      )
+                    }
+                    icon={<XIcon className="w-3 h-3" />}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Attached Items Preview */}
         {(attachedPlan || fileList.length > 0) && (
           <div
-            className={`-mb-2 mx-1 ${
-              darkMode === "dark" ? "bg-[#333333]" : "bg-gray-100"
-            } rounded-t border-b-0 p-2 flex border flex-wrap gap-2`}
+            className={`${selectedMcpServers.length > 0 ? '-mt-2' : '-mb-2'} mx-1 ${darkMode === "dark" ? "bg-[#333333]" : "bg-gray-100"
+              } ${selectedMcpServers.length > 0 ? 'rounded-b border-t-0' : 'rounded-t border-b-0'} p-2 flex border flex-wrap gap-2`}
           >
             {/* Attached Plan */}
             {attachedPlan && (
               <div
-                className={`flex items-center gap-1 ${
-                  darkMode === "dark"
-                    ? "bg-[#444444] text-white"
-                    : "bg-white text-black"
-                } rounded px-2 py-1 text-xs cursor-pointer hover:opacity-80 transition-opacity`}
+                className={`flex items-center gap-1 ${darkMode === "dark"
+                  ? "bg-[#444444] text-white"
+                  : "bg-white text-black"
+                  } rounded px-2 py-1 text-xs cursor-pointer hover:opacity-80 transition-opacity`}
                 onClick={handlePlanClick}
               >
                 <span className="truncate max-w-[150px]">
@@ -619,11 +691,10 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
             {fileList.map((file) => (
               <div
                 key={file.uid}
-                className={`flex items-center gap-1 ${
-                  darkMode === "dark"
-                    ? "bg-[#444444] text-white"
-                    : "bg-white text-black"
-                } rounded px-2 py-1 text-xs`}
+                className={`flex items-center gap-1 ${darkMode === "dark"
+                  ? "bg-[#444444] text-white"
+                  : "bg-white text-black"
+                  } rounded px-2 py-1 text-xs`}
               >
                 {getFileIcon(file)}
                 <span className="truncate max-w-[150px]">{file.name}</span>
@@ -657,7 +728,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
               task={attachedPlan.task || ""}
               plan={attachedPlan.steps || []}
               viewOnly={true}
-              setPlan={() => {}}
+              setPlan={() => { }}
             />
           )}
         </Modal>
@@ -685,13 +756,11 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                     defaultValue={""}
                     onChange={handleTextChange}
                     onKeyDown={handleKeyDown}
-                    className={`flex items-center w-full resize-none border-l border-t border-b border-accent p-2 pl-5 rounded-l-lg ${
-                      darkMode === "dark"
-                        ? "bg-[#444444] text-white"
-                        : "bg-white text-black"
-                    } ${
-                      isInputDisabled ? "cursor-not-allowed" : ""
-                    } focus:outline-none`}
+                    className={`flex items-center w-full resize-none border-l border-t border-b border-accent p-2 pl-5 rounded-l-lg ${darkMode === "dark"
+                      ? "bg-[#444444] text-white"
+                      : "bg-white text-black"
+                      } ${isInputDisabled ? "cursor-not-allowed" : ""
+                      } focus:outline-none`}
                     style={{
                       maxHeight: "120px",
                       overflowY: "auto",
@@ -701,10 +770,10 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                       runStatus === "awaiting_input"
                         ? "Type your response here and let Magentic-UI know of any changes in the browser."
                         : enable_upload
-                        ? dragOver
-                          ? "Drop files here..."
+                          ? dragOver
+                            ? "Drop files here..."
+                            : "Type your message here..."
                           : "Type your message here..."
-                        : "Type your message here..."
                     }
                     disabled={isInputDisabled}
                   />
@@ -712,18 +781,27 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
               </div>
 
               <div
-                className={`flex items-center justify-center gap-2 border-t border-r border-b border-accent px-2 rounded-r-lg ${
-                  darkMode === "dark"
-                    ? "bg-[#444444] text-white"
-                    : "bg-white text-black"
-                }`}
+                className={`flex items-center justify-center gap-2 border-t border-r border-b border-accent px-2 rounded-r-lg ${darkMode === "dark"
+                  ? "bg-[#444444] text-white"
+                  : "bg-white text-black"
+                  }`}
               >
+
+                {runStatus === "created" && (
+                  <McpServerSelector
+                    servers={mcpServers}
+                    onAddMcpServer={goToMcpServersTab}
+                    runStatus={runStatus}
+                    value={selectedMcpServers}
+                    onChange={handleMcpServerSelectionChange}
+                  />
+                )}
+
                 {/* File upload button replaced with Dropdown */}
                 {enable_upload && (
                   <div
-                    className={`${
-                      isInputDisabled ? "pointer-events-none opacity-50" : ""
-                    }`}
+                    className={`${isInputDisabled ? "pointer-events-none opacity-50" : ""
+                      }`}
                   >
                     <Dropdown
                       overlay={
@@ -792,11 +870,10 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                     type="button"
                     onClick={handleSubmit}
                     disabled={isInputDisabled}
-                    className={`bg-magenta-800 transition duration-300 rounded flex justify-center items-center w-11 h-9 ${
-                      isInputDisabled
-                        ? "cursor-not-allowed"
-                        : "hover:bg-magenta-900"
-                    }`}
+                    className={`bg-magenta-800 transition duration-300 rounded flex justify-center items-center w-11 h-9 ${isInputDisabled
+                      ? "cursor-not-allowed"
+                      : "hover:bg-magenta-900"
+                      }`}
                   >
                     <PaperAirplaneIcon className="h-6 w-6 text-white" />
                   </button>

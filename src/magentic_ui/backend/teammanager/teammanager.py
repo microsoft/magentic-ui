@@ -97,7 +97,7 @@ class TeamManager:
         internal_run_dir = internal_workspace_root / Path(run_suffix)
         external_run_dir = external_workspace_root / Path(run_suffix)
         # Can only make dir on internal, as it is what a potential docker container sees.
-        # TO-ANSWER: why?
+        # TO-ANSWER: why ?
         logger.info(f"Creating run dirs: {internal_run_dir} and {external_run_dir}")
         if self.inside_docker:
             internal_run_dir.mkdir(parents=True, exist_ok=True)
@@ -210,6 +210,69 @@ class TeamManager:
                     model_client_from_config_file.action_guard,
                 ]
             )
+
+            # Logic here: first, we see if the config file passed to magentic-ui has valid MCP agent configuration
+            # If valid: the configuration file takes precedent over the UI settings to configure MCP agent for team
+            # If invalid: we disregard in the configuration file and use the UI settings to configure MCP agent for team
+
+            # Get mcp_agent_configs from configuration file
+            mcp_agent_config_from_config_file: List[Dict[str, Any]] = self.config.get(
+                "mcp_agent_configs", []
+            )
+            # Get mcp_agent_configs from frontend settings
+            settings_mcp_configs = settings_config.get("mcp_agent_configs", [])
+
+            # Verify the MCP agent configuration in the configuration file
+            def validate_mcp_config(mcp_config: Dict[str, Any]) -> bool:
+                """
+                Verify the MCP agent configuration is valid
+                Check if the mcp_servers field is a list and has at least one element, and name and description are alpha-numeric
+                """
+                mcp_servers: List[Dict[str, Any]] = mcp_config.get("mcp_servers", [])
+                if not isinstance(mcp_servers, list) or len(mcp_servers) == 0:
+                    return False
+
+                agent_name: str | None = mcp_config.get("name")
+                agent_description: str | None = mcp_config.get("description")
+                if (
+                    not isinstance(agent_name, str)
+                    or not agent_name.isalnum()
+                    or not isinstance(agent_description, str)
+                ):
+                    return False
+
+                for server in mcp_servers:
+                    if not isinstance(server, dict):
+                        return False
+                    server_name = server.get("server_name")
+                    if not isinstance(server_name, str) or not server_name.isalnum():
+                        return False
+
+                return True
+
+            # If there are MCP configurations in config file, validate and use them
+            if mcp_agent_config_from_config_file:
+                # Verify the MCP agent configuration in the configuration file
+                all_valid = True
+                for config in mcp_agent_config_from_config_file:
+                    if validate_mcp_config(config):
+                        pass
+                    else:
+                        all_valid = False
+                        break
+
+                if not all_valid:
+                    logger.warning(
+                        "MCP agent configurations in config file are invalid, falling back to frontend settings."
+                    )
+                    settings_config["mcp_agent_configs"] = settings_mcp_configs
+                else:
+                    settings_config["mcp_agent_configs"] = (
+                        mcp_agent_config_from_config_file
+                    )
+            else:
+                # If no MCP configurations in config file, use frontend settings
+                settings_config["mcp_agent_configs"] = settings_mcp_configs
 
             # Common configuration parameters
             config_params = {

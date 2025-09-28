@@ -24,7 +24,7 @@ from .task_team import get_task_team
 from loguru import logger
 
 from .agents.mcp._config import McpAgentConfig
-from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
+from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs, SentinelPlanConfig
 from .types import RunPaths
 from .utils import LLMCallFilter
 from ._docker import (
@@ -141,6 +141,7 @@ async def get_team(
     browser_headless: bool = False,
     browser_local: bool = False,
     sentinel_tasks: bool = False,
+    dynamic_sentinel_sleep: bool = False,
 ) -> None:
     log_debug("=== Starting get_team function ===", debug)
     log_debug(
@@ -259,7 +260,10 @@ async def get_team(
         hints=hints,
         answer=answer,
         inside_docker=inside_docker,
-        sentinel_tasks=sentinel_tasks,
+        sentinel_plan=SentinelPlanConfig(
+            enable_sentinel_steps=sentinel_tasks,
+            dynamic_sentinel_sleep=dynamic_sentinel_sleep,
+        ),
         run_without_docker=run_without_docker,
         browser_headless=browser_headless,
         browser_local=browser_local,
@@ -581,6 +585,11 @@ def cli_main(
         "--sentinel-tasks",
         help="Use sentinel tasks to guide the agent's behavior (default: False)",
     ),
+    dynamic_sentinel_sleep: bool = typer.Option(
+        False,
+        "--dynamic-sentinel-sleep",
+        help="Enable dynamic sleep duration adaptation for sentinel tasks (only available when --sentinel-tasks is enabled, default: False)",
+    ),
 ) -> None:
     """
     Magentic-UI CLI: A command-line interface for multi-agent task execution.
@@ -603,6 +612,7 @@ def cli_main(
         log_debug(f"User proxy type: {user_proxy_type}", debug)
         log_debug(f"LLM log directory: {llmlog_dir}", debug)
         log_debug(f"Sentinel tasks: {sentinel_tasks}", debug)
+        log_debug(f"Dynamic sentinel sleep: {dynamic_sentinel_sleep}", debug)
         log_debug(f"Console mode: {'Pretty' if use_pretty_ui else 'Old'}", debug)
         log_debug(f"Browser headless: {browser_headless}", debug)
         log_debug(f"Browser local: {browser_local}", debug)
@@ -631,6 +641,13 @@ def cli_main(
         "auto-permissive",
     ]:
         error_msg = f"Invalid action policy: {action_policy}. Valid options are 'always', 'never', 'auto-conservative', 'auto-permissive'."
+        log_debug(f"ERROR: {error_msg}", debug)
+        raise ValueError(error_msg)
+
+    # Validate dynamic sentinel sleep configuration
+    log_debug("Validating dynamic sentinel sleep configuration", debug)
+    if dynamic_sentinel_sleep and not sentinel_tasks:
+        error_msg = "Dynamic sentinel sleep (--dynamic-sentinel-sleep) can only be enabled when sentinel tasks (--sentinel-tasks) are enabled."
         log_debug(f"ERROR: {error_msg}", debug)
         raise ValueError(error_msg)
 
@@ -807,6 +824,7 @@ def cli_main(
             browser_headless=browser_headless,
             browser_local=browser_local,
             sentinel_tasks=sentinel_tasks,
+            dynamic_sentinel_sleep=dynamic_sentinel_sleep,
         )
     )
     log_debug("Asyncio event loop and get_team function completed", debug)

@@ -140,6 +140,8 @@ export const SessionManager: React.FC = () => {
         );
         setSessions([created, ...sessions]);
         setSession(created);
+        // Clear the active submenu item to switch from MCP Servers or Saved Plans tabs to the new session
+        setActiveSubMenuItem("");
       }
       setIsEditorOpen(false);
       setEditingSession(undefined);
@@ -389,6 +391,7 @@ export const SessionManager: React.FC = () => {
             getSessionSocket={getSessionSocket}
             visible={session?.id === s.id}
             onRunStatusChange={updateSessionRunStatus}
+            onSubMenuChange={setActiveSubMenuItem}
           />
         </div>
       );

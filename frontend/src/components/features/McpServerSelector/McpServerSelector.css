@@ -1,0 +1,91 @@
+/* McpServerSelector specific styles */
+.mcp-selector {
+  cursor: pointer;
+  align-items: center;
+}
+
+/* Make the root selector transparent */
+.mcp-selector .ant-select-selector {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  align-items: center;
+}
+
+.mcp-selector .ant-select-selection-wrap {
+  align-items: center;
+  padding: 0px;
+}
+
+/* Style the prefix with semi-transparent border */
+.mcp-selector-prefix {
+  border-style: solid;
+  border-color: transparent !important;
+  transition: border-color 0.2s ease;
+  display: inline-flex;
+}
+
+/* Make border fully opaque on hover of the entire selector */
+.mcp-selector-prefix:hover:not(.disabled) {
+  border-color: var(--color-text-primary) !important;
+  transition: border-color 0.2s ease !important;
+}
+
+/* Style the selected tags with magenta-900 */
+.mcp-selector .ant-select-selection-item {
+  background-color: var(--color-magenta-900) !important;
+  transition: background-color 0.2s ease !important;
+  color: white !important;
+}
+
+.mcp-selector:not(.ant-select-disabled) .ant-select-selection-item:hover {
+  background-color: var(--color-magenta-800) !important;
+}
+
+/* Style the remove icon on tags */
+.mcp-selector .ant-select-selection-item-remove {
+  color: white !important;
+}
+
+/* Style the dropdown selected items */
+.mcp-selector-dropdown .ant-select-item-option {
+  background-color: transparent !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.mcp-selector-dropdown .ant-select-item-option:hover {
+  background-color: color-mix(in srgb, var(--color-text-primary) 10%, transparent) !important;
+}
+
+.mcp-selector-dropdown .ant-select-item-option-selected {
+  background-color: var(--color-magenta-900) !important;
+  transition: background-color 0.2s ease !important;
+  color: white !important;
+}
+
+.mcp-selector-dropdown .ant-select-item-option-selected:hover {
+  background-color: var(--color-magenta-800) !important;
+}
+
+/* Make the checkmark icon white */
+.mcp-selector-dropdown .anticon-check {
+  color: white !important;
+  margin-left: 15px;
+}
+
+/* Style the Add MCP Server button */
+.mcp-selector-dropdown .mcp-selector-add-mcp-server-button {
+  color: var(--color-text-primary);
+  justify-content: flex-start;
+  background-color: transparent !important;
+}
+
+.mcp-selector-dropdown .mcp-selector-add-mcp-server-button:hover {
+  background-color: color-mix(in srgb, var(--color-text-primary) 10%, transparent) !important;
+}
+
+/* Override Ant Design's inline min-width calculation */
+.mcp-selector-dropdown.ant-select-dropdown {
+  min-width: fit-content !important;
+  width: auto !important;
+}

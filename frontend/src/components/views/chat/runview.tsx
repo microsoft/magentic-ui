@@ -37,6 +37,9 @@ interface RunViewProps {
   chatInputRef?: React.RefObject<any>;
   onExecutePlan?: (plan: IPlan) => void;
   enable_upload?: boolean;
+  onSubMenuChange: React.Dispatch<React.SetStateAction<string>>;
+  selectedMcpServers: string[];
+  onSelectedMcpServersChange: (servers: string[]) => void;
 }
 
 const RunView: React.FC<RunViewProps> = ({
@@ -59,6 +62,9 @@ const RunView: React.FC<RunViewProps> = ({
   chatInputRef,
   onExecutePlan,
   enable_upload = false,
+  onSubMenuChange,
+  selectedMcpServers,
+  onSelectedMcpServersChange,
 }) => {
   const threadContainerRef = useRef<HTMLDivElement | null>(null);
   const [novncPort, setNovncPort] = useState<string | undefined>();
@@ -689,6 +695,12 @@ const RunView: React.FC<RunViewProps> = ({
             enable_upload={enable_upload}
             inputRequest={run.input_request}
             onExecutePlan={onExecutePlan}
+            onSubMenuChange={onSubMenuChange}
+            mcpSelectorDisabled={
+              run.status === "awaiting_input" ||
+              run.status === "paused"}
+            selectedMcpServers={selectedMcpServers}
+            onSelectedMcpServersChange={onSelectedMcpServersChange}
           />
         </div>
       </div>
