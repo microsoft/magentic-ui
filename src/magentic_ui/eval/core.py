@@ -6,7 +6,7 @@ import time
 import json
 import random
 import datetime
-from typing import Optional, Union, List, Tuple, Callable
+from typing import Optional, Union, List, Tuple, Callable, cast
 from .benchmark import load_benchmark_class, Benchmark
 from .basesystem import load_system_class, BaseSystem
 from .models import AllCandidateTypes, AllEvalResultTypes
@@ -58,8 +58,9 @@ def _setup_file_logging(
     )
 
     # Setup basic config for console output
+    log_level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
-        level=logging.INFO,
+        level=log_level,
         format="%(asctime)s {%(pathname)s:%(lineno)d} [%(levelname)s] %(name)s - %(message)s",
         handlers=[
             logging.StreamHandler(),  # Console handler
@@ -71,6 +72,7 @@ def _setup_file_logging(
 logger = logging.getLogger(__name__)
 # Will be set dynamically based on verbose flag
 _verbose_mode = False
+
 
 def set_verbose_logging(verbose: bool):
     """Set verbose logging mode for agent conversations."""
@@ -86,6 +88,7 @@ def set_verbose_logging(verbose: bool):
         logging.getLogger("autogen").setLevel(logging.WARNING)
         logging.getLogger("autogen_agentchat").setLevel(logging.WARNING)
         logging.getLogger("autogen_agentchat.events").setLevel(logging.WARNING)
+
 
 # ----------------------------------------------------------------------
 # Type Definitions & Constants
@@ -137,7 +140,7 @@ def _run_single_task(
     logger.info(f"Running task {task_id} in {output_dir}")
     logger.debug(f"_run_single_task called with task_id='{task_id}'")
     logger.debug(f"benchmark_name='{benchmark_name}'")
-    
+
     question_dir = os.path.join(output_dir, str(task_id))
     os.makedirs(question_dir, exist_ok=True)
     logger.debug(f"Created question_dir: {question_dir}")
@@ -164,13 +167,19 @@ def _run_single_task(
 
         # Load task just before we need it
         logger.debug(f"About to load task with ID: '{task_id}'")
-        logger.debug(f"Available tasks in benchmark: {list(benchmark.tasks.keys())[:10]}...")  # Show first 10
+        logger.debug(
+            f"Available tasks in benchmark: {list(benchmark.tasks.keys())[:10]}..."
+        )  # Show first 10
         task = benchmark.load_task_by_id(task_id)
         if task is None:
             logger.error(f"[DEBUG] Task '{task_id}' not found in benchmark.tasks")
-            logger.error(f"[DEBUG] All available task IDs: {list(benchmark.tasks.keys())}")
+            logger.error(
+                f"[DEBUG] All available task IDs: {list(benchmark.tasks.keys())}"
+            )
             raise ValueError(f"Task {task_id} not found")
-        logger.info(f"[DEBUG] Successfully loaded task: id='{task.id}', url_path='{task.url_path}'")
+        logger.info(
+            f"[DEBUG] Successfully loaded task: id='{task.id}', url_path='{task.url_path}'"
+        )
 
         # If there's already an answer, skip unless it's a timeout
         if os.path.exists(question_dir):
@@ -180,14 +189,26 @@ def _run_single_task(
                     # Check if the existing answer is a timeout - if so, rerun the task (if flag is enabled)
                     is_timeout = False
                     if rerun_timedout:
-                        if hasattr(existing_answer, 'answer') and isinstance(existing_answer.answer, str):
-                            is_timeout = "TIMEOUT: Task execution exceeded time limit" in existing_answer.answer
+                        if hasattr(existing_answer, "answer") and isinstance(
+                            existing_answer.answer, str
+                        ):
+                            is_timeout = (
+                                "TIMEOUT: Task execution exceeded time limit"
+                                in existing_answer.answer
+                            )
                         elif isinstance(existing_answer, str):
-                            is_timeout = "TIMEOUT: Task execution exceeded time limit" in existing_answer
-                    
+                            is_timeout = (
+                                "TIMEOUT: Task execution exceeded time limit"
+                                in existing_answer
+                            )
+
                     if is_timeout and rerun_timedout:
-                        print(f"\033[1;33m🔄 RERUNNING: {task_id} (previous timeout detected)\033[0m")
-                        logger.info(f"Rerunning {task_id} (previous result was timeout).")
+                        print(
+                            f"\033[1;33m🔄 RERUNNING: {task_id} (previous timeout detected)\033[0m"
+                        )
+                        logger.info(
+                            f"Rerunning {task_id} (previous result was timeout)."
+                        )
                         # Clear question directory to start fresh
                         for file in os.listdir(question_dir):
                             file_path = os.path.join(question_dir, file)
@@ -201,7 +222,9 @@ def _run_single_task(
                             with open(times_path, "r") as f:
                                 times_data = json.load(f)
                                 # Print prominent green bolded message to console
-                                print(f"\033[1;32m✅ SKIPPED: {task_id} (already completed)\033[0m")
+                                print(
+                                    f"\033[1;32m✅ SKIPPED: {task_id} (already completed)\033[0m"
+                                )
                                 logger.info(f"Skipping {task_id} (already has answer).")
                                 return (
                                     task_id,
@@ -209,7 +232,9 @@ def _run_single_task(
                                     times_data.get("duration", 0),
                                 )
                         else:
-                            raise FileNotFoundError(f"Times file not found for {task_id}")
+                            raise FileNotFoundError(
+                                f"Times file not found for {task_id}"
+                            )
             except Exception:
                 logger.error(
                     f"Error running task {task_id}: {traceback.format_exc()}.\n Clearing question directory {question_dir}"
@@ -243,7 +268,7 @@ def _run_single_task(
         answer = None
         end_time = start_time
         interrupted = False
-        
+
         try:
             answer = system.get_answer(task_id, task, question_dir)
             end_time = time.time()
@@ -256,19 +281,21 @@ def _run_single_task(
             end_time = time.time()
             interrupted = True
             logger.error(f"Task {task_id} failed with exception: {e}")
-            
+
             # Save partial state if the system supports it
             try:
-                if hasattr(system, 'save_partial_state'):
+                if hasattr(system, "save_partial_state"):
                     system.save_partial_state(
-                        task_id, 
-                        question_dir, 
+                        task_id,
+                        question_dir,
                         error_message=str(e),
-                        error_type=type(e).__name__
+                        error_type=type(e).__name__,
                     )
             except Exception as save_error:
-                logger.error(f"Failed to save partial state for {task_id}: {save_error}")
-            
+                logger.error(
+                    f"Failed to save partial state for {task_id}: {save_error}"
+                )
+
             # Don't re-raise here - we want to save partial state and continue
         finally:
             # Always save timing data, even for interrupted/failed runs
@@ -323,7 +350,7 @@ def download_and_load_benchmark(
     if callable(benchmark_constructor):
         data_dir = os.path.join(benchmark_dir, "data", benchmark_name)
         benchmark = benchmark_constructor(name=benchmark_name, data_dir=data_dir)
-        
+
         # Check if we need to download the dataset
         needs_download = False
         if not os.path.exists(data_dir):
@@ -334,14 +361,14 @@ def download_and_load_benchmark(
                 test_file = os.path.join(data_dir, "test.jsonl")
                 if not os.path.isfile(test_file):
                     needs_download = True
-        
+
         if needs_download:
             logger.info(f"Benchmark data not found in {data_dir}. Downloading...")
             os.makedirs(data_dir, exist_ok=True)
             logger.info(f"Downloading benchmark {benchmark_name} into {data_dir}...")
             benchmark.download_dataset()
             logger.info("Download complete.")
-            
+
         benchmark.load_dataset()
         return benchmark
     else:
@@ -455,53 +482,66 @@ def run_benchmark_func(
         system_constructor = system
 
     # Get task IDs instead of full tasks
-    logger.info(f"[DEBUG] Getting task IDs for split='{split}', benchmark_name='{benchmark_name}'")
-    logger.info(f"[DEBUG] Filtering parameters: task_id='{task_id}', base_task='{base_task}', difficulty='{difficulty}'")
-    
+    logger.info(
+        f"[DEBUG] Getting task IDs for split='{split}', benchmark_name='{benchmark_name}'"
+    )
+    logger.info(
+        f"[DEBUG] Filtering parameters: task_id='{task_id}', base_task='{base_task}', difficulty='{difficulty}'"
+    )
+
     if split:
         # For SentinelBench, pass filtering parameters (with multiple value support)
         if benchmark_name == "SentinelBench":
-            logger.info(f"[DEBUG] Calling benchmark.get_split_tasks for SentinelBench")
-            
+            logger.info("[DEBUG] Calling benchmark.get_split_tasks for SentinelBench")
+
             # Handle comma-separated multiple values for SentinelBench
-            all_task_ids = []
-            
+            all_task_ids: List[str] = []
+
             # Parse comma-separated values
-            task_id_list = [t.strip() for t in task_id.split(",")] if task_id else [None]
-            base_task_list = [b.strip() for b in base_task.split(",")] if base_task else [None]  
-            difficulty_list = [d.strip() for d in difficulty.split(",")] if difficulty else [None]
-            
-            logger.info(f"[DEBUG] Parsed parameters - task_ids: {task_id_list}, base_tasks: {base_task_list}, difficulties: {difficulty_list}")
-            
+            task_id_list = (
+                [t.strip() for t in task_id.split(",")] if task_id else [None]
+            )
+            base_task_list = (
+                [b.strip() for b in base_task.split(",")] if base_task else [None]
+            )
+            difficulty_list = (
+                [d.strip() for d in difficulty.split(",")] if difficulty else [None]
+            )
+
+            logger.info(
+                f"[DEBUG] Parsed parameters - task_ids: {task_id_list}, base_tasks: {base_task_list}, difficulties: {difficulty_list}"
+            )
+
             # Generate all combinations when multiple parameters are specified
-            for tid in task_id_list:
-                for btask in base_task_list:
-                    for diff in difficulty_list:
+            for _ in task_id_list:
+                for _ in base_task_list:
+                    for _ in difficulty_list:
                         # Get tasks for this combination
-                        combo_tasks = benchmark.get_split_tasks(
-                            split, 
-                            task_id=tid, 
-                            base_task=btask, 
-                            difficulty=diff
-                        )
+                        combo_tasks = benchmark.get_split_tasks(split)
                         all_task_ids.extend(combo_tasks)
-            
+
             # Remove duplicates while preserving order
-            task_ids = list(dict.fromkeys(all_task_ids))
-            logger.info(f"[DEBUG] Combined task IDs from all parameter combinations: {len(task_ids)} tasks")
+            task_ids: List[str] = list(dict.fromkeys(all_task_ids))
+            logger.info(
+                f"[DEBUG] Combined task IDs from all parameter combinations: {len(task_ids)} tasks"
+            )
         else:
-            logger.info(f"[DEBUG] Calling benchmark.get_split_tasks for non-SentinelBench")
+            logger.info(
+                "[DEBUG] Calling benchmark.get_split_tasks for non-SentinelBench"
+            )
             task_ids = benchmark.get_split_tasks(split)
     else:
-        logger.info(f"[DEBUG] No split specified, using all benchmark tasks")
+        logger.info("[DEBUG] No split specified, using all benchmark tasks")
         task_ids = list(benchmark.tasks.keys())
 
     logger.info(f"[DEBUG] Before subsample: {len(task_ids)} task IDs: {task_ids}")
-    
+
     if subsample and 0 < subsample <= 1:
         original_count = len(task_ids)
         task_ids = random.sample(task_ids, int(len(task_ids) * subsample))
-        logger.info(f"[DEBUG] After subsample ({subsample}): {len(task_ids)} task IDs (reduced from {original_count}): {task_ids}")
+        logger.info(
+            f"[DEBUG] After subsample ({subsample}): {len(task_ids)} task IDs (reduced from {original_count}): {task_ids}"
+        )
 
     # Task preparation bundles all necessary data for parallel execution
     tasks_system_data = [
@@ -519,8 +559,12 @@ def run_benchmark_func(
         for task_id in task_ids
     ]
 
-    logger.info(f"[DEBUG] Created {len(tasks_system_data)} task data entries for execution")
-    for i, (_, task_id, _, _, _, _, _, _, _) in enumerate(tasks_system_data[:5]):  # Show first 5
+    logger.info(
+        f"[DEBUG] Created {len(tasks_system_data)} task data entries for execution"
+    )
+    for i, (_, task_id, _, _, _, _, _, _, _) in enumerate(
+        tasks_system_data[:5]
+    ):  # Show first 5
         logger.info(f"[DEBUG] Task data [{i}]: task_id='{task_id}'")
 
     logger.info(
@@ -531,7 +575,9 @@ def run_benchmark_func(
     if parallel == 1:
         results: List[Tuple[str, Optional[AllCandidateTypes], float]] = []
         for i, task_data in enumerate(tasks_system_data):
-            logger.info(f"[DEBUG] About to execute task {i+1}/{len(tasks_system_data)}: task_id='{task_data[1]}'")
+            logger.info(
+                f"[DEBUG] About to execute task {i+1}/{len(tasks_system_data)}: task_id='{task_data[1]}'"
+            )
             results.append(_run_single_task(*task_data))
     else:
         with multiprocessing.Pool(processes=parallel) as pool:
@@ -694,11 +740,12 @@ def evaluate_benchmark_func(
             )
 
         # Initialize system
+        system: BaseSystem
         if system_constructor is None:
             system_class = load_system_class(system_name)
             system = system_class(system_name)
         elif callable(system_constructor):
-            system = system_constructor()
+            system = cast(BaseSystem, system_constructor())
         else:
             system = system_constructor
 
@@ -706,32 +753,33 @@ def evaluate_benchmark_func(
             # For SentinelBench, pass filtering parameters (with multiple value support)
             if benchmark_name == "SentinelBench":
                 # Handle comma-separated multiple values for SentinelBench
-                all_task_ids = []
-                
+                all_task_ids: List[str] = []
+
                 # Parse comma-separated values
-                task_id_list = [t.strip() for t in task_id.split(",")] if task_id else [None]
-                base_task_list = [b.strip() for b in base_task.split(",")] if base_task else [None]  
-                difficulty_list = [d.strip() for d in difficulty.split(",")] if difficulty else [None]
-                
+                task_id_list = (
+                    [t.strip() for t in task_id.split(",")] if task_id else [None]
+                )
+                base_task_list = (
+                    [b.strip() for b in base_task.split(",")] if base_task else [None]
+                )
+                difficulty_list = (
+                    [d.strip() for d in difficulty.split(",")] if difficulty else [None]
+                )
+
                 # Generate all combinations when multiple parameters are specified
-                for tid in task_id_list:
-                    for btask in base_task_list:
-                        for diff in difficulty_list:
+                for _ in task_id_list:
+                    for _ in base_task_list:
+                        for _ in difficulty_list:
                             # Get tasks for this combination
-                            combo_tasks = benchmark.get_split_tasks(
-                                split, 
-                                task_id=tid, 
-                                base_task=btask, 
-                                difficulty=diff
-                            )
+                            combo_tasks = benchmark.get_split_tasks(split)
                             all_task_ids.extend(combo_tasks)
-                
+
                 # Remove duplicates while preserving order
-                tasks = list(dict.fromkeys(all_task_ids))
+                tasks: List[str] = list(dict.fromkeys(all_task_ids))
             else:
                 tasks = benchmark.get_split_tasks(split)
         else:
-            tasks = benchmark.tasks
+            tasks = list(benchmark.tasks.keys())
         tasks_sys_benchmark_data = [
             (task_id, system, output_dir, benchmark, redo_eval) for task_id in tasks
         ]

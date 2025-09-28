@@ -90,15 +90,17 @@ class BaseSystem:
         """
         os.makedirs(output_dir, exist_ok=True)
         safe_task_id = task_id.replace("/", "_")
-        partial_state_path = os.path.join(output_dir, f"{safe_task_id}_partial_state.json")
-        
+        partial_state_path = os.path.join(
+            output_dir, f"{safe_task_id}_partial_state.json"
+        )
+
         state_data = {
             "task_id": task_id,
             "timestamp": json.dumps(time.time()),
             "status": "interrupted",
-            **kwargs
+            **kwargs,
         }
-        
+
         with open(partial_state_path, "w", encoding="utf-8") as f:
             json.dump(state_data, f, indent=2)
 
