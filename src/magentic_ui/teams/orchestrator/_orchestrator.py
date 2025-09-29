@@ -1350,13 +1350,10 @@ class Orchestrator(BaseGroupChatManager):
         # gets the instruction that the agent will perform
         step_details = step.details
 
-        # saves the initial state of the agent
-        # TODO we might want to move this inside the while loop
-        # and only save the state when iteration == 1
+        # only save the state when iteration == 1
         initial_agent_state = None
         can_save_load = hasattr(agent, "save_state") and hasattr(agent, "load_state")  # type: ignore
-        if can_save_load:
-            initial_agent_state = await agent.save_state()  #n type: ignore
+
         num_errors_encountered = 0
         MAX_SENTINEL_STEP_ERRORS_ALLOWED = 3
         just_encountered_error = False
@@ -1384,7 +1381,7 @@ class Orchestrator(BaseGroupChatManager):
 
                 # loads the initial state of the agent
                 if can_save_load and initial_agent_state is not None:
-                    if agent_name == self._web_agent_topic: 
+                    if agent_name == self._web_agent_topic:
                         await agent.load_state(initial_agent_state, load_browser=False)  # type: ignore
                     else:
                         await agent.load_state(initial_agent_state)  # type: ignore
@@ -1432,6 +1429,8 @@ class Orchestrator(BaseGroupChatManager):
                 last_agent_message = final_response.chat_message
 
                 # Check if condition is met
+                if iteration == 1 and can_save_load:
+                    initial_agent_state = await agent.save_state()  # type: ignore
                 condition_met = None
                 reason = None
                 suggested_sleep_duration = step.sleep_duration
