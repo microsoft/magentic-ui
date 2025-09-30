@@ -212,3 +212,13 @@ venv.bak/
 # Task centric memory related db and logs
 **/memory_bank/
 **/pagelogs/
+
+# SentinelBench
+SentinelBench/sentinelbench/node_modules/
+SentinelBench/sentinelbench/dist/
+SentinelBench/sentinelbench/.env
+SentinelBench/sentinelbench/.env.local
+SentinelBench/sentinelbench/.env.production
+SentinelBench/sentinelbench/.env.development
+SentinelBench/sentinelbench/.wrangler/
+SentinelBench/sentinelbench/coverage/
