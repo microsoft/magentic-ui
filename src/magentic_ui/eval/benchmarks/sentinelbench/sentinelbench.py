@@ -94,10 +94,20 @@ class SentinelBenchBenchmark(Benchmark):
         try:
             response = requests.get(self.base_website_path, timeout=5)
             response.raise_for_status()
-        except Exception as e:
+        except requests.HTTPError as e:
+            logging.warning(
+                f"HTTP error when checking base website path: {self.base_website_path}. "
+                f"Status code: {e.response.status_code if e.response else 'unknown'}. Error: {e}"
+            )
+        except (requests.ConnectionError, requests.Timeout) as e:
             logging.warning(
                 f"Could not reach base website path: {self.base_website_path}. "
                 f"Make sure SentinelBench is running locally. Error: {e}"
+            )
+        except requests.RequestException as e:
+            logging.warning(
+                f"Request error when checking base website path: {self.base_website_path}. "
+                f"Error: {e}"
             )
 
         assert self.data_dir is not None
