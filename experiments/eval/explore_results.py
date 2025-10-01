@@ -4,6 +4,8 @@ import pandas as pd
 import argparse
 from typing import Dict, Any
 from magentic_ui.eval.benchmarks.gaia.gaia import GaiaBenchmark
+from magentic_ui.eval.benchmarks.sentinelbench.sentinelbench import SentinelBenchBenchmark
+from magentic_ui.eval.benchmarks.webgames.webgames import WebGamesBenchmark
 
 
 def get_run_results_df(
@@ -21,8 +23,12 @@ def get_run_results_df(
     # Initialize benchmark
     if dataset_name == "Gaia":
         benchmark = GaiaBenchmark(data_dir=data_dir)
+    elif dataset_name == "SentinelBench":
+        benchmark = SentinelBenchBenchmark(data_dir=data_dir)
+    elif dataset_name == "WebGames":
+        benchmark = WebGamesBenchmark(data_dir=data_dir)
     else:
-        raise ValueError(f"Invalid dataset name: {dataset_name}")
+        raise ValueError(f"Invalid dataset name: {dataset_name}. Supported: Gaia, SentinelBench, WebGames")
     # Download the dataset (only needed once)
     benchmark.download_dataset()
     # Load it into memory
@@ -45,7 +51,16 @@ def get_run_results_df(
         if task_dir in benchmark.tasks:
             task_data["ground_truth"] = benchmark.tasks[task_dir].ground_truth
             task_data["question"] = benchmark.tasks[task_dir].question
-            task_data["difficulty"] = benchmark.tasks[task_dir].difficulty
+            if dataset_name == "Gaia":
+                task_data["difficulty"] = benchmark.tasks[task_dir].difficulty
+            elif dataset_name == "SentinelBench":
+                # SentinelBench stores difficulty in metadata
+                task_data["difficulty"] = benchmark.tasks[task_dir].metadata.get("difficulty", "unknown")
+                task_data["base_task"] = benchmark.tasks[task_dir].metadata.get("base_task", "unknown")
+            elif dataset_name == "WebGames":
+                # WebGames stores tags in metadata
+                task_data["difficulty"] = "unknown"  # WebGames doesn't have difficulty levels
+                task_data["tags"] = benchmark.tasks[task_dir].metadata.get("tags", [])
             task_data["metadata"] = benchmark.tasks[task_dir].metadata
 
         # Read answer file
@@ -72,6 +87,9 @@ def get_run_results_df(
             with open(score_file, "r") as f:
                 score = json.load(f)
                 task_data["score"] = score["score"]
+        else:
+            print(f"Warning: No score.json found for task {task_dir}")
+            task_data["score"] = None
 
         # Read times file
         times_file = os.path.join(task_path, "times.json")
@@ -79,10 +97,41 @@ def get_run_results_df(
             with open(times_file, "r") as f:
                 task_data["duration"] = json.load(f)["duration"]
 
+        # Read token usage file
+        tokens_file = os.path.join(task_path, "model_tokens_usage.json")
+        if os.path.exists(tokens_file):
+            with open(tokens_file, "r") as f:
+                token_data = json.load(f)
+                # Extract individual agent token usage
+                task_data["orchestrator_prompt_tokens"] = token_data.get("orchestrator", {}).get("prompt_tokens", 0)
+                task_data["orchestrator_completion_tokens"] = token_data.get("orchestrator", {}).get("completion_tokens", 0)
+                task_data["websurfer_prompt_tokens"] = token_data.get("websurfer", {}).get("prompt_tokens", 0)
+                task_data["websurfer_completion_tokens"] = token_data.get("websurfer", {}).get("completion_tokens", 0)
+                task_data["coder_prompt_tokens"] = token_data.get("coder", {}).get("prompt_tokens", 0)
+                task_data["coder_completion_tokens"] = token_data.get("coder", {}).get("completion_tokens", 0)
+                task_data["file_surfer_prompt_tokens"] = token_data.get("file_surfer", {}).get("prompt_tokens", 0)
+                task_data["file_surfer_completion_tokens"] = token_data.get("file_surfer", {}).get("completion_tokens", 0)
+                # Extract total tokens
+                total_data = token_data.get("total_without_user_proxy", {})
+                task_data["total_prompt_tokens"] = total_data.get("prompt_tokens", 0)
+                task_data["total_completion_tokens"] = total_data.get("completion_tokens", 0)
+                task_data["total_tokens"] = task_data["total_prompt_tokens"] + task_data["total_completion_tokens"]
+
         data.append(task_data)
     df = pd.DataFrame(data)
+    
+    print(f"Loaded {len(df)} total tasks")
+    print(f"Tasks with valid scores: {df['score'].notna().sum()}")
+    print(f"Tasks with missing scores: {df['score'].isna().sum()}")
+    
     # Filter out rows where score is NaN
-    df = df.dropna(subset=["score"])
+    if 'score' in df.columns and df['score'].notna().sum() > 0:
+        df = df.dropna(subset=["score"])
+    else:
+        print("Warning: No valid scores found. This may indicate incomplete evaluation.")
+        if 'score' not in df.columns:
+            print("The 'score' column is missing entirely. Make sure you have run using the '--model eval' flag.")
+        return pd.DataFrame()  # Return empty DataFrame
 
     # Save DataFrame to CSV
     output_csv = os.path.join(run_dir, "results.csv")
@@ -113,6 +162,10 @@ def main():
     parser.add_argument(
         "--data-dir", type=str, required=True, help="Path to the data directory"
     )
+    parser.add_argument(
+        "--dataset", type=str, default="Gaia", choices=["Gaia", "SentinelBench", "WebGames"], 
+        help="Dataset name (default: Gaia)"
+    )
     args, unknown = (
         parser.parse_known_args()
     )  # First parse run_dir to generate default filenames
@@ -134,7 +187,11 @@ def main():
 
     args = parser.parse_args()  # Parse all arguments
 
-    df = get_run_results_df(args.run_dir, args.data_dir)
+    df = get_run_results_df(args.run_dir, args.data_dir, args.dataset)
+
+    if df.empty:
+        print("No valid data found. Exiting.")
+        return
 
     # Add a column to flag 'unable to determine' answers
     unable_str = "Unable to determine"

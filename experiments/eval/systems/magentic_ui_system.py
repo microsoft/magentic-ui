@@ -25,9 +25,11 @@ from magentic_ui.teams import GroupChat
 from magentic_ui.tools.playwright.browser import VncDockerPlaywrightBrowser
 from magentic_ui.tools.playwright.browser import LocalPlaywrightBrowser
 from magentic_ui.tools.playwright.browser.utils import get_available_port
+from magentic_ui.cli import PrettyConsole
 
 
 logger = logging.getLogger(__name__)
+# Default to WARNING level - will be overridden by verbose flag via core.py
 logging.getLogger("autogen").setLevel(logging.WARNING)
 logging.getLogger("autogen.agentchat").setLevel(logging.WARNING)
 logging.getLogger("autogen_agentchat.events").setLevel(logging.WARNING)
@@ -63,6 +65,8 @@ class MagenticUIAutonomousSystem(BaseSystem):
         endpoint_config_file_surfer (Optional[Dict]): FileSurfer agent model client config.
         dataset_name (str): Name of the evaluation dataset (e.g., "Gaia").
         use_local_browser (bool): If True, use the local browser.
+        sentinel_tasks (bool): If True, enable sentinel tasks functionality in the orchestrator.
+        pretty_output (bool): If True, use PrettyConsole for formatted agent output (default: False).
     """
 
     def __init__(
@@ -75,6 +79,10 @@ class MagenticUIAutonomousSystem(BaseSystem):
         dataset_name: str = "Gaia",
         web_surfer_only: bool = False,
         use_local_browser: bool = False,
+        sentinel_tasks: bool = False,
+        timeout_minutes: int = 15,
+        verbose: bool = False,
+        pretty_output: bool = False,
     ):
         super().__init__(name)
         self.candidate_class = WebVoyagerCandidate
@@ -85,6 +93,99 @@ class MagenticUIAutonomousSystem(BaseSystem):
         self.web_surfer_only = web_surfer_only
         self.dataset_name = dataset_name
         self.use_local_browser = use_local_browser
+        self.sentinel_tasks = sentinel_tasks
+        self.timeout_minutes = timeout_minutes
+        self.verbose = verbose
+        self.pretty_output = pretty_output
+
+    def _calculate_dynamic_timeout_silent(self, task: BaseTask) -> int:
+        """Calculate timeout without printing (for display purposes)."""
+        # Default timeout in seconds
+        default_timeout = 60 * self.timeout_minutes
+        
+        # Check if this is a SentinelBench task with parameter_value
+        if (hasattr(task, 'metadata') and task.metadata and 
+            isinstance(task.metadata, dict) and 
+            'parameter_value' in task.metadata):
+            
+            parameter_value = task.metadata['parameter_value']
+            
+            # Duration-based task timeout mappings (in minutes)
+            if (hasattr(task, 'id') and task.id and 
+                any(task_name in task.id for task_name in [
+                    'reactor', 'teams-monitor', 'linkedin-monitor', 
+                    'flight-monitor', 'news-checker', 'github-watcher'
+                ])):
+                
+                duration_timeouts = {
+                    30: 10,     # 30s task -> 10min timeout
+                    60: 15,     # 60s task -> 15min timeout
+                    300: 30,    # 5min task -> 30min timeout
+                    900: 60,    # 15min task -> 60min timeout
+                    3600: 120,  # 1h task -> 2h timeout
+                    7200: 180,  # 2h task -> 3h timeout
+                }
+                
+                timeout_minutes = duration_timeouts.get(parameter_value, self.timeout_minutes)
+                return timeout_minutes * 60
+            
+            # Count-based task timeout mappings (in minutes)
+            elif (hasattr(task, 'id') and task.id and 
+                  any(task_name in task.id for task_name in ['animal-mover', 'button-presser'])):
+                
+                count_timeouts = {
+                    2: 10,   # 2 actions -> 10min timeout
+                    4: 15,   # 4 actions -> 15min timeout
+                    8: 30,   # 8 actions -> 30min timeout
+                    16: 60,  # 16 actions -> 60min timeout
+                    32: 120, # 32 actions -> 2h timeout
+                    64: 180, # 64 actions -> 3h timeout
+                }
+                
+                timeout_minutes = count_timeouts.get(parameter_value, self.timeout_minutes)
+                return timeout_minutes * 60
+        
+        return default_timeout
+
+    def _get_timeout_display_info(self, task: BaseTask, timeout_seconds: int) -> str:
+        """Get formatted timeout display string."""
+        timeout_minutes = int(timeout_seconds / 60)
+        
+        # Check if this is a SentinelBench task with parameter_value
+        if (hasattr(task, 'metadata') and task.metadata and 
+            isinstance(task.metadata, dict) and 
+            'parameter_value' in task.metadata):
+            
+            parameter_value = task.metadata['parameter_value']
+            
+            # Duration-based tasks
+            if (hasattr(task, 'id') and task.id and 
+                any(task_name in task.id for task_name in [
+                    'reactor', 'teams-monitor', 'linkedin-monitor', 
+                    'flight-monitor', 'news-checker', 'github-watcher'
+                ])):
+                
+                # Format duration display properly
+                if parameter_value < 60:
+                    duration_display = f"{parameter_value}s"
+                elif parameter_value < 3600:
+                    duration_display = f"{int(parameter_value/60)}min"
+                else:
+                    duration_display = f"{int(parameter_value/3600)}h"
+                
+                return f"{timeout_minutes}min for {duration_display} task"
+            
+            # Count-based tasks
+            elif (hasattr(task, 'id') and task.id and 
+                  any(task_name in task.id for task_name in ['animal-mover', 'button-presser'])):
+                
+                return f"{timeout_minutes}min for {parameter_value} actions"
+        
+        return f"{timeout_minutes}min (default)"
+
+    def _calculate_dynamic_timeout(self, task: BaseTask) -> int:
+        """Calculate timeout (reuses silent calculation)."""
+        return self._calculate_dynamic_timeout_silent(task)
 
     def get_answer(
         self, task_id: str, task: BaseTask, output_dir: str
@@ -108,9 +209,29 @@ class MagenticUIAutonomousSystem(BaseSystem):
             Returns:
                 Tuple[str, List[str]]: The final answer string and a list of screenshot file paths.
             """
+            if self.verbose:
+                print(f"\n🔧 VERBOSE MODE ENABLED - Agent conversations will be shown in real-time")
+                print(f"🎯 Starting task: {task_id}")
+                
             messages_so_far: List[LogEventSystem] = []
 
             task_question: str = task.question
+            
+            # Debug: Print the task information
+            sentinel_status = "✅ ENABLED" if self.sentinel_tasks else "❌ DISABLED"
+            
+            # Get timeout info for display (without printing it yet)
+            timeout_seconds = self._calculate_dynamic_timeout_silent(task)
+            timeout_display = self._get_timeout_display_info(task, timeout_seconds)
+            
+            print(f"\n🎯 \033[1;34m=== TASK INITIALIZATION ===\033[0m")
+            print(f"📋 Task ID: \033[1;33m{task_id}\033[0m")
+            print(f"🌐 Start URL: \033[1;32m{task.url_path}\033[0m")
+            print(f"🛡️ Sentinel Tasks: \033[1;35m{sentinel_status}\033[0m")
+            print(f"⏱️ Timeout: \033[1;31m{timeout_display}\033[0m")
+            print(f"📝 Task Prompt: \033[1;36m{task_question}\033[0m")
+            print(f"\033[1;34m==========================\033[0m\n")
+            
             # Adapted from MagenticOne. Minor change is to allow an explanation of the final answer before the final answer.
             FINAL_ANSWER_PROMPT = f"""
             output a FINAL ANSWER to the task.
@@ -129,9 +250,11 @@ class MagenticUIAutonomousSystem(BaseSystem):
             """
             # Step 2: Create the Magentic-UI team
             # TERMINATION CONDITION
+            # Dynamic timeout calculation for SentinelBench duration-based tasks
+            timeout_seconds = self._calculate_dynamic_timeout(task)
             termination_condition = TimeoutTermination(
-                timeout_seconds=60 * 15
-            )  # 15 minutes
+                timeout_seconds=timeout_seconds
+            )
             model_context_token_limit = 110000
             # ORCHESTRATOR CONFIGURATION
             orchestrator_config = OrchestratorConfig(
@@ -141,6 +264,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
                 final_answer_prompt=FINAL_ANSWER_PROMPT,
                 model_context_token_limit=model_context_token_limit,
                 no_overwrite_of_task=True,
+                sentinel_tasks=self.sentinel_tasks,
             )
 
             model_client_orch = ChatCompletionClient.load_component(
@@ -158,7 +282,8 @@ class MagenticUIAutonomousSystem(BaseSystem):
 
             # launch the browser
             if self.use_local_browser:
-                browser = LocalPlaywrightBrowser(headless=True)
+                browser = LocalPlaywrightBrowser(
+                    headless=False)  # Use headful mode when local browser is requested
             else:
                 playwright_port, socket = get_available_port()
                 novnc_port, socket_vnc = get_available_port()
@@ -233,44 +358,178 @@ class MagenticUIAutonomousSystem(BaseSystem):
                 )
             else:
                 task_message = TextMessage(content=task_question, source="user")
-            # Step 4: Run the team on the task
-            async for message in team.run_stream(task=task_message):
-                # Store log events
-                message_str: str = ""
-                try:
-                    if isinstance(message, TaskResult) or isinstance(
-                        message, CheckpointEvent
-                    ):
-                        continue
-                    message_str = message.to_text()
-                    # Create log event with source, content and timestamp
-                    log_event = LogEventSystem(
-                        source=message.source,
-                        content=message_str,
-                        timestamp=datetime.datetime.now().isoformat(),
-                        metadata=message.metadata,
-                    )
-                    messages_so_far.append(log_event)
-                except Exception as e:
-                    logger.info(
-                        f"[likely nothing] When creating model_dump of message encountered exception {e}"
-                    )
-                    pass
+            # Step 4: Run the team on the task with explicit timeout wrapper
+            # Dynamic timeout calculation for SentinelBench duration-based tasks
+            timeout_seconds = self._calculate_dynamic_timeout(task)
+            last_message_str = ""
+            try:
+                if self.pretty_output:
+                    # Use PrettyConsole for formatted output with logging capture
+                    async def run_with_pretty_console():
+                        nonlocal last_message_str
+                        
+                        # Create a custom stream processor that captures messages for logging
+                        async def message_processor():
+                            nonlocal last_message_str  # Ensure we can modify the outer variable
+                            async for message in team.run_stream(task=task_message):
+                                # Store log events for file saving
+                                message_str: str = ""
+                                try:
+                                    if isinstance(message, TaskResult) or isinstance(
+                                        message, CheckpointEvent
+                                    ):
+                                        yield message  # Pass through without processing
+                                        continue
+                                    message_str = message.to_text()
+                                    last_message_str = message_str  # Store for access outside
+                                    # Create log event with source, content and timestamp
+                                    log_event = LogEventSystem(
+                                        source=message.source,
+                                        content=message_str,
+                                        timestamp=datetime.datetime.now().isoformat(),
+                                        metadata=message.metadata,
+                                    )
+                                    messages_so_far.append(log_event)
+                                except Exception as e:
+                                    logger.info(
+                                        f"[likely nothing] When creating model_dump of message encountered exception {e}"
+                                    )
+                                    pass
 
-                # save to file
-                logger.info(f"Run in progress: {task_id}, message: {message_str}")
+                                # Save to file (but suppress the verbose logging when using pretty console)
+                                if self.verbose:
+                                    logger.info(f"Run in progress: {task_id}, message: {message_str}")
+                                
+                                safe_task_id = task_id.replace("/", "_")
+                                async with aiofiles.open(
+                                    f"{output_dir}/{safe_task_id}_messages.json", "w"
+                                ) as f:
+                                    await f.write(
+                                        json.dumps([msg.model_dump() for msg in messages_so_far], indent=2)
+                                    )
+                                
+                                yield message  # Pass message to PrettyConsole
+                        
+                        # Use PrettyConsole to process the stream
+                        await PrettyConsole(message_processor(), debug=self.verbose)
+                        
+                        # After PrettyConsole finishes, extract answer from messages_so_far as fallback
+                        # This ensures we get the final answer even if last_message_str wasn't set correctly
+                        if not last_message_str and messages_so_far:
+                            # Try multiple strategies to find the final answer
+                            for message in reversed(messages_so_far):
+                                # Strategy 1: Look for final_answer type metadata
+                                if (message.source == "Orchestrator" and 
+                                    hasattr(message, 'metadata') and 
+                                    message.metadata.get('type') == 'final_answer'):
+                                    last_message_str = message.content
+                                    break
+                                # Strategy 2: Look for FINAL ANSWER pattern in any message
+                                elif "FINAL ANSWER:" in message.content:
+                                    last_message_str = message.content
+                                    break
+                                # Strategy 3: Look for Final Answer pattern in any message
+                                elif message.content.startswith("Final Answer:"):
+                                    last_message_str = message.content
+                                    break
+                    
+                    await asyncio.wait_for(run_with_pretty_console(), timeout=timeout_seconds)
+                else:
+                    # Keep existing logic for backward compatibility
+                    async def run_with_timeout():
+                        nonlocal last_message_str
+                        async for message in team.run_stream(task=task_message):
+                            # Store log events
+                            message_str: str = ""
+                            try:
+                                if isinstance(message, TaskResult) or isinstance(
+                                    message, CheckpointEvent
+                                ):
+                                    continue
+                                message_str = message.to_text()
+                                last_message_str = message_str  # Store for access outside
+                                # Create log event with source, content and timestamp
+                                log_event = LogEventSystem(
+                                    source=message.source,
+                                    content=message_str,
+                                    timestamp=datetime.datetime.now().isoformat(),
+                                    metadata=message.metadata,
+                                )
+                                messages_so_far.append(log_event)
+                            except Exception as e:
+                                logger.info(
+                                    f"[likely nothing] When creating model_dump of message encountered exception {e}"
+                                )
+                                pass
+
+                            # save to file
+                            logger.info(f"Run in progress: {task_id}, message: {message_str}")
+                            
+                            # Add console output for verbose mode
+                            if self.verbose:
+                                print(f"\n🤖 [{message.source}]: {message_str}")
+                            
+                            safe_task_id = task_id.replace("/", "_")
+                            async with aiofiles.open(
+                                f"{output_dir}/{safe_task_id}_messages.json", "w"
+                            ) as f:
+                                await f.write(
+                                    json.dumps([msg.model_dump() for msg in messages_so_far], indent=2)
+                                )
+                    
+                    await asyncio.wait_for(run_with_timeout(), timeout=timeout_seconds)
+                
+                # how the final answer is formatted:  "Final Answer: FINAL ANSWER: Actual final answer"
+                
+                # Robust answer extraction with multiple fallback strategies
+                if last_message_str and last_message_str.startswith("Final Answer:"):
+                    answer = last_message_str[len("Final Answer:") :].strip()
+                    # remove the "FINAL ANSWER:" part and get the string after it
+                    if "FINAL ANSWER:" in answer:
+                        answer = answer.split("FINAL ANSWER:")[1].strip()
+                else:
+                    # Fallback 1: Search messages_so_far for final answer patterns
+                    answer_found = False
+                    for message in reversed(messages_so_far):
+                        content = message.content
+                        
+                        # Try different final answer patterns
+                        if "FINAL ANSWER:" in content:
+                            answer = content.split("FINAL ANSWER:")[-1].strip()
+                            answer_found = True
+                            break
+                        elif content.startswith("Final Answer:"):
+                            answer_part = content[len("Final Answer:"):].strip()
+                            if "FINAL ANSWER:" in answer_part:
+                                answer = answer_part.split("FINAL ANSWER:")[-1].strip()
+                            else:
+                                answer = answer_part
+                            answer_found = True
+                            break
+                    
+                    # Fallback 2: If no answer found, set a clear error message
+                    if not answer_found:
+                        answer = "ERROR: Could not extract final answer from agent responses"
+                        logger.error(f"Failed to extract answer for task {task_id}. last_message_str was: '{last_message_str}'")
+
+            except asyncio.TimeoutError:
+                logger.warning(f"Task {task_id} timed out after {timeout_seconds} seconds")
+                answer = "TIMEOUT: Task execution exceeded time limit"
+                # Save timeout message to log
+                timeout_log_event = LogEventSystem(
+                    source="system",
+                    content=f"Task timed out after {timeout_seconds} seconds",
+                    timestamp=datetime.datetime.now().isoformat(),
+                    metadata={"type": "timeout"},
+                )
+                messages_so_far.append(timeout_log_event)
+                # Save final messages
+                safe_task_id = task_id.replace("/", "_")
                 async with aiofiles.open(
-                    f"{output_dir}/{task_id}_messages.json", "w"
+                    f"{output_dir}/{safe_task_id}_messages.json", "w"
                 ) as f:
-                    # Convert list of logevent objects to list of dicts
                     messages_json = [msg.model_dump() for msg in messages_so_far]
                     await f.write(json.dumps(messages_json, indent=2))
-                # how the final answer is formatted:  "Final Answer: FINAL ANSWER: Actual final answer"
-
-                if message_str.startswith("Final Answer:"):
-                    answer = message_str[len("Final Answer:") :].strip()
-                    # remove the "FINAL ANSWER:" part and get the string after it
-                    answer = answer.split("FINAL ANSWER:")[1].strip()
 
             assert isinstance(
                 answer, str

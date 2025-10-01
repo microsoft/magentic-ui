@@ -128,7 +128,6 @@ To reproduce these experimental results, please see the following [instructions]
 
 If you're interested in reading more checkout our [technical report](https://www.microsoft.com/en-us/research/wp-content/uploads/2025/07/magentic-ui-report.pdf) and [blog post](https://www.microsoft.com/en-us/research/blog/magentic-ui-an-experimental-human-centered-web-agent/).
 
-
 ## 🛠️ Installation
 ### Pre-Requisites
 

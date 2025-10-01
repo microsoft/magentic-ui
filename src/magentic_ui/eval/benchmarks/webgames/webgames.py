@@ -3,6 +3,7 @@ import logging
 import requests
 import pandas as pd
 from typing import List, Union
+from huggingface_hub import snapshot_download  # type: ignore
 from ...benchmark import Benchmark
 from ...models import BaseTask, BaseCandidate, BaseEvalResult
 
@@ -62,7 +63,7 @@ class WebGamesBenchmark(Benchmark):
 
     def download_dataset(self) -> None:
         """
-        Download the dataset into self.data_dir using huggingface datasets.
+        Download the dataset into self.data_dir using huggingface_hub.snapshot_download().
         """
         assert self.data_dir is not None
         if not os.path.exists(self.data_dir):
@@ -70,12 +71,13 @@ class WebGamesBenchmark(Benchmark):
 
         logging.info(f"[WebGames] Downloading dataset into '{self.data_dir}'...")
 
-        # Use pandas to download and save the dataset
-        df = pd.read_json(  # type: ignore
-            f"hf://datasets/{self.DATASET_REPO_ID}/{self.TEST_FILE}", lines=True
+        # Use huggingface_hub to download the dataset
+        snapshot_download(
+            repo_id=self.DATASET_REPO_ID,
+            repo_type="dataset",
+            local_dir=self.data_dir,
+            local_dir_use_symlinks=True,
         )
-        output_path = os.path.join(self.data_dir, self.TEST_FILE)
-        df.to_json(output_path, orient="records", lines=True)  # type: ignore
 
         logging.info("[WebGames] Dataset downloaded.")
 

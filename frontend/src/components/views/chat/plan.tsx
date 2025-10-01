@@ -74,12 +74,10 @@ const formatCondition = (condition: number | string): { display: string; isTrunc
   if (typeof condition === 'number') {
     return { display: `Run ${condition} times`, isTruncated: false };
   }
-
   const maxLength = 50;
   if (condition.length <= maxLength) {
     return { display: condition, isTruncated: false };
   }
-
   return { display: `${condition.substring(0, maxLength)}...`, isTruncated: true };
 };
 
@@ -90,13 +88,11 @@ const validateSleepDuration = (value: string): boolean => {
 
 const validateCondition = (value: string): boolean => {
   if (!value.trim()) return false;
-
   // If it's a number, validate as positive integer
   const num = parseInt(value);
   if (!isNaN(num)) {
     return num > 0;
   }
-
   // If it's a string, check length
   return value.trim().length >= 3 && value.trim().length <= 200;
 };
@@ -179,7 +175,6 @@ const PlanView: React.FC<PlanProps> = ({
 
   const updateSleepDuration = (index: number, value: string) => {
     if (!validateSleepDuration(value)) return;
-
     const newPlan = [...localPlan];
     newPlan[index] = {
       ...newPlan[index],
@@ -190,7 +185,6 @@ const PlanView: React.FC<PlanProps> = ({
 
   const updateCondition = (index: number, value: string) => {
     if (!validateCondition(value)) return;
-
     const newPlan = [...localPlan];
     const numValue = parseInt(value);
     newPlan[index] = {

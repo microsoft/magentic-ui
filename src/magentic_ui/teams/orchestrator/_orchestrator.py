@@ -813,6 +813,7 @@ class Orchestrator(BaseGroupChatManager):
             assert plan_response is not None
             self._state.plan = Plan.from_list_of_dicts_or_str(plan_response["steps"])
             self._state.plan_str = str(self._state.plan)
+
             # add plan_response to the message thread
             self._state.message_history.append(
                 TextMessage(

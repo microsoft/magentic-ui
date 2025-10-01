@@ -141,7 +141,7 @@ class PlaywrightController:
             self._page_script = fh.read()
 
         # Initialize WebpageTextUtils
-        self._text_utils = WebpageTextUtilsPlaywright()
+        self._text_utils = WebpageTextUtilsPlaywright()  # type: ignore[no-untyped-call]
 
     async def on_new_page(self, page: Page) -> None:
         """
@@ -423,12 +423,18 @@ class PlaywrightController:
         # If downloads are enabled, start listening for a download event before navigation.
         if self.downloads_folder:
             try:
+
+                async def wait_for_download() -> Optional[Download]:
+                    try:
+                        return await page.wait_for_event(  # type: ignore[no-any-return]
+                            "download", timeout=self._timeout_load * 5000
+                        )
+                    except Exception:
+                        # Silently ignore timeout and other exceptions in background task
+                        return None
+
                 # Create a timeout for the download listener - use a longer timeout
-                download_future = asyncio.create_task(
-                    page.wait_for_event(  # type: ignore
-                        "download", timeout=self._timeout_load * 5000
-                    )
-                )
+                download_future = asyncio.create_task(wait_for_download())  # type: ignore[arg-type]
             except Exception as e:
                 logger.warning(f"Failed to set up download listener: {e}")
                 download_future = None
@@ -450,12 +456,15 @@ class PlaywrightController:
                         download = await asyncio.wait_for(
                             download_future, timeout=self._timeout_load * 1000
                         )
+                        # download could be None if timeout occurred in the background task
                     except asyncio.TimeoutError:
                         logger.warning(
                             "Download timeout exceeded, continuing without download"
                         )
+                        download = None
                     except Exception as download_error:
                         logger.warning(f"Download error: {download_error}")
+                        download = None
             else:
                 raise
         finally:
@@ -659,11 +668,17 @@ class PlaywrightController:
         # Start listening for a download event if downloads are enabled
         if self.downloads_folder:
             try:
-                download_future = asyncio.create_task(
-                    page.wait_for_event(  # type: ignore
-                        "download", timeout=self._timeout_load * 2000
-                    )
-                )
+
+                async def wait_for_download() -> Optional[Download]:
+                    try:
+                        return await page.wait_for_event(  # type: ignore[no-any-return]
+                            "download", timeout=self._timeout_load * 2000
+                        )
+                    except Exception:
+                        # Silently ignore timeout and other exceptions in background task
+                        return None
+
+                download_future = asyncio.create_task(wait_for_download())  # type: ignore[arg-type]
             except Exception as e:
                 logger.warning(f"Failed to set up download listener: {e}")
                 download_future = None
@@ -729,10 +744,11 @@ class PlaywrightController:
                         download = await asyncio.wait_for(
                             download_future, timeout=self._timeout_load * 1000
                         )
+                        # download could be None if timeout occurred in the background task
                     except asyncio.TimeoutError:
                         # No download occurred within the timeout period
                         logger.debug("No download detected within timeout period")
-                        pass
+                        download = None
 
                 if download:
                     logger.info(

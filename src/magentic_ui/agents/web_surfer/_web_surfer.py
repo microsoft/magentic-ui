@@ -96,7 +96,7 @@ from ._tool_definitions import (
     TOOL_REFRESH_PAGE,
     TOOL_SCROLL_DOWN,
     TOOL_SCROLL_UP,
-    # TOOL_UPLOAD_FILE,
+    TOOL_UPLOAD_FILE,
     # TOOL_CLICK_FULL,
 )
 
@@ -1104,8 +1104,8 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             tools.append(TOOL_SELECT_OPTION)
 
         # Add upload_file tool only if there are file input elements
-        # if any(rect.get("tag_name") == "input, type=file" for rect in rects.values()):
-        #    tools.append(TOOL_UPLOAD_FILE)
+        if any(rect.get("tag_name") == "input, type=file" for rect in rects.values()):
+            tools.append(TOOL_UPLOAD_FILE)
 
         # Focus hint
         focused = await self._playwright_controller.get_focused_rect_id(self._page)

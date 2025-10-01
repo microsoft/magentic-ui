@@ -31,6 +31,7 @@ const McpServerCard: React.FC<McpServerCardProps> = ({ server, index, onEdit, on
     }
   };
 
+
   const getConnectionStatusIcon = () => {
     if (!server.connectionStatus) {
       return <ClockCircleOutlined className="text-gray-400" />;
