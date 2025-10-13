@@ -55,6 +55,8 @@ Helpful tips to ensure success:
     - If there is an open PDF, you must use the answer_question tool to answer questions about the PDF. You cannot interact with the PDF otherwise, you can't download it or press any buttons.
     - If you need to scroll a container inside the page and not the entire page, hover on it and then scroll up or down.
     - If neeeded as a last resort you can use keypresses to scroll the page up or down, use the escape key to dismiss popups, and other keys to interact with the page.
+    - If you neeed to check a condition in page and the website doesn't auto update, make sure to refresh the page.
+
 
 When outputing multiple actions at the same time, make sure:
 1) Only output multiple actions if you are sure that they are all valid and necessary.

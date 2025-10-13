@@ -153,7 +153,6 @@ const PlanView: React.FC<PlanProps> = ({
       ...newPlan[index],
       details: value,
       title: value, // Update title to match details
-      agent_name: "", // Reset agent_name when step is edited
     };
     handlePlanChange(newPlan);
   };
