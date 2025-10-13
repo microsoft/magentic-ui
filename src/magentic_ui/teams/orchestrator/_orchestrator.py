@@ -449,6 +449,14 @@ class Orchestrator(BaseGroupChatManager):
 
         try:
             while retries < self._config.max_json_retries:
+                # Check for pause before each retry
+                if self._state.is_paused:
+                    await self._log_message_agentchat(
+                        "LLM request paused during JSON response retrieval.",
+                        internal=True,
+                    )
+                    raise ValueError("Operation paused")
+
                 # Re-initialize model context to meet token limit quota
                 await self._model_context.clear()
                 for msg in messages:
@@ -1369,6 +1377,14 @@ class Orchestrator(BaseGroupChatManager):
 
         while True:
             try:
+                # Check for pause at the beginning of each iteration
+                if self._state.is_paused:
+                    await self._log_message_agentchat(
+                        f"Sentinel step '{step.title}' is paused. Waiting for resume...",
+                        metadata={"internal": "no", "type": "sentinel_paused"},
+                    )
+                    return False
+
                 # Check if task is cancelled
                 if cancellation_token.is_cancelled():
                     return False
@@ -1413,6 +1429,14 @@ class Orchestrator(BaseGroupChatManager):
                 async for response in agent.on_messages_stream(  # type: ignore
                     sentinel_task_agent_message, cancellation_token
                 ):
+                    # Check for pause during agent execution
+                    if self._state.is_paused:
+                        await self._log_message_agentchat(
+                            f"Sentinel step '{step.title}' was paused during agent execution.",
+                            metadata={"internal": "no", "type": "sentinel_paused"},
+                        )
+                        return False
+
                     if isinstance(response, Response):
                         # logs each step of the process
                         if response.chat_message:
@@ -1483,6 +1507,14 @@ class Orchestrator(BaseGroupChatManager):
                         source=self._name,
                     )
                     context.append(condition_check_message)
+
+                    # Check for pause before LLM condition check
+                    if self._state.is_paused:
+                        await self._log_message_agentchat(
+                            f"Sentinel step '{step.title}' was paused before condition check.",
+                            metadata={"internal": "no", "type": "sentinel_paused"},
+                        )
+                        return False
 
                     # sends the condition check (the 2 messages) to an LLM
                     response_json = await self._get_json_response(
