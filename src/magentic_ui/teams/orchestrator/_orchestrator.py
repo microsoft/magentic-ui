@@ -1126,9 +1126,18 @@ class Orchestrator(BaseGroupChatManager):
             self._state.plan = Plan(task=self._state.task, steps=combined_steps)
             self._state.plan_str = str(self._state.plan)
         else:
-            # If new plan is None, keep the completed steps
-            self._state.plan = Plan(task=self._state.task, steps=completed_steps)
-            self._state.plan_str = str(self._state.plan)
+            # If new plan is None (empty steps), check if we have any completed steps
+            if len(completed_steps) > 0:
+                # Keep the completed steps if we have any
+                self._state.plan = Plan(task=self._state.task, steps=completed_steps)
+                self._state.plan_str = str(self._state.plan)
+            else:
+                # Both completed_steps and new steps are empty - this indicates task completion
+                await self._prepare_final_answer(
+                    f"Replanning resulted in no additional steps needed. Task appears to be complete. Reason: {reason}",
+                    cancellation_token,
+                )
+                return
 
         # Update task if in planning mode
         if not self._config.no_overwrite_of_task:
