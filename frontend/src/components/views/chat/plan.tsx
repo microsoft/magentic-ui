@@ -316,7 +316,10 @@ const PlanView: React.FC<PlanProps> = ({
                 <div className=" text-[var(--color-text-primary)]">
                   <AutoResizeTextarea
                     key={`sentinel-textarea-${index}`}
-                    value={item.details + ' EVERY ' + formatDuration(item.sleep_duration || 0) + ' UNTILL ' + (item.condition || 'condition is met')}
+                    value={item.details + ' EVERY ' + formatDuration(item.sleep_duration || 0) + ' ' +
+                      (typeof item.condition === 'number'
+                        ? `FOR ${item.condition} time${item.condition !== 1 ? 's' : ''}`
+                        : `UNTIL ${item.condition || 'condition is met'}`)}
                     onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateDetails(index, e.target.value)}
                     onBlur={() => setFocusedIndex(null)}
                     autoFocus
@@ -371,15 +374,14 @@ const PlanView: React.FC<PlanProps> = ({
 
                   </div>
 
-                  {/* Line 2: Until */}
+                  {/* Line 2: Until/For */}
                   <div className="flex items-start gap-1">
-                    <span className="mr-9">Until</span>
+                    <span className="mr-9">{typeof item.condition === 'number' ? 'For' : 'Until'}</span>
                     <AutoResizeTextarea
                       value={String(item.condition || '')}
                       onChange={(e) => updateSentinelField(index, 'condition', e.target.value)}
                       className="flex-1 px-1 py-0.5 rounded bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] font-medium border border-[var(--color-border-primary)]"
-                      placeholder="enter condition"
-                      maxRows={6}
+                      placeholder={typeof item.condition === 'number' ? 'enter number of iterations' : 'enter condition'}
                     />
                   </div>
                 </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, RefreshCw, Clock, CheckCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, CheckCircle } from "lucide-react";
 import { RenderMessage } from "./rendermessage";
 
 interface SentinelCheck {
@@ -12,7 +12,7 @@ interface SentinelCheck {
 interface RenderSentinelStepProps {
   sentinelId: string;
   title: string;
-  condition: string;
+  condition: string | number;
   sleepDuration: number;
   allMessages: any[]; // All messages from the run
   currentMessageIndex: number; // The index of the sentinel_start message
@@ -23,6 +23,7 @@ interface RenderSentinelStepProps {
 const RenderSentinelStep: React.FC<RenderSentinelStepProps> = ({
   sentinelId,
   title,
+  condition,
   sleepDuration,
   allMessages,
   currentMessageIndex,
@@ -228,8 +229,14 @@ const RenderSentinelStep: React.FC<RenderSentinelStepProps> = ({
   const getStatusText = () => {
     switch (currentStatus) {
       case "complete":
-        return `Completed after ${totalChecks} checks`;
+        if (typeof condition === 'number') {
+          return `Completed ${condition} iteration${condition !== 1 ? 's' : ''}`;
+        }
+        return `Completed after ${totalChecks} check${totalChecks !== 1 ? 's' : ''}`;
       case "checking":
+        if (typeof condition === 'number') {
+          return `Checking (${totalChecks}/${condition})...`;
+        }
         return "Checking condition...";
       default:
         return `Sleeping... next check in ${countdown}s`;
