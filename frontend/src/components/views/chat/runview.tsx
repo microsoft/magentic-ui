@@ -634,6 +634,7 @@ const RunView: React.FC<RunViewProps> = ({
                       isLatestPlan ? handleRegeneratePlan : undefined
                     }
                     forceCollapsed={shouldForceCollapse}
+                    allMessages={localMessages}
                   />
                 </div>
               );

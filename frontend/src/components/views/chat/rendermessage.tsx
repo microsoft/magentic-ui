@@ -22,6 +22,7 @@ import PlanView from "./plan";
 import { IPlanStep, convertToIPlanSteps } from "../../types/plan";
 import RenderFile from "../../common/filerenderer";
 import LearnPlanButton from "../../features/Plans/LearnPlanButton";
+import RenderSentinelStep from "./rendersentinelstep";
 
 // Types
 interface MessageProps {
@@ -40,6 +41,8 @@ interface MessageProps {
   onRegeneratePlan?: () => void;
   runStatus?: string;
   forceCollapsed?: boolean;
+  allMessages?: any[]; // All messages for sentinel step tracking
+  skipSentinelHiding?: boolean; // Skip hiding sentinel messages (used inside RenderSentinelStep)
 }
 
 interface RenderPlanProps {
@@ -540,6 +543,18 @@ export const messageUtils = {
     return metadata?.type === "step_execution";
   },
 
+  isSentinelStart(metadata?: Record<string, any>): boolean {
+    return metadata?.type === "sentinel_start";
+  },
+
+  isSentinelCheck(metadata?: Record<string, any>): boolean {
+    return metadata?.type === "sentinel_check";
+  },
+
+  isSentinelComplete(metadata?: Record<string, any>): boolean {
+    return metadata?.type === "sentinel_complete";
+  },
+
   findUserPlan(content: unknown): IPlanStep[] {
     if (typeof content !== "string") return [];
     try {
@@ -670,9 +685,60 @@ export const RenderMessage: React.FC<MessageProps> = memo(
     onToggleHide,
     onRegeneratePlan,
     forceCollapsed = false,
+    allMessages = [],
+    skipSentinelHiding = false,
   }) => {
     if (!message) return null;
     if (message.metadata?.type === "browser_address") return null;
+
+    // Hide sentinel check and complete messages - they're shown in RenderSentinelStep
+    // Unless we're inside RenderSentinelStep (skipSentinelHiding = true)
+    if (!skipSentinelHiding) {
+      if (
+        messageUtils.isSentinelCheck(message.metadata) ||
+        messageUtils.isSentinelComplete(message.metadata)
+      ) {
+        return null;
+      }
+
+      // Hide agent messages that are part of a sentinel step check (they're shown in RenderSentinelStep)
+      if (message.metadata?.sentinel_id && message.metadata?.check_number) {
+        return null;
+      }
+    }
+
+    // Handle sentinel start message
+    if (messageUtils.isSentinelStart(message.metadata)) {
+      try {
+        const sentinelData = JSON.parse(message.content as string);
+        return (
+          <div className="mb-3 w-full">
+            <RenderSentinelStep
+              sentinelId={message.metadata?.sentinel_id || ""}
+              title={sentinelData.title || message.metadata?.step_title || ""}
+              condition={
+                sentinelData.condition || message.metadata?.condition || ""
+              }
+              sleepDuration={
+                sentinelData.sleep_duration ||
+                parseInt(message.metadata?.sleep_duration || "30")
+              }
+              allMessages={allMessages}
+              currentMessageIndex={messageIdx}
+              sessionId={sessionId}
+              runStatus={runStatus}
+            />
+          </div>
+        );
+      } catch (e) {
+        // Fallback if JSON parsing fails
+        return (
+          <div className="mb-3 w-full text-sm text-gray-600">
+            Executing sentinel step: {message.metadata?.step_title || ""}
+          </div>
+        );
+      }
+    }
 
     const isUser = messageUtils.isUser(message.source);
     const isUserProxy = message.source === "user_proxy";

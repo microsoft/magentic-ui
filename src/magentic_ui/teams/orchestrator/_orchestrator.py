@@ -1076,12 +1076,30 @@ class Orchestrator(BaseGroupChatManager):
                 )
         else:
             assert isinstance(current_step, SentinelPlanStep)
+            # Generate sentinel ID once
+            sentinel_step_id = f"sentinel_{self._state.current_step_idx}_{datetime.now().isoformat()}"
+
+            # Send sentinel start message with step metadata
+            sentinel_start_metadata = {
+                "internal": "no",
+                "type": "sentinel_start",
+                "sentinel_id": sentinel_step_id,
+                "step_title": current_step.title,
+                "step_details": current_step.details,
+                "condition": str(current_step.condition),
+                "sleep_duration": str(current_step.sleep_duration),
+            }
             await self._log_message_agentchat(
-                f"Executing sentinel step: {current_step.title}",
-                metadata={"internal": "no", "type": "sentinel_start"},
+                json.dumps({
+                    "title": current_step.title,
+                    "details": current_step.details,
+                    "condition": current_step.condition,
+                    "sleep_duration": current_step.sleep_duration,
+                }),
+                metadata=sentinel_start_metadata,
             )
             sentinel_completed = await self._execute_sentinel_step(
-                current_step, progress_ledger, cancellation_token
+                current_step, progress_ledger, cancellation_token, sentinel_step_id
             )
             if sentinel_completed:
                 # sentinel step is completed, move to the next step
@@ -1318,12 +1336,14 @@ class Orchestrator(BaseGroupChatManager):
         step: "SentinelPlanStep",
         progress_ledger: Dict[str, Any],
         cancellation_token: CancellationToken,
+        sentinel_step_id: str,
     ) -> bool:
         """Execute a sentinel step with periodic checks of the specified condition.
 
         Args:
             step: The sentinel step to execute
             cancellation_token: Cancellation token to stop execution
+            sentinel_step_id: Unique ID for this sentinel step execution
 
         Returns:
             bool: True if the sentinel step completed successfully, False if paused
@@ -1441,9 +1461,33 @@ class Orchestrator(BaseGroupChatManager):
                         # logs each step of the process
                         if response.chat_message:
                             chat_content = response.chat_message
+                            # Create new metadata dict with sentinel tracking
+                            existing_metadata = chat_content.metadata if hasattr(chat_content, 'metadata') and chat_content.metadata else {}
+                            new_metadata = {
+                                **existing_metadata,
+                                "sentinel_id": sentinel_step_id,
+                                "check_number": str(iteration),
+                            }
+
+                            # Create a new message with the metadata
+                            if isinstance(chat_content, TextMessage):
+                                logged_message = TextMessage(
+                                    content=chat_content.content,
+                                    source=chat_content.source,
+                                    metadata=new_metadata
+                                )
+                            elif isinstance(chat_content, MultiModalMessage):
+                                logged_message = MultiModalMessage(
+                                    content=chat_content.content,
+                                    source=chat_content.source,
+                                    metadata=new_metadata
+                                )
+                            else:
+                                logged_message = chat_content
+
                             await self._log_message_agentchat(
                                 content="dummy",
-                                entire_message=chat_content,
+                                entire_message=logged_message,
                             )
 
                         final_response = response
@@ -1556,9 +1600,17 @@ class Orchestrator(BaseGroupChatManager):
                 # If condition met, return to complete the step
                 if condition_met:
                     log_msg = f"Condition satisfied: {reason}."
+                    complete_metadata = {
+                        "internal": "no",
+                        "type": "sentinel_complete",
+                        "sentinel_id": sentinel_step_id,
+                        "total_checks": str(iteration),
+                        "runtime": str(int(time_since_started)),
+                        "reason": reason or "Condition met",
+                    }
                     await self._log_message_agentchat(
                         log_msg,
-                        metadata={"internal": "no", "type": "sentinel_complete"},
+                        metadata=complete_metadata,
                     )
                     # inform orchestrator that the step is completed
                     self._state.message_history.append(
@@ -1578,9 +1630,20 @@ class Orchestrator(BaseGroupChatManager):
                         # if we just encountered an error, we force a shorter sleep duration
                         sleep_duration = min(sleep_duration, 30)  # cap at 30 secs
                     # Sleep before the next check
+                    sleep_metadata = {
+                        "internal": "no",
+                        "type": "sentinel_check",
+                        "sentinel_id": sentinel_step_id,
+                        "check_number": str(iteration),
+                        "total_checks": str(iteration),
+                        "runtime": str(int(time_since_started)),
+                        "next_check_in": str(sleep_duration),
+                        "condition_met": "false",
+                        "reason": reason or "Condition not yet satisfied",
+                    }
                     await self._log_message_agentchat(
                         f"(Check #{iteration}) Condition not satisfied: {reason} \n Sleeping for {sleep_duration}s before next check.",
-                        metadata={"internal": "no", "type": "sentinel_sleep"},
+                        metadata=sleep_metadata,
                     )
                     if self._config.sentinel_plan.dynamic_sentinel_sleep:
                         await self._log_message_agentchat(
