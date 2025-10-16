@@ -1077,7 +1077,9 @@ class Orchestrator(BaseGroupChatManager):
         else:
             assert isinstance(current_step, SentinelPlanStep)
             # Generate sentinel ID once
-            sentinel_step_id = f"sentinel_{self._state.current_step_idx}_{datetime.now().isoformat()}"
+            sentinel_step_id = (
+                f"sentinel_{self._state.current_step_idx}_{datetime.now().isoformat()}"
+            )
 
             # Send sentinel start message with step metadata
             sentinel_start_metadata = {
@@ -1090,12 +1092,14 @@ class Orchestrator(BaseGroupChatManager):
                 "sleep_duration": str(current_step.sleep_duration),
             }
             await self._log_message_agentchat(
-                json.dumps({
-                    "title": current_step.title,
-                    "details": current_step.details,
-                    "condition": current_step.condition,
-                    "sleep_duration": current_step.sleep_duration,
-                }),
+                json.dumps(
+                    {
+                        "title": current_step.title,
+                        "details": current_step.details,
+                        "condition": current_step.condition,
+                        "sleep_duration": current_step.sleep_duration,
+                    }
+                ),
                 metadata=sentinel_start_metadata,
             )
             sentinel_completed = await self._execute_sentinel_step(
@@ -1462,7 +1466,12 @@ class Orchestrator(BaseGroupChatManager):
                         if response.chat_message:
                             chat_content = response.chat_message
                             # Create new metadata dict with sentinel tracking
-                            existing_metadata = chat_content.metadata if hasattr(chat_content, 'metadata') and chat_content.metadata else {}
+                            existing_metadata = (
+                                chat_content.metadata
+                                if hasattr(chat_content, "metadata")
+                                and chat_content.metadata
+                                else {}
+                            )
                             new_metadata = {
                                 **existing_metadata,
                                 "sentinel_id": sentinel_step_id,
@@ -1474,13 +1483,13 @@ class Orchestrator(BaseGroupChatManager):
                                 logged_message = TextMessage(
                                     content=chat_content.content,
                                     source=chat_content.source,
-                                    metadata=new_metadata
+                                    metadata=new_metadata,
                                 )
                             elif isinstance(chat_content, MultiModalMessage):
                                 logged_message = MultiModalMessage(
                                     content=chat_content.content,
                                     source=chat_content.source,
-                                    metadata=new_metadata
+                                    metadata=new_metadata,
                                 )
                             else:
                                 logged_message = chat_content
