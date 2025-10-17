@@ -1503,9 +1503,37 @@ class Orchestrator(BaseGroupChatManager):
                     elif isinstance(response, TextMessage) or isinstance(
                         response, MultiModalMessage
                     ):
+                        # Add sentinel metadata to standalone messages too
+                        existing_metadata = (
+                            response.metadata
+                            if hasattr(response, "metadata")
+                            and response.metadata
+                            else {}
+                        )
+                        new_metadata = {
+                            **existing_metadata,
+                            "sentinel_id": sentinel_step_id,
+                            "check_number": str(iteration),
+                        }
+
+                        if isinstance(response, TextMessage):
+                            logged_message = TextMessage(
+                                content=response.content,
+                                source=response.source,
+                                metadata=new_metadata,
+                            )
+                        elif isinstance(response, MultiModalMessage):
+                            logged_message = MultiModalMessage(
+                                content=response.content,
+                                source=response.source,
+                                metadata=new_metadata,
+                            )
+                        else:
+                            logged_message = response
+
                         await self._log_message_agentchat(
                             content="not used",
-                            entire_message=response,
+                            entire_message=logged_message,
                         )
                 # this is a MultiModalMessage or TextMessage object
                 assert (
