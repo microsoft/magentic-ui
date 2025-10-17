@@ -1,17 +1,21 @@
 This benchmark focuses on testing AI agents' capabilities in persistent monitoring, state change detection, and task completion under varying complexity and noise levels.
 
-## Usage
+## Quick Usage
 
 To run SentinelBench evaluations:
 
 ```bash
-python experiments/eval/run.py --current-dir . --dataset SentinelBench --split test --run-id 1 --simulated-user-type none --parallel 1 --config experiments/endpoint_configs/config.yaml --mode run
+python experiments/eval/run.py --current-dir . --dataset SentinelBench --split test --run-id 0 --parallel 1 --config experiments/endpoint_configs/config.yaml --mode run --web-surfer-only --run-without-docker --headless
 ```
 
-**Note**: The above command uses the default SentinelBench URL (`https://sentinel-bench.vercel.app/`). If you're hosting SentinelBench locally or at a different URL, specify it with `--sentinelbench-url`:
+**Note**: The above command uses the default SentinelBench URL (`https://sentinel-bench.vercel.app/`). See the "Local Hosting Setup" section below if you're hosting SentinelBench locally or at a different URL, and specify it with the flag `--sentinelbench-url http://YOUR_HOST_IP:5173/` when running the evaluation command above.
+
+### Enable Sentinel Steps
+
+You can append the `--sentinel-tasks` flag to enable the usage SentinelSteps during planning
 
 ```bash
-python experiments/eval/run.py --current-dir . --dataset SentinelBench --split test --run-id 1 --simulated-user-type none --parallel 1 --config experiments/endpoint_configs/config.yaml --mode run --sentinelbench-url http://YOUR_HOST_IP:5173/
+python experiments/eval/run.py --current-dir . --dataset SentinelBench --split test --run-id 1 --parallel 1 --config experiments/endpoint_configs/config.yaml --mode run --web-surfer-only --run-without-docker --headless --sentinel-tasks
 ```
 
 ### Task Filtering
@@ -39,24 +43,12 @@ python experiments/eval/run.py --current-dir . --dataset SentinelBench --split t
 python experiments/eval/run.py --current-dir . --dataset SentinelBench --split test --run-id 1 --simulated-user-type none --parallel 1 --config experiments/endpoint_configs/config.yaml --mode run --base-task animal-mover --difficulty medium
 ```
 
-*For all examples above, add `--sentinelbench-url http://YOUR_HOST_IP:5173/` if using a custom URL instead of the default.*
 
-## URL Configuration
-
-SentinelBench evaluations use `https://sentinel-bench.vercel.app/` by default. For local development or custom deployments, you can override this URL.
-
-### Using Default (Production) URL
-No additional configuration needed - just run the commands as shown above.
-
-### Using Custom/Local URL
-Add `--sentinelbench-url` parameter to specify your custom URL:
-
-```bash
-python experiments/eval/run.py --dataset SentinelBench --sentinelbench-url http://localhost:5173/ [other options]
-```
 
 ### Local Hosting Setup
+
 To host SentinelBench locally:
+
 1. Clone the MagenticUI repository  
 2. Navigate to the SentinelBench/ directory
 3. Install dependencies and start the development server with: `npm run dev -- --host 0.0.0.0`
@@ -70,4 +62,10 @@ To host SentinelBench locally:
 
 ## Running Analysis
 
-We provide all scripts to run analysis within the tools/ subdirectory. This subdirectory also contains a README.md file with explanations of the order the tools should be ran and how to better utilize them.
+By default, after completing all runs the script will automatically run `--mode eval` and score the performance of the system. If your run fails and you want to compile the successful runs, you can run the same command you did while replacing the `--mode run` with `--mode eval` as seen in the example below: 
+
+```bash
+python experiments/eval/run.py --current-dir . --dataset SentinelBench --split test --run-id 0 --parallel 1 --config experiments/endpoint_configs/config.yaml --mode eval --web-surfer-only --run-without-docker --headless
+```
+
+Once you have ran the evaluation mode for all your runs, you may choose to use the scripts within the `tools/` subdirectory to analyze results and create plots. This subdirectory has descriptions of how to use the tools.
