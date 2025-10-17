@@ -237,6 +237,7 @@ def run_system_sim_user(args: Dict[str, Any], system_name: str) -> None:
             web_surfer_only=args["web_surfer_only"],
             dataset_name=args["dataset"],
             use_local_browser=args["use_local_browser"],
+            browser_headless=args["headless"],
             sentinel_tasks=args["sentinel_tasks"],
             timeout_minutes=args["timeout_minutes"],
             verbose=args["verbose"],
@@ -267,6 +268,7 @@ def main(
     system_type: Annotated[str, typer.Option(help="🤖 Type of system to run", rich_help_panel="🤖 System Configuration")] = "MagenticUI",
     web_surfer_only: Annotated[bool, typer.Option(help="🌐 Run only the web surfer agent", rich_help_panel="🤖 System Configuration")] = False,
     use_local_browser: Annotated[bool, typer.Option(help="🖥️ Run the browser locally, with a GUI (headful)", rich_help_panel="🤖 System Configuration")] = False,
+    headless: Annotated[bool, typer.Option(help="🖥️ Run browser in headless mode (no GUI)", rich_help_panel="🤖 System Configuration")] = False,
     sentinel_tasks: Annotated[bool, typer.Option(help="🛡️ Enable sentinel tasks functionality in the orchestrator", rich_help_panel="🤖 System Configuration")] = False,
     
     # SentinelBench Options
@@ -310,6 +312,7 @@ def main(
         "system_type": system_type,
         "web_surfer_only": web_surfer_only,
         "use_local_browser": use_local_browser,
+        "headless": headless,
         "sentinel_tasks": sentinel_tasks,
         "task_id": task_id,
         "base_task": base_task,
