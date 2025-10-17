@@ -7,6 +7,7 @@ import {
   PauseCircle,
   HelpCircle,
   CheckCircle,
+  Clock,
 } from "lucide-react";
 import { Run, InputRequest } from "../types/datamodel";
 
@@ -14,10 +15,23 @@ export const getStatusIcon = (
   status: Run["status"],
   errorMessage?: string,
   stopReason?: string,
-  inputRequest?: InputRequest
+  inputRequest?: InputRequest,
+  isSentinelSleeping?: boolean
 ) => {
   switch (status) {
     case "active":
+      // Check if we're in a sentinel sleeping state
+      if (isSentinelSleeping) {
+        return (
+          <div className="inline-block mr-1">
+            <Clock
+              size={20}
+              className="inline-block mr-1 text-blue-600"
+            />
+            <span className="inline-block mr-2 ml-1 ">Sleeping</span>
+          </div>
+        );
+      }
       return (
         <div className="inline-block mr-1">
           <Loader2

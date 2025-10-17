@@ -1506,8 +1506,7 @@ class Orchestrator(BaseGroupChatManager):
                         # Add sentinel metadata to standalone messages too
                         existing_metadata = (
                             response.metadata
-                            if hasattr(response, "metadata")
-                            and response.metadata
+                            if hasattr(response, "metadata") and response.metadata
                             else {}
                         )
                         new_metadata = {
@@ -1636,6 +1635,24 @@ class Orchestrator(BaseGroupChatManager):
 
                 # If condition met, return to complete the step
                 if condition_met:
+                    # Log the final check message first so it appears in check history
+                    check_metadata = {
+                        "internal": "no",
+                        "type": "sentinel_check",
+                        "sentinel_id": sentinel_step_id,
+                        "check_number": str(iteration),
+                        "total_checks": str(iteration),
+                        "runtime": str(int(time_since_started)),
+                        "next_check_in": "0",
+                        "condition_met": "true",
+                        "reason": reason or "Condition met",
+                    }
+                    await self._log_message_agentchat(
+                        f"(Check #{iteration}) Condition satisfied: {reason}",
+                        metadata=check_metadata,
+                    )
+
+                    # Then log the completion message
                     log_msg = f"Condition satisfied: {reason}."
                     complete_metadata = {
                         "internal": "no",

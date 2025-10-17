@@ -549,6 +549,46 @@ const RunView: React.FC<RunViewProps> = ({
   const isPlanMsg =
     lastMessage && messageUtils.isPlanMessage(lastMessage.config.metadata);
 
+  // Check if sentinel is currently sleeping
+  const isSentinelSleeping = React.useMemo(() => {
+    if (run.status !== "active") return false;
+
+    // Find the most recent sentinel-related message
+    const sentinelMessages = run.messages.filter(
+      (msg) => msg.config.metadata?.type === "sentinel_check" ||
+               msg.config.metadata?.type === "sentinel_complete" ||
+               msg.config.metadata?.type === "sentinel_start"
+    );
+
+    if (sentinelMessages.length === 0) return false;
+
+    const lastSentinelMsg = sentinelMessages[sentinelMessages.length - 1];
+
+    // Only sleeping if:
+    // 1. Last sentinel message is a check (not complete or start)
+    // 2. Condition hasn't been met
+    // 3. No agent messages with same sentinel_id after this check (meaning agent hasn't started working yet)
+    if (lastSentinelMsg.config.metadata?.type === "sentinel_check" &&
+        lastSentinelMsg.config.metadata?.condition_met !== "true") {
+
+      const sentinelId = lastSentinelMsg.config.metadata?.sentinel_id;
+      const checkNumber = lastSentinelMsg.config.metadata?.check_number;
+
+      // Check if there are any agent messages after this check message with a higher check number
+      const lastSentinelIndex = run.messages.findIndex(msg => msg === lastSentinelMsg);
+      const hasNewerAgentMessages = run.messages.slice(lastSentinelIndex + 1).some(msg =>
+        msg.config.metadata?.sentinel_id === sentinelId &&
+        msg.config.metadata?.check_number &&
+        parseInt(msg.config.metadata.check_number) > parseInt(checkNumber || "0")
+      );
+
+      // We're sleeping only if there are no newer agent messages
+      return !hasNewerAgentMessages;
+    }
+
+    return false;
+  }, [run.messages, run.status]);
+
   // Smart scrolling for approval buttons: only scroll if user is near the bottom
   useEffect(() => {
     if (run.status === "awaiting_input" && buttonsContainerRef.current && threadContainerRef.current) {
@@ -647,7 +687,8 @@ const RunView: React.FC<RunViewProps> = ({
                 run.status,
                 run.error_message,
                 run.team_result?.task_result?.stop_reason,
-                run.input_request
+                run.input_request,
+                isSentinelSleeping
               )}
             </div>
           </div>
