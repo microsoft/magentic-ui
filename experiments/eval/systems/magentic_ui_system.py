@@ -66,6 +66,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         dataset_name (str): Name of the evaluation dataset (e.g., "Gaia").
         use_local_browser (bool): If True, use the local browser.
         browser_headless (bool): If True, run browser in headless mode (no GUI).
+        run_without_docker (bool): If True, run without Docker (disables coder and file surfer agents, forces local browser).
         sentinel_tasks (bool): If True, enable sentinel tasks functionality in the orchestrator.
         pretty_output (bool): If True, use PrettyConsole for formatted agent output (default: False).
     """
@@ -81,6 +82,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         web_surfer_only: bool = False,
         use_local_browser: bool = False,
         browser_headless: bool = False,
+        run_without_docker: bool = False,
         sentinel_tasks: bool = False,
         timeout_minutes: int = 15,
         verbose: bool = False,
@@ -96,6 +98,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         self.dataset_name = dataset_name
         self.use_local_browser = use_local_browser
         self.browser_headless = browser_headless
+        self.run_without_docker = run_without_docker
         self.sentinel_tasks = sentinel_tasks
         self.timeout_minutes = timeout_minutes
         self.verbose = verbose
@@ -284,7 +287,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
             )
 
             # launch the browser
-            if self.use_local_browser:
+            if self.use_local_browser or self.run_without_docker:
                 browser = LocalPlaywrightBrowser(
                     headless=self.browser_headless)  # Use headless mode based on parameter
             else:
@@ -320,7 +323,8 @@ class MagenticUIAutonomousSystem(BaseSystem):
             )
 
             agent_list: List[ChatAgent] = [web_surfer]
-            if not self.web_surfer_only:
+            # If run_without_docker is True, force web_surfer_only mode to disable Docker-dependent agents
+            if not self.web_surfer_only and not self.run_without_docker:
                 coder_agent = CoderAgent(
                     name="coder_agent",
                     model_client=model_client_coder,

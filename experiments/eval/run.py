@@ -238,6 +238,7 @@ def run_system_sim_user(args: Dict[str, Any], system_name: str) -> None:
             dataset_name=args["dataset"],
             use_local_browser=args["use_local_browser"],
             browser_headless=args["headless"],
+            run_without_docker=args["run_without_docker"],
             sentinel_tasks=args["sentinel_tasks"],
             timeout_minutes=args["timeout_minutes"],
             verbose=args["verbose"],
@@ -269,6 +270,7 @@ def main(
     web_surfer_only: Annotated[bool, typer.Option(help="🌐 Run only the web surfer agent", rich_help_panel="🤖 System Configuration")] = False,
     use_local_browser: Annotated[bool, typer.Option(help="🖥️ Run the browser locally, with a GUI (headful)", rich_help_panel="🤖 System Configuration")] = False,
     headless: Annotated[bool, typer.Option(help="🖥️ Run browser in headless mode (no GUI)", rich_help_panel="🤖 System Configuration")] = False,
+    run_without_docker: Annotated[bool, typer.Option(help="🐳 Run without Docker (disables coder and file surfer agents, forces local browser)", rich_help_panel="🤖 System Configuration")] = False,
     sentinel_tasks: Annotated[bool, typer.Option(help="🛡️ Enable sentinel tasks functionality in the orchestrator", rich_help_panel="🤖 System Configuration")] = False,
     
     # SentinelBench Options
@@ -313,6 +315,7 @@ def main(
         "web_surfer_only": web_surfer_only,
         "use_local_browser": use_local_browser,
         "headless": headless,
+        "run_without_docker": run_without_docker,
         "sentinel_tasks": sentinel_tasks,
         "task_id": task_id,
         "base_task": base_task,
