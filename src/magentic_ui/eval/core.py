@@ -513,11 +513,16 @@ def run_benchmark_func(
             )
 
             # Generate all combinations when multiple parameters are specified
-            for _ in task_id_list:
-                for _ in base_task_list:
-                    for _ in difficulty_list:
+            for task_id_item in task_id_list:
+                for base_task_item in base_task_list:
+                    for difficulty_item in difficulty_list:
                         # Get tasks for this combination
-                        combo_tasks = benchmark.get_split_tasks(split)
+                        combo_tasks = benchmark.get_split_tasks(
+                            split, 
+                            task_id=task_id_item, 
+                            base_task=base_task_item, 
+                            difficulty=difficulty_item
+                        )
                         all_task_ids.extend(combo_tasks)
 
             # Remove duplicates while preserving order
