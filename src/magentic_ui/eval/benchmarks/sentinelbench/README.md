@@ -12,11 +12,21 @@ python experiments/eval/run.py --current-dir . --dataset SentinelBench --split t
 
 ### Enable Sentinel Steps
 
-You can append the `--sentinel-tasks` flag to enable the usage SentinelSteps during planning
+You can append the `--enable-sentinel` flag to enable the usage SentinelSteps during planning:
 
 ```bash
-python experiments/eval/run.py --current-dir . --dataset SentinelBench --split test --run-id 1 --parallel 1 --config experiments/endpoint_configs/config.yaml --mode run --web-surfer-only --run-without-docker --headless --sentinel-tasks
+python experiments/eval/run.py --current-dir . --dataset SentinelBench --split test --run-id 1 --parallel 1 --config experiments/endpoint_configs/config.yaml --mode run --web-surfer-only --run-without-docker --headless --enable-sentinel
 ```
+
+### Enable Dynamic Sentinel Sleep
+
+You can also enable dynamic sleep duration adjustment for sentinel steps with the `--enable-dynamic-sentinel-sleep` flag:
+
+```bash
+python experiments/eval/run.py --current-dir . --dataset SentinelBench --split test --run-id 1 --parallel 1 --config experiments/endpoint_configs/config.yaml --mode run --web-surfer-only --run-without-docker --headless --enable-sentinel --enable-dynamic-sentinel-sleep
+```
+
+This allows the LLM to dynamically adjust sleep durations based on the current state of the task, making sentinel steps more intelligent and responsive.
 
 ### Task Filtering
 

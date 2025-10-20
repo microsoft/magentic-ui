@@ -57,7 +57,7 @@ python experiments/eval/run.py \
   --mode run \ 
   --use-local-browser \
   --web-surfer-only \
-  --sentinel-tasks
+  --enable-sentinel
 ```
 
 ### Step 2: Evaluate Results
@@ -86,7 +86,7 @@ python experiments/eval/run.py \
   --run-id 1 \
   --mode eval \
   --web-surfer-only \
-  --sentinel-tasks
+  --enable-sentinel
 ```
 
 ### Step 3: Generate Comprehensive Comparison

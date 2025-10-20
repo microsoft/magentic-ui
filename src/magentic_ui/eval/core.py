@@ -517,13 +517,14 @@ def run_benchmark_func(
                 for base_task_item in base_task_list:
                     for difficulty_item in difficulty_list:
                         # Get tasks for this combination
-                        combo_tasks = benchmark.get_split_tasks(
-                            split, 
-                            task_id=task_id_item, 
-                            base_task=base_task_item, 
-                            difficulty=difficulty_item
+                        # SentinelBench's get_split_tasks accepts these additional parameters
+                        combo_tasks = benchmark.get_split_tasks(  # type: ignore[call-arg]
+                            split,
+                            task_id=task_id_item,  # type: ignore[call-arg]
+                            base_task=base_task_item,  # type: ignore[call-arg]
+                            difficulty=difficulty_item,  # type: ignore[call-arg]
                         )
-                        all_task_ids.extend(combo_tasks)
+                        all_task_ids.extend(combo_tasks)  # type: ignore[reportUnknownArgumentType]
 
             # Remove duplicates while preserving order
             task_ids: List[str] = list(dict.fromkeys(all_task_ids))
