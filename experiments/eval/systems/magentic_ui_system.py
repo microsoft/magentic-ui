@@ -17,6 +17,7 @@ from autogen_agentchat.messages import (
 )
 from autogen_agentchat.conditions import TimeoutTermination
 from magentic_ui import OrchestratorConfig
+from magentic_ui.magentic_ui_config import SentinelPlanConfig
 from magentic_ui.eval.basesystem import BaseSystem
 from magentic_ui.eval.models import BaseTask, BaseCandidate, WebVoyagerCandidate
 from magentic_ui.types import CheckpointEvent
@@ -26,6 +27,14 @@ from magentic_ui.tools.playwright.browser import VncDockerPlaywrightBrowser
 from magentic_ui.tools.playwright.browser import LocalPlaywrightBrowser
 from magentic_ui.tools.playwright.browser.utils import get_available_port
 from magentic_ui.cli import PrettyConsole
+from magentic_ui.eval.benchmarks.sentinelbench.task_variants import (
+    DURATION_TASKS,
+    COUNT_TASKS,
+    DURATION_TASK_TIMEOUTS,
+    COUNT_TASK_TIMEOUTS,
+    calculate_sentinelbench_timeout,
+    get_timeout_display_info,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -67,7 +76,8 @@ class MagenticUIAutonomousSystem(BaseSystem):
         use_local_browser (bool): If True, use the local browser.
         browser_headless (bool): If True, run browser in headless mode (no GUI).
         run_without_docker (bool): If True, run without Docker (disables coder and file surfer agents, forces local browser).
-        sentinel_tasks (bool): If True, enable sentinel tasks functionality in the orchestrator.
+        enable_sentinel (bool): If True, enable sentinel tasks functionality in the orchestrator.
+        dynamic_sentinel_sleep (bool): If True, enable dynamic sleep duration adjustment for sentinel steps.
         pretty_output (bool): If True, use PrettyConsole for formatted agent output (default: False).
     """
 
@@ -83,7 +93,8 @@ class MagenticUIAutonomousSystem(BaseSystem):
         use_local_browser: bool = False,
         browser_headless: bool = False,
         run_without_docker: bool = False,
-        sentinel_tasks: bool = False,
+        enable_sentinel: bool = False,
+        dynamic_sentinel_sleep: bool = False,
         timeout_minutes: int = 15,
         verbose: bool = False,
         pretty_output: bool = False,
@@ -99,95 +110,19 @@ class MagenticUIAutonomousSystem(BaseSystem):
         self.use_local_browser = use_local_browser
         self.browser_headless = browser_headless
         self.run_without_docker = run_without_docker
-        self.sentinel_tasks = sentinel_tasks
+        self.enable_sentinel = enable_sentinel
+        self.dynamic_sentinel_sleep = dynamic_sentinel_sleep
         self.timeout_minutes = timeout_minutes
         self.verbose = verbose
         self.pretty_output = pretty_output
 
     def _calculate_dynamic_timeout_silent(self, task: BaseTask) -> int:
         """Calculate timeout without printing (for display purposes)."""
-        # Default timeout in seconds
-        default_timeout = 60 * self.timeout_minutes
-        
-        # Check if this is a SentinelBench task with parameter_value
-        if (hasattr(task, 'metadata') and task.metadata and 
-            isinstance(task.metadata, dict) and 
-            'parameter_value' in task.metadata):
-            
-            parameter_value = task.metadata['parameter_value']
-            
-            # Duration-based task timeout mappings (in minutes)
-            if (hasattr(task, 'id') and task.id and 
-                any(task_name in task.id for task_name in [
-                    'reactor', 'teams-monitor', 'linkedin-monitor', 
-                    'flight-monitor', 'news-checker', 'github-watcher'
-                ])):
-                
-                duration_timeouts = {
-                    30: 10,     # 30s task -> 10min timeout
-                    60: 15,     # 60s task -> 15min timeout
-                    300: 30,    # 5min task -> 30min timeout
-                    900: 60,    # 15min task -> 60min timeout
-                    3600: 120,  # 1h task -> 2h timeout
-                    7200: 180,  # 2h task -> 3h timeout
-                }
-                
-                timeout_minutes = duration_timeouts.get(parameter_value, self.timeout_minutes)
-                return timeout_minutes * 60
-            
-            # Count-based task timeout mappings (in minutes)
-            elif (hasattr(task, 'id') and task.id and 
-                  any(task_name in task.id for task_name in ['animal-mover', 'button-presser'])):
-                
-                count_timeouts = {
-                    2: 10,   # 2 actions -> 10min timeout
-                    4: 15,   # 4 actions -> 15min timeout
-                    8: 30,   # 8 actions -> 30min timeout
-                    16: 60,  # 16 actions -> 60min timeout
-                    32: 120, # 32 actions -> 2h timeout
-                    64: 180, # 64 actions -> 3h timeout
-                }
-                
-                timeout_minutes = count_timeouts.get(parameter_value, self.timeout_minutes)
-                return timeout_minutes * 60
-        
-        return default_timeout
+        return calculate_sentinelbench_timeout(task, self.timeout_minutes)
 
     def _get_timeout_display_info(self, task: BaseTask, timeout_seconds: int) -> str:
         """Get formatted timeout display string."""
-        timeout_minutes = int(timeout_seconds / 60)
-        
-        # Check if this is a SentinelBench task with parameter_value
-        if (hasattr(task, 'metadata') and task.metadata and 
-            isinstance(task.metadata, dict) and 
-            'parameter_value' in task.metadata):
-            
-            parameter_value = task.metadata['parameter_value']
-            
-            # Duration-based tasks
-            if (hasattr(task, 'id') and task.id and 
-                any(task_name in task.id for task_name in [
-                    'reactor', 'teams-monitor', 'linkedin-monitor', 
-                    'flight-monitor', 'news-checker', 'github-watcher'
-                ])):
-                
-                # Format duration display properly
-                if parameter_value < 60:
-                    duration_display = f"{parameter_value}s"
-                elif parameter_value < 3600:
-                    duration_display = f"{int(parameter_value/60)}min"
-                else:
-                    duration_display = f"{int(parameter_value/3600)}h"
-                
-                return f"{timeout_minutes}min for {duration_display} task"
-            
-            # Count-based tasks
-            elif (hasattr(task, 'id') and task.id and 
-                  any(task_name in task.id for task_name in ['animal-mover', 'button-presser'])):
-                
-                return f"{timeout_minutes}min for {parameter_value} actions"
-        
-        return f"{timeout_minutes}min (default)"
+        return get_timeout_display_info(task, timeout_seconds)
 
     def _calculate_dynamic_timeout(self, task: BaseTask) -> int:
         """Calculate timeout (reuses silent calculation)."""
@@ -224,7 +159,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
             task_question: str = task.question
             
             # Debug: Print the task information
-            sentinel_status = "✅ ENABLED" if self.sentinel_tasks else "❌ DISABLED"
+            sentinel_status = "✅ ENABLED" if self.enable_sentinel else "❌ DISABLED"
             
             # Get timeout info for display (without printing it yet)
             timeout_seconds = self._calculate_dynamic_timeout_silent(task)
@@ -270,7 +205,10 @@ class MagenticUIAutonomousSystem(BaseSystem):
                 final_answer_prompt=FINAL_ANSWER_PROMPT,
                 model_context_token_limit=model_context_token_limit,
                 no_overwrite_of_task=True,
-                sentinel_tasks=self.sentinel_tasks,
+                sentinel_plan=SentinelPlanConfig(
+                    enable_sentinel_steps=self.enable_sentinel,
+                    dynamic_sentinel_sleep=self.dynamic_sentinel_sleep,
+                ),
             )
 
             model_client_orch = ChatCompletionClient.load_component(
