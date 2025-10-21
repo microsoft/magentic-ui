@@ -18,7 +18,7 @@ Magentic-UI is a **research prototype** human-centered AI agent that solves comp
 
 ## ✨ What's New
 
-- **"Tell me When"**: Automate monitoring tasks and repeatable workflows that require web or API access that span minutes to days. *Learn more [here](https://www.microsoft.com/en-us/research/?p=1152051&preview=1&_ppp=a53d9c1d19).*
+- **"Tell me When"**: Automate monitoring tasks and repeatable workflows that require web or API access that span minutes to days. *Learn more [here](https://www.microsoft.com/en-us/research/blog/tell-me-when-building-agents-that-can-wait-monitor-and-act/).*
 - **File Upload Support**: Upload any file through the UI for analysis or modification
 - **MCP Agents**: Extend capabilities with your favorite MCP servers
 - **Easier Installation**: We have uploaded our docker containers to GHCR so you no longer need to build any containers! Installation time now is much quicker.
