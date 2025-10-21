@@ -13,12 +13,12 @@ _Automate your web tasks while you stay in control_
 
 ---
 
-Magentic-UI is a **research prototype** that solves complex web and coding tasks requiring both AI automation and human judgment. Unlike black-box AI tools, this multi-agent system shows you its plan, lets you guide its actions, and asks for approval on sensitive operations while browsing websites, executing code, and analyzing files.
+Magentic-UI is a **research prototype** human-centered AI agent that solves complex web and coding tasks that may require monitoring. Unlike other black-box agents, the system reveals its plan before executions, lets you guide its actions, and requests approval for sensitive operations while browsing websites, executing code, and analyzing files.
 *Check out the [demo section](#demos) for inspiration on what tasks you can accomplish.*
 
 ## ✨ What's New
 
-- **Sentinel Tasks**: Automate long-running repeatable workflows and web monitoring tasks that span minutes to days. *Learn more [here](https://www.microsoft.com/en-us/research/?p=1152051&preview=1&_ppp=a53d9c1d19).*
+- **"Tell me When"**: Automate monitoring tasks and repeatable workflows that require web or API access that span minutes to days. *Learn more [here](https://www.microsoft.com/en-us/research/?p=1152051&preview=1&_ppp=a53d9c1d19).*
 - **File Upload Support**: Upload any file through the UI for analysis or modification
 - **MCP Agents**: Extend capabilities with your favorite MCP servers
 - **Easier Installation**: We have uploaded our docker containers to GHCR so you no longer need to build any containers! Installation time now is much quicker.
@@ -107,7 +107,7 @@ For further details on installation please read the   <a href="#️-installation
 <td width="33%" align="center">
 
 **⭐ Star Monitoring**  
-*Long-running monitoring (sentinel) task*
+*Long-running monitoring task*
 
 <video src="https://github.com/user-attachments/assets/d2a463ca-7a94-4414-932d-a69f30fff63b" width="100%" style="max-height: 300px;">
 </video>
