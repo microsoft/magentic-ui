@@ -32,7 +32,7 @@ const RenderSentinelStep: React.FC<RenderSentinelStepProps> = ({
 }) => {
   const [currentCheckIndex, setCurrentCheckIndex] = useState(0);
   const [checks, setChecks] = useState<SentinelCheck[]>([]);
-  const [expandedCheck, setExpandedCheck] = useState<number | null>(null);
+  const [collapsedChecks, setCollapsedChecks] = useState<Set<number>>(new Set());
   const [totalChecks, setTotalChecks] = useState(0);
   const [runtime, setRuntime] = useState(0);
   const [currentStatus, setCurrentStatus] = useState<"checking" | "sleeping" | "complete">("checking");
@@ -127,9 +127,9 @@ const RenderSentinelStep: React.FC<RenderSentinelStepProps> = ({
       const check1Messages = sentinelMessages.filter(msg => {
         const msgCheckNumber = parseInt(msg.config.metadata?.check_number || "0");
         return msgCheckNumber === 1 &&
-               msg.config.metadata?.type !== "sentinel_sleeping" &&
-               msg.config.metadata?.type !== "sentinel_complete" &&
-               msg.config.metadata?.type !== "sentinel_status";
+          msg.config.metadata?.type !== "sentinel_sleeping" &&
+          msg.config.metadata?.type !== "sentinel_complete" &&
+          msg.config.metadata?.type !== "sentinel_status";
       });
 
       if (!checkMap.has(1)) {
@@ -175,6 +175,9 @@ const RenderSentinelStep: React.FC<RenderSentinelStepProps> = ({
 
     return () => clearInterval(interval);
   }, [currentStatus, sleepStartTimestamp, sleepDurationSeconds]);
+
+  // Helper to check if a check is expanded (expanded by default, collapsed if in set)
+  const isCheckExpanded = (checkNumber: number) => !collapsedChecks.has(checkNumber);
 
   const currentCheck = checks[currentCheckIndex];
 
@@ -292,22 +295,28 @@ const RenderSentinelStep: React.FC<RenderSentinelStepProps> = ({
             <div className="space-y-2">
               <div className="text-sm">
                 {currentCheck.reason ||
-                  `Check #${currentCheck.checkNumber} - Condition not yet satisfied`}
+                  `Actively Checking...`}
               </div>
 
               {/* Expandable section for agent messages */}
               {currentCheck.messages.length > 0 && (
                 <div className="mt-2">
                   <button
-                    onClick={() => setExpandedCheck(
-                      expandedCheck === currentCheck.checkNumber ? null : currentCheck.checkNumber
-                    )}
-                    className="text-sm text-magenta-800 hover:text-magenta-900 underline"
+                    onClick={() => setCollapsedChecks((prev) => {
+                      const newSet = new Set(prev);
+                      if (newSet.has(currentCheck.checkNumber)) {
+                        newSet.delete(currentCheck.checkNumber);
+                      } else {
+                        newSet.add(currentCheck.checkNumber);
+                      }
+                      return newSet;
+                    })}
+                    className="text-magenta-800 hover:text-magenta-900 underline"
                   >
-                    {expandedCheck === currentCheck.checkNumber ? "Hide" : "Show"} check steps ({currentCheck.messages.length})
+                    {isCheckExpanded(currentCheck.checkNumber) ? "Hide" : "Show"} check steps ({currentCheck.messages.length})
                   </button>
 
-                  {expandedCheck === currentCheck.checkNumber && (
+                  {isCheckExpanded(currentCheck.checkNumber) && (
                     <div className="mt-2 space-y-1">
                       {currentCheck.messages.map((msg, idx) => (
                         <RenderMessage
