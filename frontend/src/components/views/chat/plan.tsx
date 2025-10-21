@@ -159,6 +159,10 @@ const PlanView: React.FC<PlanProps> = ({
 
   const updateSentinelField = (index: number, field: 'sleep_duration' | 'condition', value: number | string) => {
     const newPlan = [...localPlan];
+    // Ensure sleep_duration is never negative
+    if (field === 'sleep_duration' && typeof value === 'number') {
+      value = Math.max(0, value);
+    }
     newPlan[index] = {
       ...newPlan[index],
       [field]: value,
