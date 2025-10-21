@@ -555,6 +555,14 @@ export const messageUtils = {
     return metadata?.type === "sentinel_complete";
   },
 
+  isSentinelStatus(metadata?: Record<string, any>): boolean {
+    return metadata?.type === "sentinel_status";
+  },
+
+  isSentinelSleeping(metadata?: Record<string, any>): boolean {
+    return metadata?.type === "sentinel_sleeping";
+  },
+
   findUserPlan(content: unknown): IPlanStep[] {
     if (typeof content !== "string") return [];
     try {
@@ -696,7 +704,9 @@ export const RenderMessage: React.FC<MessageProps> = memo(
     if (!skipSentinelHiding) {
       if (
         messageUtils.isSentinelCheck(message.metadata) ||
-        messageUtils.isSentinelComplete(message.metadata)
+        messageUtils.isSentinelComplete(message.metadata) ||
+        messageUtils.isSentinelStatus(message.metadata) ||
+        messageUtils.isSentinelSleeping(message.metadata)
       ) {
         return null;
       }

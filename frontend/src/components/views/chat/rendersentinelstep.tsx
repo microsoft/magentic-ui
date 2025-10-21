@@ -35,10 +35,10 @@ const RenderSentinelStep: React.FC<RenderSentinelStepProps> = ({
   const [expandedCheck, setExpandedCheck] = useState<number | null>(null);
   const [totalChecks, setTotalChecks] = useState(0);
   const [runtime, setRuntime] = useState(0);
-  const [nextCheckIn, setNextCheckIn] = useState<number>(sleepDuration);
   const [currentStatus, setCurrentStatus] = useState<"checking" | "sleeping" | "complete">("checking");
   const [countdown, setCountdown] = useState<number>(0);
-  const [lastCheckTime, setLastCheckTime] = useState<number>(Date.now());
+  const [sleepStartTimestamp, setSleepStartTimestamp] = useState<string | null>(null);
+  const [sleepDurationSeconds, setSleepDurationSeconds] = useState<number>(0);
 
   useEffect(() => {
     // Collect all messages related to this sentinel step
@@ -47,7 +47,6 @@ const RenderSentinelStep: React.FC<RenderSentinelStepProps> = ({
         idx > currentMessageIndex &&
         msg.config.metadata?.sentinel_id === sentinelId
     );
-
 
     // Group messages by check number
     const checkMap = new Map<number, SentinelCheck>();
@@ -66,80 +65,61 @@ const RenderSentinelStep: React.FC<RenderSentinelStepProps> = ({
 
         const check = checkMap.get(checkNumber)!;
 
-        // If this is a sentinel_check message, extract check info
-        if (metadata?.type === "sentinel_check") {
+        // If this is a sentinel_check or sentinel_sleeping message, extract check info
+        if (metadata?.type === "sentinel_check" || metadata?.type === "sentinel_sleeping") {
           check.reason = metadata.reason;
-          check.nextCheckIn = parseInt(metadata.next_check_in || "0");
-        } else {
+          check.nextCheckIn = parseInt(metadata.next_check_in || metadata.sleep_duration || "0");
+        } else if (
+          metadata?.type !== "sentinel_status" &&
+          metadata?.type !== "sentinel_complete" &&
+          metadata?.type !== "sentinel_start"
+        ) {
           // This is an agent message during the check
           check.messages.push(msg);
         }
       }
     });
 
-    // Find the latest sentinel_check or sentinel_complete message
-    const latestStatusMsg = sentinelMessages.reverse().find(msg =>
-      msg.config.metadata?.type === "sentinel_check" ||
+    // Find the latest status message (sentinel_status, sentinel_sleeping, or sentinel_complete)
+    const latestStatusMsg = [...sentinelMessages].reverse().find(msg =>
+      msg.config.metadata?.type === "sentinel_status" ||
+      msg.config.metadata?.type === "sentinel_sleeping" ||
       msg.config.metadata?.type === "sentinel_complete"
     );
-    const latestStatusCheckNumber = parseInt(latestStatusMsg?.config.metadata?.check_number || "0");
 
-    // Determine current status
+    // Determine current status from the latest status message
     if (latestStatusMsg) {
       const metadata = latestStatusMsg.config.metadata;
       setTotalChecks(parseInt(metadata?.total_checks || "0"));
       setRuntime(parseInt(metadata?.runtime || "0"));
 
       if (metadata?.type === "sentinel_complete") {
-        setNextCheckIn(0);
         setCurrentStatus("complete");
         setCountdown(0);
-      } else if (metadata?.type === "sentinel_check") {
-        const checkInSeconds = parseInt(metadata?.next_check_in || sleepDuration);
-        setNextCheckIn(checkInSeconds);
+        setSleepStartTimestamp(null);
+        setSleepDurationSeconds(0);
+      } else if (metadata?.type === "sentinel_status") {
+        // Orchestrator says it's actively checking
+        setCurrentStatus("checking");
+        setCountdown(0);
+        setSleepStartTimestamp(null);
+        setSleepDurationSeconds(0);
+      } else if (metadata?.type === "sentinel_sleeping") {
+        // Orchestrator sent a sleeping message with timestamp
+        setCurrentStatus("sleeping");
+        setSleepStartTimestamp(metadata.sleep_start_timestamp || null);
+        const duration = parseInt(metadata?.sleep_duration || "0");
+        setSleepDurationSeconds(duration);
 
-        // Check if there are any agent messages with a check_number higher than the latest sentinel_check
-        // This indicates the agent is actively working on the next check
-        const activeMessages = sentinelMessages.filter(msg => {
-          const msgCheckNumber = parseInt(msg.config.metadata?.check_number || "0");
-          const isAgentMessage = msg.config.metadata?.type !== "sentinel_check" &&
-                                 msg.config.metadata?.type !== "sentinel_complete" &&
-                                 msg.config.metadata?.sentinel_id === sentinelId;
-          return isAgentMessage && msgCheckNumber > latestStatusCheckNumber;
-        });
-
-        if (activeMessages.length > 0) {
-          const activeCheckNumber = parseInt(activeMessages[0].config.metadata?.check_number || "0");
-
-          // Add these active messages to the check map
-          if (!checkMap.has(activeCheckNumber)) {
-            checkMap.set(activeCheckNumber, {
-              checkNumber: activeCheckNumber,
-              messages: activeMessages,
-              reason: "Actively checking...",
-            });
-          } else {
-            const activeCheck = checkMap.get(activeCheckNumber)!;
-            activeCheck.messages = activeMessages;
-            activeCheck.reason = "Actively checking...";
-          }
-
-          setCurrentStatus("checking");
-          setCountdown(0);
+        // Calculate initial countdown from timestamp
+        if (metadata.sleep_start_timestamp) {
+          const sleepStart = new Date(metadata.sleep_start_timestamp).getTime();
+          const now = Date.now();
+          const elapsed = Math.floor((now - sleepStart) / 1000);
+          const remaining = Math.max(0, duration - elapsed);
+          setCountdown(remaining);
         } else {
-          // Use the timestamp from the sentinel_check message
-          const checkTimestamp = latestStatusMsg.config.timestamp;
-          if (checkTimestamp) {
-            const checkTime = new Date(checkTimestamp).getTime();
-            const elapsed = Math.floor((Date.now() - checkTime) / 1000);
-            const remaining = Math.max(0, checkInSeconds - elapsed);
-            setCountdown(remaining);
-            setLastCheckTime(checkTime);
-          } else {
-            setCountdown(checkInSeconds);
-            setLastCheckTime(Date.now());
-          }
-          setCurrentStatus("sleeping");
+          setCountdown(duration);
         }
       }
     } else {
@@ -147,8 +127,9 @@ const RenderSentinelStep: React.FC<RenderSentinelStepProps> = ({
       const check1Messages = sentinelMessages.filter(msg => {
         const msgCheckNumber = parseInt(msg.config.metadata?.check_number || "0");
         return msgCheckNumber === 1 &&
-               msg.config.metadata?.type !== "sentinel_check" &&
-               msg.config.metadata?.type !== "sentinel_complete";
+               msg.config.metadata?.type !== "sentinel_sleeping" &&
+               msg.config.metadata?.type !== "sentinel_complete" &&
+               msg.config.metadata?.type !== "sentinel_status";
       });
 
       if (!checkMap.has(1)) {
@@ -160,6 +141,8 @@ const RenderSentinelStep: React.FC<RenderSentinelStepProps> = ({
       }
 
       setCurrentStatus("checking");
+      setSleepStartTimestamp(null);
+      setSleepDurationSeconds(0);
     }
 
     // Convert map to sorted array and set current check to the latest
@@ -170,26 +153,28 @@ const RenderSentinelStep: React.FC<RenderSentinelStepProps> = ({
     }
   }, [allMessages, currentMessageIndex, sentinelId, sleepDuration]);
 
-  // Countdown timer effect
+  // Countdown timer effect - computes countdown from timestamp
   useEffect(() => {
-    if (currentStatus !== "sleeping" || countdown <= 0) {
+    if (currentStatus !== "sleeping" || !sleepStartTimestamp || sleepDurationSeconds <= 0) {
       return;
     }
 
     const interval = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - lastCheckTime) / 1000);
-      const remaining = Math.max(0, nextCheckIn - elapsed);
+      const sleepStart = new Date(sleepStartTimestamp).getTime();
+      const now = Date.now();
+      const elapsed = Math.floor((now - sleepStart) / 1000);
+      const remaining = Math.max(0, sleepDurationSeconds - elapsed);
       setCountdown(remaining);
 
       if (remaining === 0) {
         clearInterval(interval);
-        // Auto-switch to checking when timeout reaches 0
+        // Auto-switch to checking when countdown reaches 0
         setCurrentStatus("checking");
       }
     }, 100); // Update every 100ms for smooth countdown
 
     return () => clearInterval(interval);
-  }, [currentStatus, countdown, nextCheckIn, lastCheckTime]);
+  }, [currentStatus, sleepStartTimestamp, sleepDurationSeconds]);
 
   const currentCheck = checks[currentCheckIndex];
 
@@ -251,7 +236,9 @@ const RenderSentinelStep: React.FC<RenderSentinelStepProps> = ({
           <div className="font-semibold text-primary">{title}</div>
           <div className="flex items-center gap-2">
             {getStatusIcon()}
-            <span className="text-sm">{getStatusText()}</span>
+            {(runStatus === "active" && (currentStatus === "checking" || currentStatus === "sleeping")) && (
+              <span className="text-sm">{getStatusText()}</span>
+            )}
           </div>
         </div>
         <div className="text-sm space-y-1">
