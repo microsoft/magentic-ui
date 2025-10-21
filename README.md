@@ -7,14 +7,22 @@ _Automate your web tasks while you stay in control_
 [![image](https://img.shields.io/pypi/v/magentic_ui.svg)](https://pypi.python.org/pypi/magentic_ui)
 [![image](https://img.shields.io/pypi/l/magentic_ui.svg)](https://pypi.python.org/pypi/magentic_ui)
 ![Python Versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)
+[![arXiv](https://img.shields.io/badge/arXiv-2507.22358-b31b1b.svg)](https://arxiv.org/abs/2507.22358)
 
 </div>
 
 ---
 
-Magentic-UI is a **research prototype** of a human-centered interface powered by a multi-agent system that can browse and perform actions on the web, generate and execute code, and generate and analyze files.
+Magentic-UI is a **research prototype** human-centered AI agent that solves complex web and coding tasks that may require monitoring. Unlike other black-box agents, the system reveals its plan before executions, lets you guide its actions, and requests approval for sensitive operations while browsing websites, executing code, and analyzing files.
+*Check out the [demo section](#demos) for inspiration on what tasks you can accomplish.*
 
-  https://github.com/user-attachments/assets/7975fc26-1a18-4acb-8bf9-321171eeade7
+## ✨ What's New
+
+- **"Tell me When"**: Automate monitoring tasks and repeatable workflows that require web or API access that span minutes to days. *Learn more [here](https://www.microsoft.com/en-us/research/?p=1152051&preview=1&_ppp=a53d9c1d19).*
+- **File Upload Support**: Upload any file through the UI for analysis or modification
+- **MCP Agents**: Extend capabilities with your favorite MCP servers
+- **Easier Installation**: We have uploaded our docker containers to GHCR so you no longer need to build any containers! Installation time now is much quicker.
+
 
 ## 🚀 Quick Start
 
@@ -36,12 +44,6 @@ magentic-ui --port 8081
 Then open <http://localhost:8081> in your browser to interact with Magentic-UI!
 
 > **Prerequisites**: Requires Docker and Python 3.10+. Windows users should use WSL2. See [detailed installation](#️-installation) for more info.
-
-## ✨ What's New
-
-- **File Upload Support**: Upload any file through the UI for analysis or modification
-- **MCP Agents**: Extend capabilities with your favorite MCP servers
-- **Easier Installation**: We have uploaded our docker containers to GHCR so you no longer need to build any containers! Installation time now is much quicker.
 
 ## Alternative Usage Options
 
@@ -70,8 +72,9 @@ For further details on installation please read the   <a href="#️-installation
 
 ## Quick Navigation:
 <p align="center">
-  <a href="#-how-it-works">🟪 How it Works</a> &nbsp;|&nbsp;
-  <a href="#️-installation">🛠️ Installation</a> &nbsp;|&nbsp;
+  <a href="#demos">🎬 Demos</a> &nbsp;|&nbsp;
+  <a href="#how-it-works">🟪 How it Works</a> &nbsp;|&nbsp;
+  <a href="#️installation">🛠️ Installation</a> &nbsp;|&nbsp;
   <a href="#troubleshooting">⚠️ Troubleshooting</a> &nbsp;|&nbsp; 
   <a href="#contributing">🤝 Contributing</a> &nbsp;|&nbsp;
   <a href="#license">📄 License</a>
@@ -79,28 +82,48 @@ For further details on installation please read the   <a href="#️-installation
 
 ---
 
-## 🟪 How it Works
+## Demos
+
+<table>
+<tr>
+<td width="33%" align="center">
+
+**🍕 Pizza Ordering**  
+*Web automation with human-in-the-loop*
+
+<video src="https://github.com/user-attachments/assets/dc95cf5f-c4b4-4fe0-b708-158ff071e5a9" width="100%" style="max-height: 300px;">
+</video>
+
+</td>
+<td width="33%" align="center">
+
+**🏠 Airbnb Price Analysis**  
+*MCP agent integration*
+
+<video src="https://github.com/user-attachments/assets/c19ed8c2-e06f-43b7-bee3-5e2ffc4c5e02" width="100%" style="max-height: 300px;">
+</video>
+
+</td>
+<td width="33%" align="center">
+
+**⭐ Star Monitoring**  
+*Long-running monitoring task*
+
+<video src="https://github.com/user-attachments/assets/d2a463ca-7a94-4414-932d-a69f30fff63b" width="100%" style="max-height: 300px;">
+</video>
+
+</td>
+</tr>
+</table>
+
+
+
+## How it Works
 <p align="center">
   <img src="./docs/img/magenticui_running.png" alt="Magentic-UI" height="400">
 </p>
 
 Magentic-UI is especially useful for web tasks that require actions on the web (e.g., filling a form, customizing a food order), deep navigation through websites not indexed by search engines (e.g., filtering flights, finding a link from a personal site) or tasks that need web navigation and code execution (e.g., generate a chart from online data).
-
-The interface of Magentic-UI is displayed in the screenshot above and consists of two panels. The left side panel is the sessions navigator where users can create new sessions to solve new tasks, switch between sessions and check on session progress with the session status indicators (🔴 needs input, ✅ task done, ↺ task in progress).
-
-The right-side panel displays the session selected. This is where you can type your query to Magentic-UI alongside any file attachments and observe detailed task progress as well as  interact with the agents. The session display itself is split in two panels: the left side is where Magentic-UI presents the plan, task progress and asks for action approvals, the right side is a browser view where you can see web agent actions in real time and interact with the browser. Finally, at the top of the session display is a progress bar that updates as Magentic-UI makes progress.
-
-
-The example below shows a step by step user interaction with Magentic-UI:
-
-<!-- Screenshots -->
-<p align="center">
-  <img src="docs/img/magui-landing.png" alt="Magentic-UI Landing" width="45%" style="margin:10px;">
-  <img src="docs/img/magui-coplanning.png" alt="Co-Planning UI" width="45%" style="margin:10px;">
-  <img src="docs/img/magui-cotasking.png" alt="Co-Tasking UI" width="45%" style="margin:10px;">
-  <img src="docs/img/magui-actionguard.png" alt="Action Guard UI" width="45%" style="margin:10px;">
-</p>
-
 
 What differentiates Magentic-UI from other browser use offerings is its transparent and controllable interface that allows for efficient human-in-the-loop involvement. Magentic-UI is built using [AutoGen](https://github.com/microsoft/autogen) and provides a platform to study human-agent interaction and experiment with web agents. Key features include:
 
