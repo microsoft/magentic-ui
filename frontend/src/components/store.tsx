@@ -48,7 +48,7 @@ const defaultConfig: GeneralConfig = {
   run_without_docker: false,
   browser_headless: true,
   sentinel_plan: {
-    enable_sentinel_steps: false,
+    enable_sentinel_steps: true,
     dynamic_sentinel_sleep: false,
   },
   model_client_configs: {

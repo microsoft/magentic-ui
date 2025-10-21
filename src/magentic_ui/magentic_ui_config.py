@@ -15,7 +15,7 @@ class SentinelPlanConfig(BaseModel):
         dynamic_sentinel_sleep (bool): Whether to dynamically adapt sleep duration based on LLM response. Default: False.
     """
 
-    enable_sentinel_steps: bool = False
+    enable_sentinel_steps: bool = True
     dynamic_sentinel_sleep: bool = False
 
 

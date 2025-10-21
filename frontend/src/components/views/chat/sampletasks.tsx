@@ -8,7 +8,7 @@ const SAMPLE_TASKS = [
   "When does the post office near me close today?",
   "Find the latest publications from the the Microsoft Research AI Frontiers Lab on Human-Agent interaction",
   "Which commit of Microsoft/markitdown repo introduced MCP support?",
-  "Can you make a Markdown file with python that summarizes the Microsoft AutoGen repo?",
+  "Tell me when Bitcoin price drops 5% below its current value",
   "Order me a custom pizza from Tangle Town Pub with sausage, pineapple, and black olives",
   "Search arXiv for the latest papers on computer use agents",
 ];
