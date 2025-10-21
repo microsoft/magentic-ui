@@ -719,6 +719,11 @@ export const RenderMessage: React.FC<MessageProps> = memo(
 
     // Handle sentinel start message
     if (messageUtils.isSentinelStart(message.metadata)) {
+      // Hide sentinel step if hidden prop is true
+      if (hidden) {
+        return null;
+      }
+
       try {
         const sentinelData = JSON.parse(message.content as string);
         return (

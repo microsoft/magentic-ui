@@ -75,6 +75,7 @@ Use PlanStep for:
 - Waiting for external events or thresholds to be met
 - Tasks that require periodic execution (e.g., "check every day", "monitor constantly")
 
+If the user mentions "tell me when" it often means that we should likely use a SentinelPlanStep.
 
 Use **SentinelPlanStep** when the step involves:
 - Waiting for a condition to be met (e.g., "wait until I have 2000 followers")
