@@ -475,6 +475,30 @@ class MagenticUIAutonomousSystem(BaseSystem):
                 ) as f:
                     messages_json = [msg.model_dump() for msg in messages_so_far]
                     await f.write(json.dumps(messages_json, indent=2))
+            except Exception as e:
+                # Handle all other exceptions (browser crashes, agent errors, sentinel failures, etc.)
+                logger.error(f"Task {task_id} failed with exception: {type(e).__name__}: {e}")
+                answer = f"ERROR: {type(e).__name__} - {str(e)}"
+                # Save exception message to log
+                error_log_event = LogEventSystem(
+                    source="system",
+                    content=f"Task failed with exception: {type(e).__name__}: {str(e)}",
+                    timestamp=datetime.datetime.now().isoformat(),
+                    metadata={"type": "error", "exception_type": type(e).__name__},
+                )
+                messages_so_far.append(error_log_event)
+                # Save final messages
+                safe_task_id = task_id.replace("/", "_")
+                try:
+                    async with aiofiles.open(
+                        f"{output_dir}/{safe_task_id}_messages.json", "w"
+                    ) as f:
+                        messages_json = [msg.model_dump() for msg in messages_so_far]
+                        await f.write(json.dumps(messages_json, indent=2))
+                except Exception as save_error:
+                    logger.error(f"Failed to save messages.json for {task_id}: {save_error}")
+                # Re-raise the exception so core.py can save partial_state.json
+                raise
 
             assert isinstance(
                 answer, str
