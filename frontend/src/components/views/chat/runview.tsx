@@ -25,12 +25,17 @@ interface RunViewProps {
   onDeny?: () => void;
   onAcceptPlan?: (text: string) => void;
   // Add new props needed for ChatInput
-  onInputResponse?: (query: string, files: RcFile[], accepted?: boolean, plan?: IPlan) => void;
+  onInputResponse?: (
+    query: string,
+    files: RcFile[],
+    accepted?: boolean,
+    plan?: IPlan,
+  ) => void;
   onRunTask?: (
     query: string,
     files: RcFile[],
     plan?: IPlan,
-    fresh_socket?: boolean
+    fresh_socket?: boolean,
   ) => void;
   onCancel?: () => void;
   error?: IStatus | null;
@@ -73,7 +78,7 @@ const RunView: React.FC<RunViewProps> = ({
     "screenshots" | "live"
   >("live");
   const [hiddenMessageIndices, setHiddenMessageIndices] = useState<Set<number>>(
-    new Set()
+    new Set(),
   );
   const [hiddenStepExecutionIndices, setHiddenStepExecutionIndices] = useState<
     Set<number>
@@ -84,10 +89,10 @@ const RunView: React.FC<RunViewProps> = ({
 
   // Add this state to track repeated step indices and their earlier occurrences
   const [repeatedStepIndices, setRepeatedStepIndices] = useState<Set<number>>(
-    new Set()
+    new Set(),
   );
   const [failedStepIndices, setFailedStepIndices] = useState<Set<number>>(
-    new Set()
+    new Set(),
   );
 
   // Add ref for the latest user message
@@ -109,13 +114,19 @@ const RunView: React.FC<RunViewProps> = ({
       const scrollTop = container.scrollTop;
       const clientHeight = container.clientHeight;
       const scrollHeight = container.scrollHeight;
-      wasAtBottomRef.current = scrollTop + clientHeight >= scrollHeight - 100 || run.messages.length === 0;
+      wasAtBottomRef.current =
+        scrollTop + clientHeight >= scrollHeight - 100 ||
+        run.messages.length === 0;
     }
   });
 
   // Smart scrolling: only scroll to bottom if user was at the bottom before new content
   useEffect(() => {
-    if (run.messages.length > 0 && threadContainerRef.current && wasAtBottomRef.current) {
+    if (
+      run.messages.length > 0 &&
+      threadContainerRef.current &&
+      wasAtBottomRef.current
+    ) {
       // Use a small delay to ensure the DOM has updated
       setTimeout(() => {
         const container = threadContainerRef.current;
@@ -129,7 +140,7 @@ const RunView: React.FC<RunViewProps> = ({
   // Effect to handle browser_address message
   useEffect(() => {
     const browserAddressMessages = run.messages.filter(
-      (msg: Message) => msg.config.metadata?.type === "browser_address"
+      (msg: Message) => msg.config.metadata?.type === "browser_address",
     );
     const lastBrowserAddressMsg =
       browserAddressMessages[browserAddressMessages.length - 1];
@@ -148,7 +159,7 @@ const RunView: React.FC<RunViewProps> = ({
   const isEditable =
     run.status === "awaiting_input" &&
     messageUtils.isPlanMessage(
-      run.messages[run.messages.length - 1]?.config.metadata
+      run.messages[run.messages.length - 1]?.config.metadata,
     );
 
   // Add state for tracking images from multimodal messages
@@ -277,7 +288,7 @@ const RunView: React.FC<RunViewProps> = ({
                     return false;
                   try {
                     const earlierContent = JSON.parse(
-                      earlierMsg.config.content
+                      earlierMsg.config.content,
                     );
                     return (
                       earlierContent.title === currentStep.title &&
@@ -286,7 +297,7 @@ const RunView: React.FC<RunViewProps> = ({
                   } catch {
                     return false;
                   }
-                }
+                },
               );
 
               if (!isDuplicate) {
@@ -367,7 +378,7 @@ const RunView: React.FC<RunViewProps> = ({
         if (identicalStepIndices.length > 0) {
           const messagesBetween = run.messages.slice(
             identicalStepIndices[identicalStepIndices.length - 1] + 1,
-            msgIndex
+            msgIndex,
           );
 
           const hasSeparator = messagesBetween.some((msg: Message) => {
@@ -430,7 +441,7 @@ const RunView: React.FC<RunViewProps> = ({
                     // delay for 100ms
                     await new Promise((resolve) => setTimeout(resolve, 100));
                   }
-                } catch { }
+                } catch {}
               }
             }
             continue;
@@ -454,11 +465,11 @@ const RunView: React.FC<RunViewProps> = ({
                       await new Promise((resolve) => setTimeout(resolve, 100));
                     }
                   }
-                } catch { }
+                } catch {}
               }
             }
           }
-        } catch { }
+        } catch {}
       }
 
       if (
@@ -497,7 +508,7 @@ const RunView: React.FC<RunViewProps> = ({
             // Create a new message object with updated content
             const updatedContent = messageUtils.updatePlan(
               prevMsg.config.content,
-              userPlans
+              userPlans,
             );
 
             if (updatedContent !== prevMsg.config.content) {
@@ -513,7 +524,7 @@ const RunView: React.FC<RunViewProps> = ({
           } catch (error) {
             console.error(
               `Error updating plan for message at index ${prevIdx}:`,
-              error
+              error,
             );
           }
         }
@@ -555,14 +566,16 @@ const RunView: React.FC<RunViewProps> = ({
 
     // Find the most recent sentinel-related status message
     const sentinelStatusMessages = run.messages.filter(
-      (msg) => msg.config.metadata?.type === "sentinel_status" ||
+      (msg) =>
+        msg.config.metadata?.type === "sentinel_status" ||
         msg.config.metadata?.type === "sentinel_sleeping" ||
-        msg.config.metadata?.type === "sentinel_complete"
+        msg.config.metadata?.type === "sentinel_complete",
     );
 
     if (sentinelStatusMessages.length === 0) return false;
 
-    const lastStatusMsg = sentinelStatusMessages[sentinelStatusMessages.length - 1];
+    const lastStatusMsg =
+      sentinelStatusMessages[sentinelStatusMessages.length - 1];
 
     // We're sleeping if the last status message is sentinel_sleeping
     // We're NOT sleeping if it's sentinel_status (checking) or sentinel_complete
@@ -571,12 +584,18 @@ const RunView: React.FC<RunViewProps> = ({
 
   // Smart scrolling for approval buttons: only scroll if user is near the bottom
   useEffect(() => {
-    if (run.status === "awaiting_input" && buttonsContainerRef.current && threadContainerRef.current) {
+    if (
+      run.status === "awaiting_input" &&
+      buttonsContainerRef.current &&
+      threadContainerRef.current
+    ) {
       // Use a small delay to ensure the DOM has updated
       setTimeout(() => {
         const container = threadContainerRef.current;
         if (container) {
-          const isNearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 100; // 100px threshold
+          const isNearBottom =
+            container.scrollTop + container.clientHeight >=
+            container.scrollHeight - 100; // 100px threshold
 
           // Only scroll to approval buttons if user is near the bottom
           if (isNearBottom) {
@@ -591,20 +610,18 @@ const RunView: React.FC<RunViewProps> = ({
   }, [run.status]);
 
   return (
-    <div
-      className="flex w-full gap-4 h-full overflow-y-auto scroll"
-      ref={threadContainerRef}
-    >
+    <div className="flex h-full w-full gap-4" ref={threadContainerRef}>
       {/* Messages section */}
       <div
-        className={`items-start relative flex flex-col h-full ${showDetailViewer &&
-            novncPort !== undefined &&
-            !isDetailViewerMinimized
+        className={`scroll relative flex h-full flex-col items-start overflow-y-auto ${
+          showDetailViewer &&
+          novncPort !== undefined &&
+          !isDetailViewerMinimized
             ? detailViewerExpanded
               ? "w-0"
               : "w-[50%]"
             : "w-full"
-          } transition-all duration-300`}
+        } transition-all duration-300`}
       >
         {/* Thread Section - use flex-1 for height, but remove overflow-y-auto */}
         <div className="w-full flex-1">
@@ -660,14 +677,14 @@ const RunView: React.FC<RunViewProps> = ({
             })}
 
           {/* Status Icon at top */}
-          <div className="pt-2 pb-2 flex-shrink-0">
+          <div className="flex-shrink-0 pb-2 pt-2">
             <div className="inline-block">
               {getStatusIcon(
                 run.status,
                 run.error_message,
                 run.team_result?.task_result?.stop_reason,
                 run.input_request,
-                isSentinelSleeping
+                isSentinelSleeping,
               )}
             </div>
           </div>
@@ -689,7 +706,7 @@ const RunView: React.FC<RunViewProps> = ({
         {/* ChatInput - use sticky positioning to keep at bottom with full width */}
         <div
           ref={buttonsContainerRef}
-          className="sticky bottom-0 flex-shrink-0 w-full bg-background"
+          className="bg-background sticky bottom-0 w-full flex-shrink-0"
           style={{
             width: "100%", // Always take full width of parent
           }}
@@ -700,7 +717,7 @@ const RunView: React.FC<RunViewProps> = ({
               query: string,
               files: RcFile[],
               accepted = false,
-              plan?: IPlan
+              plan?: IPlan,
             ) => {
               if (run.status === "awaiting_input" || run.status === "paused") {
                 onInputResponse?.(query, files, accepted, plan);
@@ -718,8 +735,8 @@ const RunView: React.FC<RunViewProps> = ({
             onExecutePlan={onExecutePlan}
             onSubMenuChange={onSubMenuChange}
             mcpSelectorDisabled={
-              run.status === "awaiting_input" ||
-              run.status === "paused"}
+              run.status === "awaiting_input" || run.status === "paused"
+            }
             selectedMcpServers={selectedMcpServers}
             onSelectedMcpServersChange={onSelectedMcpServersChange}
           />
@@ -730,7 +747,7 @@ const RunView: React.FC<RunViewProps> = ({
       {isDetailViewerMinimized && novncPort !== undefined && (
         <button
           onClick={() => setIsDetailViewerMinimized(false)}
-          className="self-start sticky top-0 h-full inline-flex text-magenta-800 hover:text-magenta-900 cursor-pointer"
+          className="sticky top-0 inline-flex h-full cursor-pointer self-start text-magenta-800 hover:text-magenta-900"
           title="Show browser"
         >
           <Globe2 size={20} />
@@ -741,8 +758,9 @@ const RunView: React.FC<RunViewProps> = ({
         novncPort !== undefined &&
         !isDetailViewerMinimized && (
           <div
-            className={`${detailViewerExpanded ? "w-full" : "w-[50%]"
-              } self-start sticky top-0 h-full`}
+            className={`${
+              detailViewerExpanded ? "w-full" : "w-[50%]"
+            } sticky top-0 h-full self-start`}
           >
             <div className="h-full flex-1">
               <DetailViewer

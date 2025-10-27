@@ -1181,7 +1181,7 @@ export default function ChatView({
   }
 
   return (
-    <div className="scroll relative h-[calc(100vh-100px)] w-full flex-1 rounded bg-primary text-primary">
+    <div className="relative h-[calc(100vh-100px)] w-full flex-1 rounded bg-primary text-primary">
       {contextHolder}
       <div className="flex h-full w-full flex-col">
         {/* Progress Bar - Sticky at top */}
@@ -1208,18 +1208,18 @@ export default function ChatView({
 
         <div
           ref={chatContainerRef}
-          className={`scroll relative mt-1 h-full min-h-0 w-full flex-1 overflow-y-auto ${
+          className={`relative mt-1 h-full min-h-0 w-full flex-1 ${
             noMessagesYet && currentRun
               ? "flex items-center justify-center"
               : ""
           }`}
         >
           <div
-            className={`${
+            className={`scroll ${
               showDetailViewer && !isDetailViewerMinimized
                 ? "w-full"
                 : "max-w-full md:max-w-5xl lg:max-w-6xl xl:max-w-7xl"
-            } mx-auto h-full ${noMessagesYet && currentRun ? "hidden" : ""}`}
+            } mx-auto h-full overflow-y-auto ${noMessagesYet && currentRun ? "hidden" : ""}`}
           >
             {
               <>

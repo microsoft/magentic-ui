@@ -37,6 +37,7 @@ module.exports = {
         accent: "var(--color-bg-accent)",
         light: "var(--color-bg-light)",
         tertiary: "var(--color-bg-tertiary)",
+        hover: "var(--color-bg-hover)",
         "blue-400": "var(--color-blue-400)",
         "blue-700": "var(--color-blue-700)",
         "blue-800": "var(--color-blue-800)",

@@ -3,6 +3,7 @@
   --color-bg-secondary: #a88da841;
   --color-bg-light: #3a3a3a;
   --color-bg-tertiary: #444444;
+  --color-bg-hover: #383838;
   --color-bg-opposite: #edf2f7;
   --color-bg-white: #ffffff;
   --color-bg-dark: #1a1a1a;
@@ -35,6 +36,7 @@
   --color-bg-secondary: #f1e9f1;
   --color-bg-light: #f9fafb;
   --color-bg-tertiary: #f3f6f9;
+  --color-bg-hover: #e8e8e8;
   --color-bg-opposite: #2a2a2a;
   --color-bg-white: #ffffff;
   --color-bg-dark: #1a1a1a;
@@ -254,12 +256,6 @@ a:hover {
 .scroll::-webkit-scrollbar {
   width: 8px;
   height: 8px;
-  opacity: 0; /* Make scrollbar fully transparent by default */
-  transition: opacity 0.25s ease; /* Transition for the opacity */
-}
-
-.scroll:hover::-webkit-scrollbar {
-  opacity: 1; /* Make scrollbar fully opaque on hover */
 }
 
 .scroll::-webkit-scrollbar-track {
@@ -271,6 +267,13 @@ a:hover {
   @apply bg-accent;
   border-radius: 20px;
   border: 3px solid rgb(214, 214, 214);
+  background-clip: padding-box;
+}
+
+/* Auto-hide scrollbar on macOS and other systems */
+.scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-bg-accent) transparent;
 }
 
 .dark .scroll-gradient {

@@ -165,15 +165,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   Sessions
                 </span>
 
-                {isLoading ? (
-                  <div className="flex py-2 text-xs text-secondary">
-                    Loading...{" "}
-                    <RefreshCcw className="ml-2 inline-block h-4 w-4 animate-spin" />
-                  </div>
-                ) : (
-                  <span className="text-xs text-secondary">
-                    {sortedSessions.length}
-                  </span>
+                <span className="text-xs text-secondary">
+                  {sortedSessions.length}
+                </span>
+
+                {isLoading && (
+                  <RefreshCcw className="h-3 w-3 animate-spin text-secondary" />
                 )}
               </div>
 
