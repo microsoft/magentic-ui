@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { Tooltip, Dropdown, Menu } from "antd";
+import React, { useMemo, useState } from "react";
+import { Tooltip } from "antd";
 import {
   Plus,
   Edit,
@@ -12,11 +12,13 @@ import {
   MoreVertical,
   StopCircle,
   Server,
+  AlignJustify,
+  LayoutGrid,
 } from "lucide-react";
-import type { Session, RunStatus } from "../types/datamodel";
+import type { Session, GroupedSessions, RunStatus } from "../types/datamodel";
 import SubMenu from "../common/SubMenu";
-import { SessionRunStatusIndicator } from "./statusicon";
-import LearnPlanButton from "../features/Plans/LearnPlanButton";
+import { SessionList } from "./sidebar/session_list";
+import { SessionDashboard } from "./sidebar/session_dashboard";
 import { Button } from "../common/Button";
 
 interface SidebarProps {
@@ -48,8 +50,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSubMenuChange,
   onStopSession,
 }) => {
+  // DEV: Toggle between SessionList and SessionDashboard
+  const [sessionsViewMode, setSessionsViewMode] = useState<
+    "list" | "dashboard"
+  >("list");
+
   // Group sessions by time period
-  const groupSessions = (sessions: Session[]) => {
+  const groupSessions = (sessions: Session[]): GroupedSessions => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const yesterday = new Date(today);
@@ -92,114 +99,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           new Date(a.created_at || "").getTime()
         );
       }),
-    [sessions]
+    [sessions],
   );
 
   const groupedSessions = useMemo(
     () => groupSessions(sortedSessions),
-    [sortedSessions]
-  );
-
-  // Helper function to render session group
-  const renderSessionGroup = (sessions: Session[]) => (
-    <>
-      {sessions.map((s) => {
-        const status = s.id ? sessionRunStatuses[s.id] : undefined;
-        const isActive = status ? [
-          "active",
-          "awaiting_input",
-          "pausing",
-          "paused",
-        ].includes(status) : false;
-        return (
-          <div key={s.id} className="relative">
-            <div
-              className={`group flex items-center p-2 py-1 text-sm ${
-                isLoading
-                  ? "pointer-events-none opacity-50"
-                  : "cursor-pointer hover:bg-tertiary"
-              } ${
-                currentSession?.id === s.id
-                  ? " border-l-2 border-magenta-800 bg-secondary"
-                  : ""
-              }`}
-              onClick={() => !isLoading && onSelectSession(s)}
-            >
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <span className="truncate text-sm max-w-[140px]">
-                  {s.name}
-                </span>
-                {s.id && (
-                  <SessionRunStatusIndicator
-                    status={sessionRunStatuses[s.id]}
-                  />
-                )}
-              </div>
-              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity w-8 justify-end flex-shrink-0">
-                <Dropdown
-                  trigger={["click"]}
-                  overlay={
-                    <Menu>
-                      <Menu.Item
-                        key="edit"
-                        onClick={(e) => {
-                          e.domEvent.stopPropagation();
-                          onEditSession(s);
-                        }}
-                      >
-                        <Edit className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />{" "}
-                        Edit
-                      </Menu.Item>
-                      <Menu.Item
-                        key="stop"
-                        onClick={(e) => {
-                          e.domEvent.stopPropagation();
-                          if (isActive && s.id) onStopSession(s.id);
-                        }}
-                        disabled={!isActive}
-                        danger
-                      >
-                        <StopCircle className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />{" "}
-                        Disconnect
-                      </Menu.Item>
-                      <Menu.Item
-                        key="delete"
-                        onClick={(e) => {
-                          e.domEvent.stopPropagation();
-                          if (s.id) onDeleteSession(s.id);
-                        }}
-                        danger
-                      >
-                        <Trash2 className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />{" "}
-                        Delete
-                      </Menu.Item>
-                      <Menu.Item
-                        key="learn-plan"
-                        onClick={(e) => e.domEvent.stopPropagation()}
-                      >
-                        <LearnPlanButton
-                          sessionId={Number(s.id)}
-                          messageId={-1}
-                        />
-                      </Menu.Item>
-                    </Menu>
-                  }
-                  placement="bottomRight"
-                >
-                  <Button
-                    variant="tertiary"
-                    size="sm"
-                    icon={<MoreVertical className="w-4 h-4" />}
-                    onClick={(e) => e.stopPropagation()}
-                    className="!p-0 min-w-[24px] h-6"
-                  />
-                </Dropdown>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </>
+    [sortedSessions],
   );
 
   const sidebarContent = useMemo(() => {
@@ -208,19 +113,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
 
     return (
-      <div className="h-full border-r border-secondary">
+      <div className="h-full w-full overflow-hidden border-r border-secondary">
         <div className="mb-4">
           <SubMenu
             items={[
               {
                 id: "mcp_servers",
                 label: "MCP Servers",
-                icon: <Server className="w-4 h-4" />,
+                icon: <Server className="h-4 w-4" />,
               },
               {
                 id: "saved_plan",
                 label: "Saved Plans",
-                icon: <Archive className="w-4 h-4" />,
+                icon: <Archive className="h-4 w-4" />,
               },
             ]}
             activeItem={activeSubMenuItem}
@@ -230,20 +135,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {
           <>
-            <div className="flex items-center justify-between py-2 border-secondary">
+            <div className="flex items-center justify-between border-secondary py-2">
               <div className="flex items-center gap-2">
-                <span className="text-primary font-medium">Sessions</span>
+                <span className="font-medium text-primary">Sessions</span>
 
                 {isLoading ? (
-                  <div className="py-2 flex text-sm text-secondary">
+                  <div className="flex py-2 text-sm text-secondary">
                     Loading...{" "}
-                    <RefreshCcw className="w-4 h-4 inline-block ml-2 animate-spin" />
+                    <RefreshCcw className="ml-2 inline-block h-4 w-4 animate-spin" />
                   </div>
                 ) : (
-                  <span className="py-2 bg-accent/10 text-sm text-secondary rounded">
+                  <span className="bg-accent/10 rounded py-2 text-sm text-secondary">
                     {sortedSessions.length}
                   </span>
                 )}
+              </div>
+
+              {/* DEV: Toggle view mode */}
+              <div className="flex gap-1">
+                <Button
+                  variant={sessionsViewMode === "list" ? "primary" : "tertiary"}
+                  size="sm"
+                  icon={<AlignJustify className="h-4 w-4" />}
+                  onClick={() => setSessionsViewMode("list")}
+                  title="List View"
+                  className="min-w-[28px] !p-1"
+                />
+                <Button
+                  variant={
+                    sessionsViewMode === "dashboard" ? "primary" : "tertiary"
+                  }
+                  size="sm"
+                  icon={<LayoutGrid className="h-4 w-4" />}
+                  onClick={() => setSessionsViewMode("dashboard")}
+                  title="Dashboard View"
+                  className="min-w-[28px] !p-1"
+                />
               </div>
             </div>
 
@@ -254,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     className="w-full"
                     variant="primary"
                     size="md"
-                    icon={<Plus className="w-4 h-4" />}
+                    icon={<Plus className="h-4 w-4" />}
                     onClick={() => onEditSession()}
                     disabled={isLoading}
                   >
@@ -264,53 +191,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
 
-            <div className="overflow-y-auto h-[calc(100%-200px)] scroll">
-              {sortedSessions.length === 0 ? (
-                <div className="p-2 mr-2 text-center text-secondary text-sm border border-dashed rounded">
-                  <InfoIcon className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
-                  No recent sessions found
-                </div>
-              ) : (
-                <>
-                  {groupedSessions.today.length > 0 && (
-                    <div>
-                      <div className="py-2 text-sm text-secondary">Today</div>
-                      {renderSessionGroup(groupedSessions.today)}
-                    </div>
-                  )}
-                  {groupedSessions.yesterday.length > 0 && (
-                    <div>
-                      <div className="py-2 text-sm text-secondary">
-                        Yesterday
-                      </div>
-                      {renderSessionGroup(groupedSessions.yesterday)}
-                    </div>
-                  )}
-                  {groupedSessions.last7Days.length > 0 && (
-                    <div>
-                      <div className="py-2 text-sm text-secondary">
-                        Last 7 Days
-                      </div>
-                      {renderSessionGroup(groupedSessions.last7Days)}
-                    </div>
-                  )}
-                  {groupedSessions.last30Days.length > 0 && (
-                    <div>
-                      <div className="py-2 text-sm text-secondary">
-                        Last 30 Days
-                      </div>
-                      {renderSessionGroup(groupedSessions.last30Days)}
-                    </div>
-                  )}
-                  {groupedSessions.older.length > 0 && (
-                    <div>
-                      <div className="py-2 text-sm text-secondary">Older</div>
-                      {renderSessionGroup(groupedSessions.older)}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+            {sessionsViewMode === "list" ? (
+              <SessionList
+                sortedSessions={sortedSessions}
+                groupedSessions={groupedSessions}
+                currentSession={currentSession}
+                isLoading={isLoading}
+                onSelectSession={onSelectSession}
+                onEditSession={onEditSession}
+                onStopSession={onStopSession}
+                onDeleteSession={onDeleteSession}
+                sessionRunStatuses={sessionRunStatuses}
+              />
+            ) : (
+              <SessionDashboard
+                sortedSessions={sortedSessions}
+                groupedSessions={groupedSessions}
+                currentSession={currentSession}
+                isLoading={isLoading}
+                onSelectSession={onSelectSession}
+                onEditSession={onEditSession}
+                onStopSession={onStopSession}
+                onDeleteSession={onDeleteSession}
+                sessionRunStatuses={sessionRunStatuses}
+              />
+            )}
           </>
         }
       </div>
@@ -323,7 +228,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     groupedSessions,
     isLoading,
     onEditSession,
-    renderSessionGroup,
+    onSelectSession,
+    onStopSession,
+    onDeleteSession,
+    sessionRunStatuses,
+    currentSession,
+    sessionsViewMode,
   ]);
 
   return sidebarContent;

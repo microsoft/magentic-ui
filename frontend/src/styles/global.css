@@ -13,16 +13,16 @@
   --color-border-primary: #ffffff30;
   --color-border-secondary: #e5e5e530;
   --color-border-accent: #1a1a1a;
-  --color-warning-primary: #F6A147;
+  --color-warning-primary: #f6a147;
   --color-text-message: #000000;
 
-  --color-magenta-400: #F2E5F2;
-  --color-magenta-700: #EECBEE;
-  --color-magenta-800: #BF3AC3;
-  --color-magenta-900: #953CA3;
+  --color-magenta-400: #f2e5f2;
+  --color-magenta-700: #eecbee;
+  --color-magenta-800: #bf3ac3;
+  --color-magenta-900: #953ca3;
 
-  --color-blue-400: #EDF4FB;
-  --color-blue-700: #A0D6FF;
+  --color-blue-400: #edf4fb;
+  --color-blue-700: #a0d6ff;
   --color-blue-800: #0078d4;
   --color-blue-900: #0062ad;
 
@@ -45,16 +45,16 @@
   --color-border-primary: #e2e8f0;
   --color-border-secondary: #edf2f7;
   --color-border-accent: #444444;
-  --color-warning-primary: #F6A147;
+  --color-warning-primary: #f6a147;
   --color-text-message: #000000;
 
-  --color-magenta-400: #F2E5F2;
-  --color-magenta-700: #EECBEE;
-  --color-magenta-800: #BF3AC3;
-  --color-magenta-900: #953CA3;
+  --color-magenta-400: #f2e5f2;
+  --color-magenta-700: #eecbee;
+  --color-magenta-800: #bf3ac3;
+  --color-magenta-900: #953ca3;
 
-  --color-blue-400: #EDF4FB;
-  --color-blue-700: #A0D6FF;
+  --color-blue-400: #edf4fb;
+  --color-blue-700: #a0d6ff;
   --color-blue-800: #0078d4;
   --color-blue-900: #0062ad;
 
@@ -95,23 +95,23 @@ html {
   /* display: table; */
   margin: auto;
   height: 100%;
-  font-family: "Segoe UI", "Open Sans", sans-serif;;
+  font-size: 16px !important; /* Keep rem base at 16px for Tailwind spacing */
+  font-family: "Segoe UI", "Open Sans", sans-serif;
 }
 
 body {
-  padding: 0px 64px 0px 64px;
-  @apply px-4 md:px-8 lg:px-16 w-full !important;
+  padding: 0;
+  @apply w-full !important;
   margin: 0px auto;
   background: transparent;
   /* border: 2px solid green; */
   width: 100%;
   height: 100%;
-  font-size: 0.9rem; /* Ensure consistent font size */
-  font-family: "Segoe UI", "Open Sans", sans-serif;;
+  font-family: "Segoe UI", "Open Sans", sans-serif;
 }
 
 * {
-  font-size: 0.9rem;
+  font-size: 13px !important; /* Ensure consistent font size; using px to avoid affecting rem-based spacing */
 }
 
 /* @import "antd/dist/antd.css"; */
@@ -284,7 +284,7 @@ a:hover {
 }
 
 .vega-embed {
-  @apply bg-primary rounded !important;
+  @apply rounded bg-primary !important;
 }
 
 .ant-upload-list,
@@ -296,7 +296,7 @@ a:hover {
 }
 
 .ant-upload {
-  @apply text-primary px-2  !important;
+  @apply px-2 text-primary !important;
   border-radius: 4px !important;
 }
 .ant-upload:hover {
@@ -320,10 +320,10 @@ a:hover {
 .ant-pagination .ant-pagination-item,
 .ant-select-selector,
 .ant-btn-variant-outlined {
-  @apply bg-primary  !important;
+  @apply bg-primary !important;
 }
 .ant-pagination .ant-pagination-item-active a {
-  @apply text-accent  !important;
+  @apply text-accent !important;
 }
 .ant-pagination .ant-pagination-item-active {
   @apply border-accent text-accent !important;
@@ -358,7 +358,7 @@ a:hover {
   @apply bg-accent text-white drop-shadow-md !important;
 }
 .ant-modal-close {
-  @apply text-primary   duration-200   !important;
+  @apply text-primary duration-200 !important;
 }
 
 .ant-radio,
@@ -392,16 +392,16 @@ a:hover {
 }
 
 .ant-collapse {
-  @apply bg-secondary border-primary !important;
+  @apply border-primary bg-secondary !important;
 }
 
 .ant-collapse-header {
-  @apply bg-primary text-primary border-primary !important;
+  @apply border-primary bg-primary text-primary !important;
   align-items: center !important;
 }
 
 .ant-collapse-content {
-  @apply bg-primary border-primary !important;
+  @apply border-primary bg-primary !important;
 }
 
 .ant-collapse-item {

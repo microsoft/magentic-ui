@@ -116,7 +116,7 @@ export const SessionManager: React.FC = () => {
         const updated = await sessionAPI.updateSession(
           sessionData.id,
           sessionData,
-          user.email
+          user.email,
         );
         setSessions(sessions.map((s) => (s.id === updated.id ? updated : s)));
         if (session?.id === updated.id) {
@@ -136,7 +136,7 @@ export const SessionManager: React.FC = () => {
                 minute: "2-digit",
               }),
           },
-          user.email
+          user.email,
         );
         setSessions([created, ...sessions]);
         setSession(created);
@@ -242,7 +242,7 @@ export const SessionManager: React.FC = () => {
         const updated = await sessionAPI.updateSession(
           sessionData.id,
           sessionData,
-          user.email
+          user.email,
         );
         setSessions(sessions.map((s) => (s.id === updated.id ? updated : s)));
         if (session?.id === updated.id) {
@@ -298,7 +298,7 @@ export const SessionManager: React.FC = () => {
     sessionId: number,
     runId: string,
     fresh_socket: boolean = false,
-    only_retrieve_existing_socket: boolean = false
+    only_retrieve_existing_socket: boolean = false,
   ): WebSocket | null => {
     if (fresh_socket) {
       return setupWebSocket(sessionId, runId);
@@ -342,14 +342,14 @@ export const SessionManager: React.FC = () => {
           day: "numeric",
           hour: "2-digit",
           minute: "2-digit",
-        }
+        },
       )}`;
 
       const created = await sessionAPI.createSession(
         {
           name: defaultName,
         },
-        user.email
+        user.email,
       );
 
       setSessions([created, ...sessions]);
@@ -434,7 +434,7 @@ export const SessionManager: React.FC = () => {
   const handleCreateSessionFromPlan = (
     sessionId: number,
     sessionName: string,
-    planData: any
+    planData: any,
   ) => {
     // First select the session
     handleSelectSession({ id: sessionId } as Session);
@@ -448,13 +448,13 @@ export const SessionManager: React.FC = () => {
             sessionId: sessionId,
             messageId: `plan_${Date.now()}`,
           },
-        })
+        }),
       );
     }, 2000); // Give time for session selection to complete
   };
 
   return (
-    <div className="relative flex flex-col h-full w-full">
+    <div className="relative flex h-full w-full flex-col">
       {contextHolder}
 
       <ContentHeader
@@ -465,10 +465,10 @@ export const SessionManager: React.FC = () => {
         onNewSession={() => handleEditSession()}
       />
 
-      <div className="flex flex-1 relative">
+      <div className="relative flex flex-1">
         <div
           className={`absolute left-0 top-0 h-full transition-all duration-200 ease-in-out ${
-            isSidebarOpen ? "w-77" : "w-0"
+            isSidebarOpen ? "w-[360px]" : "w-0"
           }`}
         >
           <Sidebar
@@ -493,7 +493,7 @@ export const SessionManager: React.FC = () => {
                   JSON.stringify({
                     type: "stop",
                     reason: "Cancelled by user (sidebar)",
-                  })
+                  }),
                 );
                 ws.close();
               }
@@ -506,17 +506,16 @@ export const SessionManager: React.FC = () => {
         </div>
 
         <div
-          className={`flex-1 transition-all -mr-4 duration-200 w-[200px] ${
-            isSidebarOpen ? "ml-64" : "ml-0"
+          className={`-mr-4 w-[200px] flex-1 pl-4 pr-4 transition-all duration-200 sm:pl-6 sm:pr-6 md:pl-9 md:pr-[42px] ${
+            isSidebarOpen ? "ml-[360px]" : "ml-0"
           }`}
         >
-          {
-          activeSubMenuItem === "mcp_servers" ? (
-            <div className="h-full overflow-hidden pl-4">
+          {activeSubMenuItem === "mcp_servers" ? (
+            <div className="h-full overflow-hidden">
               <McpServersList />
             </div>
           ) : activeSubMenuItem === "saved_plan" ? (
-            <div className="h-full overflow-hidden pl-4">
+            <div className="h-full overflow-hidden">
               <PlanList
                 onTabChange={setActiveSubMenuItem}
                 onSelectSession={handleSelectSession}
@@ -524,9 +523,9 @@ export const SessionManager: React.FC = () => {
               />
             </div>
           ) : session && sessions.length > 0 ? (
-            <div className="pl-4">{chatViews}</div>
+            <div>{chatViews}</div>
           ) : (
-            <div className="flex items-center justify-center h-full text-secondary">
+            <div className="flex h-full items-center justify-center text-secondary">
               <Spin size="large" tip={"Loading..."} />
             </div>
           )}

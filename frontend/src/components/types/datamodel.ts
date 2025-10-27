@@ -94,6 +94,14 @@ export interface Session extends DBModel {
   selected_mcp_configs?: any[];
 }
 
+export interface GroupedSessions {
+  today: Session[];
+  yesterday: Session[];
+  last7Days: Session[];
+  last30Days: Session[];
+  older: Session[];
+}
+
 export interface SessionRuns {
   runs: Run[];
 }

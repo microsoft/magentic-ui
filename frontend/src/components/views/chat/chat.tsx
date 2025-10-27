@@ -46,7 +46,7 @@ interface ChatViewProps {
     sessionId: number,
     runId: string,
     fresh_socket: boolean,
-    only_retrieve_existing_socket: boolean
+    only_retrieve_existing_socket: boolean,
   ) => WebSocket | null;
   visible?: boolean;
   onRunStatusChange: (sessionId: number, status: BaseRunStatus) => void;
@@ -100,17 +100,18 @@ export default function ChatView({
     React.useState(true);
   const [showDetailViewer, setShowDetailViewer] = React.useState(true);
   const [hasFinalAnswer, setHasFinalAnswer] = React.useState(false);
-  
-  // MCP Server selection state - lifted from ChatInput
-  const [selectedMcpServers, setSelectedMcpServers] = React.useState<string[]>([]);
 
+  // MCP Server selection state - lifted from ChatInput
+  const [selectedMcpServers, setSelectedMcpServers] = React.useState<string[]>(
+    [],
+  );
 
   // Context and config
   const [activeSocket, setActiveSocket] = React.useState<WebSocket | null>(
-    null
+    null,
   );
   const [teamConfig, setTeamConfig] = React.useState<TeamConfig | null>(
-    defaultTeamConfig
+    defaultTeamConfig,
   );
 
   const inputTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -133,7 +134,7 @@ export default function ChatView({
   const createMessage = (
     config: AgentMessageConfig,
     runId: string,
-    sessionId: number
+    sessionId: number,
   ): Message => ({
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -171,11 +172,14 @@ export default function ChatView({
         activeSocketRef.current = null;
 
         // Restore previously selected MCP servers from session
-        if (session.selected_mcp_configs && session.selected_mcp_configs.length > 0) {
+        if (
+          session.selected_mcp_configs &&
+          session.selected_mcp_configs.length > 0
+        ) {
           // Extract server names from saved configs for UI state
-          const serverNames = session.selected_mcp_configs.map(config => 
-            config.name || config.id
-          ).filter(Boolean);
+          const serverNames = session.selected_mcp_configs
+            .map((config) => config.name || config.id)
+            .filter(Boolean);
           setSelectedMcpServers(serverNames);
         } else {
           setSelectedMcpServers([]);
@@ -235,7 +239,7 @@ export default function ChatView({
       return () => {
         window.removeEventListener(
           "planReady",
-          handlePlanReady as EventListener
+          handlePlanReady as EventListener,
         );
       };
     }
@@ -356,7 +360,7 @@ export default function ChatView({
           const newMessage = createMessage(
             message.data as AgentMessageConfig,
             current.id,
-            session.id
+            session.id,
           );
 
           return {
@@ -411,8 +415,8 @@ export default function ChatView({
             message.status === "complete"
               ? "complete"
               : message.status === "error"
-              ? "error"
-              : "stopped";
+                ? "error"
+                : "stopped";
 
           const isTeamResult = (data: any): data is TeamResult => {
             return (
@@ -487,7 +491,7 @@ export default function ChatView({
   const processFiles = async (
     files: RcFile[],
     runId: number,
-    errorMessage: string = "File upload failed. Continuing with task..."
+    errorMessage: string = "File upload failed. Continuing with task...",
   ) => {
     let processedFiles: Array<{
       name: string;
@@ -521,7 +525,7 @@ export default function ChatView({
                 size: uploadedFile.size,
               };
             }
-          })
+          }),
         );
       } catch (error) {
         console.error("File upload failed:", error);
@@ -541,7 +545,7 @@ export default function ChatView({
     response: string,
     files: RcFile[] = [],
     accepted = false,
-    plan?: IPlan
+    plan?: IPlan,
   ) => {
     if (!currentRun || !activeSocketRef.current) {
       handleError(new Error("WebSocket connection not available"));
@@ -558,7 +562,7 @@ export default function ChatView({
       const processedFiles = await processFiles(
         files,
         Number(currentRun.id),
-        "File upload failed. Continuing with response..."
+        "File upload failed. Continuing with response...",
       );
 
       // Check if the last message is a plan
@@ -593,7 +597,7 @@ export default function ChatView({
           type: "input_response",
           response: responseString,
           files: processedFiles,
-        })
+        }),
       );
 
       setCurrentRun((current: Run | null) => {
@@ -641,7 +645,7 @@ export default function ChatView({
         JSON.stringify({
           type: "input_response",
           response: responseString,
-        })
+        }),
       );
     } catch (error) {
       handleError(error);
@@ -661,7 +665,7 @@ export default function ChatView({
         JSON.stringify({
           type: "stop",
           reason: "Cancelled by user",
-        })
+        }),
       );
 
       setCurrentRun((current: Run | null) => {
@@ -696,7 +700,7 @@ export default function ChatView({
       activeSocketRef.current.send(
         JSON.stringify({
           type: "pause",
-        })
+        }),
       );
 
       setCurrentRun((current: Run | null) => {
@@ -715,7 +719,7 @@ export default function ChatView({
     query: string,
     files: RcFile[] = [],
     plan?: IPlan,
-    fresh_socket: boolean = false
+    fresh_socket: boolean = false,
   ) => {
     setError(null);
     setNoMessagesYet(false);
@@ -735,82 +739,100 @@ export default function ChatView({
       // Load latest settings from database
       let currentSettings = settingsConfig;
       let savedMcpConfigs = session?.selected_mcp_configs || [];
-      
+
       if (user?.email) {
         try {
           currentSettings = (await settingsAPI.getSettings(
-            user.email
+            user.email,
           )) as GeneralConfig;
-          
+
           // Use saved session configs or filter current settings based on selection
           let mcpConfigsToUse = currentSettings.mcp_agent_configs;
-          
+
           if (selectedMcpServers.length > 0) {
             // Prefer saved session configs if available, otherwise filter current settings
-            if (session?.selected_mcp_configs && session.selected_mcp_configs.length > 0) {
+            if (
+              session?.selected_mcp_configs &&
+              session.selected_mcp_configs.length > 0
+            ) {
               mcpConfigsToUse = session.selected_mcp_configs;
               savedMcpConfigs = session.selected_mcp_configs;
             } else {
               // Filter current settings and save to session for future use
-              const selectedConfigs = currentSettings.mcp_agent_configs.filter(config => 
-                selectedMcpServers.includes(config.name || config.id)
+              const selectedConfigs = currentSettings.mcp_agent_configs.filter(
+                (config) =>
+                  selectedMcpServers.includes(config.name || config.id),
               );
-              
+
               mcpConfigsToUse = selectedConfigs;
               savedMcpConfigs = selectedConfigs;
-              
+
               // Save the FULL configs to session
               if (session?.id) {
                 try {
-                  await sessionAPI.updateSession(session.id, {
-                    selected_mcp_configs: selectedConfigs
-                  }, user.email);
-                  
+                  await sessionAPI.updateSession(
+                    session.id,
+                    {
+                      selected_mcp_configs: selectedConfigs,
+                    },
+                    user.email,
+                  );
+
                   // Update local session state
                   onSessionNameChange({
                     id: session.id,
-                    selected_mcp_configs: selectedConfigs
+                    selected_mcp_configs: selectedConfigs,
                   });
                 } catch (error) {
-                  console.error("Failed to save MCP configs to session:", error);
+                  console.error(
+                    "Failed to save MCP configs to session:",
+                    error,
+                  );
                 }
               }
             }
-            
+
             // Use the determined configs
             currentSettings = {
               ...currentSettings,
-              mcp_agent_configs: mcpConfigsToUse
+              mcp_agent_configs: mcpConfigsToUse,
             };
           } else {
             // No MCP servers selected - use empty array and save empty state
             mcpConfigsToUse = [];
             savedMcpConfigs = [];
-            
+
             // Save empty selection to session
             if (session?.id) {
               try {
-                await sessionAPI.updateSession(session.id, {
-                  selected_mcp_configs: []
-                }, user.email);
-                
+                await sessionAPI.updateSession(
+                  session.id,
+                  {
+                    selected_mcp_configs: [],
+                  },
+                  user.email,
+                );
+
                 // Update local session state
                 onSessionNameChange({
                   id: session.id,
-                  selected_mcp_configs: []
+                  selected_mcp_configs: [],
                 });
               } catch (error) {
-                console.error("Failed to save empty MCP configs to session:", error);
+                console.error(
+                  "Failed to save empty MCP configs to session:",
+                  error,
+                );
               }
             }
-            
+
             // Use empty MCP configs
             currentSettings = {
               ...currentSettings,
-              mcp_agent_configs: []
+              mcp_agent_configs: [],
             };
           }
-          
+
           useSettingsStore.getState().updateConfig(currentSettings);
         } catch (error) {
           console.error("Failed to load settings:", error);
@@ -866,7 +888,7 @@ export default function ChatView({
           files: processedFiles,
           team_config: teamConfig,
           settings_config: currentSettings,
-        })
+        }),
       );
       const sessionData = {
         id: session?.id,
@@ -886,7 +908,7 @@ export default function ChatView({
   const setupWebSocket = (
     runId: string,
     fresh_socket: boolean = false,
-    only_retrieve_existing_socket: boolean = false
+    only_retrieve_existing_socket: boolean = false,
   ): WebSocket | null => {
     if (!session?.id) {
       throw new Error("Invalid session configuration");
@@ -896,7 +918,7 @@ export default function ChatView({
       session.id,
       runId,
       fresh_socket,
-      only_retrieve_existing_socket
+      only_retrieve_existing_socket,
     );
     if (!socket) {
       return null;
@@ -1007,7 +1029,7 @@ export default function ChatView({
       plan.sessionId = session?.id || undefined; // Ensure session ID is set
       processPlan(plan);
     },
-    [processPlan]
+    [processPlan],
   );
 
   // Update effect to extract full plan
@@ -1048,7 +1070,7 @@ export default function ChatView({
     const lastFinalAnswerIndex = currentRun.messages.findLastIndex(
       (msg: Message) =>
         typeof msg.config.content === "string" &&
-        messageUtils.isFinalAnswer(msg.config.metadata)
+        messageUtils.isFinalAnswer(msg.config.metadata),
     );
 
     // Calculate step progress only for messages after the last final answer
@@ -1086,12 +1108,12 @@ export default function ChatView({
     if (hasFinalAnswer) {
       // Look for plans after the final answer
       const messagesAfterFinalAnswer = currentRun.messages.slice(
-        lastFinalAnswerIndex + 1
+        lastFinalAnswerIndex + 1,
       );
       const hasPlanAfterFinalAnswer = messagesAfterFinalAnswer.some(
         (msg) =>
           typeof msg.config.content === "string" &&
-          messageUtils.isPlanMessage(msg.config.metadata)
+          messageUtils.isPlanMessage(msg.config.metadata),
       );
 
       if (hasPlanAfterFinalAnswer) {
@@ -1109,7 +1131,7 @@ export default function ChatView({
       const hasPlan = recentMessages.some(
         (msg: Message) =>
           typeof msg.config.content === "string" &&
-          messageUtils.isPlanMessage(msg.config.metadata)
+          messageUtils.isPlanMessage(msg.config.metadata),
       );
 
       setHasFinalAnswer(false);
@@ -1159,9 +1181,9 @@ export default function ChatView({
   }
 
   return (
-    <div className="text-primary h-[calc(100vh-100px)] bg-primary relative rounded flex-1 scroll w-full">
+    <div className="scroll relative h-[calc(100vh-100px)] w-full flex-1 rounded bg-primary text-primary">
       {contextHolder}
-      <div className="flex flex-col h-full w-full">
+      <div className="flex h-full w-full flex-col">
         {/* Progress Bar - Sticky at top */}
         <div className="progress-container" style={{ height: "3.5rem" }}>
           <div
@@ -1186,7 +1208,7 @@ export default function ChatView({
 
         <div
           ref={chatContainerRef}
-          className={`flex-1 overflow-y-auto scroll mt-1 min-h-0 relative w-full h-full ${
+          className={`scroll relative mt-1 h-full min-h-0 w-full flex-1 overflow-y-auto ${
             noMessagesYet && currentRun
               ? "flex items-center justify-center"
               : ""
@@ -1197,9 +1219,7 @@ export default function ChatView({
               showDetailViewer && !isDetailViewerMinimized
                 ? "w-full"
                 : "max-w-full md:max-w-5xl lg:max-w-6xl xl:max-w-7xl"
-            } mx-auto px-4 sm:px-6 md:px-8 h-full ${
-              noMessagesYet && currentRun ? "hidden" : ""
-            }`}
+            } mx-auto h-full ${noMessagesYet && currentRun ? "hidden" : ""}`}
           >
             {
               <>
@@ -1241,9 +1261,9 @@ export default function ChatView({
                 showDetailViewer && !isDetailViewerMinimized
                   ? "w-full"
                   : "w-full max-w-full md:max-w-4xl lg:max-w-5xl xl:max-w-6xl"
-              } mx-auto px-4 sm:px-6 md:px-8`}
+              } mx-auto`}
             >
-              <div className="text-secondary text-lg mb-6">
+              <div className="mb-6 text-lg text-secondary">
                 Enter a message to get started
               </div>
 
@@ -1254,7 +1274,7 @@ export default function ChatView({
                     query: string,
                     files: RcFile[],
                     accepted = false,
-                    plan?: IPlan
+                    plan?: IPlan,
                   ) => {
                     if (
                       currentRun?.status === "awaiting_input" ||
@@ -1276,7 +1296,8 @@ export default function ChatView({
                   onSubMenuChange={onSubMenuChange}
                   mcpSelectorDisabled={
                     currentRun?.status === "awaiting_input" ||
-                    currentRun?.status === "paused"}
+                    currentRun?.status === "paused"
+                  }
                   selectedMcpServers={selectedMcpServers}
                   onSelectedMcpServersChange={setSelectedMcpServers}
                 />
@@ -1288,7 +1309,7 @@ export default function ChatView({
                     chatInputRef.current.focus();
                     // Set value in textarea
                     const textarea = document.getElementById(
-                      "queryInput"
+                      "queryInput",
                     ) as HTMLTextAreaElement;
                     if (textarea) {
                       textarea.value = task;
