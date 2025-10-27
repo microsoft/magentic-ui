@@ -30,42 +30,51 @@ const ContentHeader = ({
   return (
     <div className="sticky top-0 bg-primary">
       <div className="flex h-16 items-center justify-between">
-        {/* Left side: Text and Sidebar Controls */}
-        <div className="flex items-center">
-          {/* Sidebar Toggle */}
-          <Tooltip title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}>
-            <Button
-              variant="tertiary"
-              size="sm"
-              icon={
-                isSidebarOpen ? (
-                  <PanelLeftClose strokeWidth={1.5} className="h-6 w-6" />
-                ) : (
-                  <PanelLeftOpen strokeWidth={1.5} className="h-6 w-6" />
-                )
-              }
-              onClick={onToggleSidebar}
-              className="!px-0 transition-colors hover:text-accent"
-            />
-          </Tooltip>
+        {/* Left side: Logo and Title (aligned with sidebar) */}
+        <div className="flex items-center gap-2">
+          <div className="flex w-[360px] items-center">
+            <div className="flex items-center gap-3 px-3">
+              <img
+                src={logo}
+                alt="Magentic-UI Logo"
+                className="h-[55px] w-[55px]"
+              />
+              <div className="text-[20px] font-semibold text-primary">
+                Magentic-UI
+              </div>
+            </div>
 
-          {/* New Session Button */}
-          <div className="w-[40px]">
+            {/* Sidebar closed: show new session button */}
             {!isSidebarOpen && (
               <Tooltip title="Create new session">
                 <Button
                   variant="tertiary"
                   size="sm"
-                  icon={<Plus className="w-6 h-6" />}
+                  icon={<Plus className="h-6 w-6" />}
                   onClick={onNewSession}
                   className="transition-colors hover:text-accent"
                 />
               </Tooltip>
             )}
-          </div>
-          <div className="flex items-center space-x-2">
-            <img src={logo} alt="Magentic-UI Logo" className="h-10 w-10" />
-            <div className="text-primary text-2xl font-bold">Magentic-UI</div>
+
+            {/* Sidebar Toggle - aligned to right edge of sidebar */}
+            <div className="ml-auto pr-3">
+              <Tooltip title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}>
+                <Button
+                  variant="tertiary"
+                  size="sm"
+                  icon={
+                    isSidebarOpen ? (
+                      <PanelLeftClose strokeWidth={1.5} className="h-6 w-6" />
+                    ) : (
+                      <PanelLeftOpen strokeWidth={1.5} className="h-6 w-6" />
+                    )
+                  }
+                  onClick={onToggleSidebar}
+                  className="!px-0 transition-colors hover:text-accent"
+                />
+              </Tooltip>
+            </div>
           </div>
         </div>
 
@@ -75,7 +84,7 @@ const ContentHeader = ({
           {user && (
             <Tooltip title="View or update your profile">
               <div
-                className="flex items-center space-x-2 cursor-pointer"
+                className="flex cursor-pointer items-center space-x-2"
                 onClick={() => setIsEmailModalOpen(true)}
               >
                 {user.avatar_url ? (
@@ -85,7 +94,7 @@ const ContentHeader = ({
                     alt={user.name}
                   />
                 ) : (
-                  <div className="bg-blue-400 h-8 w-8 rounded-full flex items-center justify-center text-gray-800 font-semibold hover:text-message">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-400 font-semibold text-gray-800 hover:text-message">
                     {user.name?.[0]}
                   </div>
                 )}

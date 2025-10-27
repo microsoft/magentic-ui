@@ -50,10 +50,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSubMenuChange,
   onStopSession,
 }) => {
-  // DEV: Toggle between SessionList and SessionDashboard
+  // Session view mode: active, needs_attention, or history
   const [sessionsViewMode, setSessionsViewMode] = useState<
-    "list" | "dashboard"
-  >("list");
+    "active" | "needs_attention" | "history"
+  >("active");
 
   // Group sessions by time period
   const groupSessions = (sessions: Session[]): GroupedSessions => {
@@ -107,13 +107,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
     [sortedSessions],
   );
 
+  // Filter sessions based on current tab
+  const filteredSessions = useMemo(() => {
+    // TODO: Enable filtering once requirements are finalized
+    // if (sessionsViewMode === "active") {
+    //   // Active: sessions that are currently running
+    //   return sortedSessions.filter((s) => {
+    //     const status = s.id ? sessionRunStatuses[s.id] : undefined;
+    //     return status && ["active", "awaiting_input", "pausing", "paused"].includes(status);
+    //   });
+    // } else if (sessionsViewMode === "needs_attention") {
+    //   // Needs Attention: sessions awaiting input or paused
+    //   return sortedSessions.filter((s) => {
+    //     const status = s.id ? sessionRunStatuses[s.id] : undefined;
+    //     return status && ["awaiting_input", "paused"].includes(status);
+    //   });
+    // } else {
+    //   // History: all sessions
+    //   return sortedSessions;
+    // }
+
+    // For now, show all sessions regardless of tab
+    return sortedSessions;
+  }, [sortedSessions, sessionsViewMode, sessionRunStatuses]);
+
   const sidebarContent = useMemo(() => {
     if (!isOpen) {
       return null;
     }
 
     return (
-      <div className="h-full w-full overflow-hidden border-r border-secondary">
+      <div className="h-full w-full overflow-hidden border-r border-secondary px-3">
         <div className="mb-4">
           <SubMenu
             items={[
@@ -137,63 +161,75 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <>
             <div className="flex items-center justify-between border-secondary py-2">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-primary">Sessions</span>
+                <span className="text-xs font-semibold text-primary">
+                  Sessions
+                </span>
 
                 {isLoading ? (
-                  <div className="flex py-2 text-sm text-secondary">
+                  <div className="flex py-2 text-xs text-secondary">
                     Loading...{" "}
                     <RefreshCcw className="ml-2 inline-block h-4 w-4 animate-spin" />
                   </div>
                 ) : (
-                  <span className="bg-accent/10 rounded py-2 text-sm text-secondary">
+                  <span className="text-xs text-secondary">
                     {sortedSessions.length}
                   </span>
                 )}
               </div>
 
-              {/* DEV: Toggle view mode */}
-              <div className="flex gap-1">
-                <Button
-                  variant={sessionsViewMode === "list" ? "primary" : "tertiary"}
-                  size="sm"
-                  icon={<AlignJustify className="h-4 w-4" />}
-                  onClick={() => setSessionsViewMode("list")}
-                  title="List View"
-                  className="min-w-[28px] !p-1"
-                />
-                <Button
-                  variant={
-                    sessionsViewMode === "dashboard" ? "primary" : "tertiary"
-                  }
-                  size="sm"
-                  icon={<LayoutGrid className="h-4 w-4" />}
-                  onClick={() => setSessionsViewMode("dashboard")}
-                  title="Dashboard View"
-                  className="min-w-[28px] !p-1"
-                />
+              {/* Session tabs */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setSessionsViewMode("active")}
+                  className={`rounded px-2 py-1 text-xs transition-colors ${
+                    sessionsViewMode === "active"
+                      ? "bg-magenta-active outline-magenta-900/50 text-magenta-700 outline outline-1"
+                      : "text-secondary hover:text-primary"
+                  }`}
+                >
+                  Active
+                </button>
+                <button
+                  onClick={() => setSessionsViewMode("needs_attention")}
+                  className={`rounded px-2 py-1 text-xs transition-colors ${
+                    sessionsViewMode === "needs_attention"
+                      ? "bg-magenta-active outline-magenta-900/50 text-magenta-700 outline outline-1"
+                      : "text-secondary hover:text-primary"
+                  }`}
+                >
+                  Needs Attention
+                </button>
+                <button
+                  onClick={() => setSessionsViewMode("history")}
+                  className={`rounded px-2 py-1 text-xs transition-colors ${
+                    sessionsViewMode === "history"
+                      ? "bg-magenta-active outline-magenta-900/50 text-magenta-700 outline outline-1"
+                      : "text-secondary hover:text-primary"
+                  }`}
+                >
+                  History
+                </button>
               </div>
             </div>
 
             <div className="my-4 flex text-sm">
-              <div className="mr-2 w-full">
-                <Tooltip title="Create new session">
-                  <Button
-                    className="w-full"
-                    variant="primary"
-                    size="md"
-                    icon={<Plus className="h-4 w-4" />}
-                    onClick={() => onEditSession()}
-                    disabled={isLoading}
-                  >
-                    New Session
-                  </Button>
-                </Tooltip>
-              </div>
+              <Tooltip title="Create new session">
+                <Button
+                  className="w-full"
+                  variant="primary"
+                  size="md"
+                  icon={<Plus className="h-4 w-4" />}
+                  onClick={() => onEditSession()}
+                  disabled={isLoading}
+                >
+                  New Session
+                </Button>
+              </Tooltip>
             </div>
 
-            {sessionsViewMode === "list" ? (
+            {sessionsViewMode === "history" ? (
               <SessionList
-                sortedSessions={sortedSessions}
+                sortedSessions={filteredSessions}
                 groupedSessions={groupedSessions}
                 currentSession={currentSession}
                 isLoading={isLoading}
@@ -205,7 +241,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               />
             ) : (
               <SessionDashboard
-                sortedSessions={sortedSessions}
+                sortedSessions={filteredSessions}
                 groupedSessions={groupedSessions}
                 currentSession={currentSession}
                 isLoading={isLoading}

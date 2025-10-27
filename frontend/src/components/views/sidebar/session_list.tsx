@@ -63,22 +63,20 @@ export const SessionList: React.FC<SessionListProps> = ({
                     : "cursor-pointer hover:bg-tertiary"
                 } ${
                   currentSession?.id === s.id
-                    ? " border-l-2 border-magenta-800 bg-secondary"
+                    ? "border-l-2 border-magenta-800 bg-secondary"
                     : ""
                 }`}
                 onClick={() => !isLoading && onSelectSession(s)}
               >
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <span className="truncate text-sm max-w-[140px]">
-                    {s.name}
-                  </span>
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="truncate text-sm">{s.name}</span>
                   {s.id && (
                     <SessionRunStatusIndicator
                       status={sessionRunStatuses[s.id]}
                     />
                   )}
                 </div>
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity w-8 justify-end flex-shrink-0">
+                <div className="flex w-8 flex-shrink-0 justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                   <Dropdown
                     trigger={["click"]}
                     overlay={
@@ -90,7 +88,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                             onEditSession(s);
                           }}
                         >
-                          <Edit className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />{" "}
+                          <Edit className="-mt-0.5 mr-1.5 inline-block h-4 w-4" />{" "}
                           Edit
                         </Menu.Item>
                         <Menu.Item
@@ -102,7 +100,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                           disabled={!isActive}
                           danger
                         >
-                          <StopCircle className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />{" "}
+                          <StopCircle className="-mt-0.5 mr-1.5 inline-block h-4 w-4" />{" "}
                           Disconnect
                         </Menu.Item>
                         <Menu.Item
@@ -113,7 +111,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                           }}
                           danger
                         >
-                          <Trash2 className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />{" "}
+                          <Trash2 className="-mt-0.5 mr-1.5 inline-block h-4 w-4" />{" "}
                           Delete
                         </Menu.Item>
                         <Menu.Item
@@ -132,9 +130,9 @@ export const SessionList: React.FC<SessionListProps> = ({
                     <Button
                       variant="tertiary"
                       size="sm"
-                      icon={<MoreVertical className="w-4 h-4" />}
+                      icon={<MoreVertical className="h-4 w-4" />}
                       onClick={(e) => e.stopPropagation()}
-                      className="!p-0 min-w-[24px] h-6"
+                      className="h-6 min-w-[24px] !p-0"
                     />
                   </Dropdown>
                 </div>
@@ -152,15 +150,15 @@ export const SessionList: React.FC<SessionListProps> = ({
       onStopSession,
       onEditSession,
       onDeleteSession,
-    ]
+    ],
   );
 
   const content = useMemo(
     () => (
-      <div className="overflow-y-auto h-[calc(100%-200px)] scroll">
+      <div className="scroll h-[calc(100%-200px)] overflow-y-auto">
         {sortedSessions.length === 0 ? (
-          <div className="p-2 mr-2 text-center text-secondary text-sm border border-dashed rounded">
-            <InfoIcon className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
+          <div className="mr-2 rounded border border-dashed p-2 text-center text-sm text-secondary">
+            <InfoIcon className="-mt-0.5 mr-1.5 inline-block h-4 w-4" />
             No recent sessions found
           </div>
         ) : (
@@ -199,7 +197,7 @@ export const SessionList: React.FC<SessionListProps> = ({
         )}
       </div>
     ),
-    [sortedSessions, groupedSessions, renderSessionGroup]
+    [sortedSessions, groupedSessions, renderSessionGroup],
   );
 
   return content;

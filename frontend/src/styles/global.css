@@ -111,7 +111,11 @@ body {
 }
 
 * {
-  font-size: 13px !important; /* Ensure consistent font size; using px to avoid affecting rem-based spacing */
+  font-size: 13px; /* Ensure consistent font size; using px to avoid affecting rem-based spacing */
+}
+
+.bg-magenta-active {
+  background-color: rgba(191, 58, 195, 0.2);
 }
 
 /* @import "antd/dist/antd.css"; */

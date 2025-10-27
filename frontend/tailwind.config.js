@@ -7,18 +7,18 @@ module.exports = {
   theme: {
     extend: {
       keyframes: {
-        'fade-in': {
-          '0%': { opacity: '0' },
-          '100%': { opacity: '1' },
+        "fade-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
         },
-        'scale-in': {
-          '0%': { transform: 'scale(0.95)', opacity: '0' },
-          '100%': { transform: 'scale(1)', opacity: '1' },
+        "scale-in": {
+          "0%": { transform: "scale(0.95)", opacity: "0" },
+          "100%": { transform: "scale(1)", opacity: "1" },
         },
       },
       animation: {
-        'fade-in': 'fade-in 0.1s ease-out',
-        'scale-in': 'scale-in 0.1s ease-out',
+        "fade-in": "fade-in 0.1s ease-out",
+        "scale-in": "scale-in 0.1s ease-out",
       },
       typography: {
         DEFAULT: {
@@ -44,8 +44,8 @@ module.exports = {
 
         "magenta-400": "var(--color-magenta-400)",
         "magenta-700": "var(--color-magenta-700)",
-        "magenta-800": "var(--color-magenta-900)",
-        "magenta-900": "var(--color-magenta-800)",
+        "magenta-800": "var(--color-magenta-800)",
+        "magenta-900": "var(--color-magenta-900)",
         "magenta-1000": "var(--color-magenta-1000)",
         "gray-700": "var(--color-gray-700)",
         "gray-800": "var(--color-gray-800)",
@@ -99,7 +99,6 @@ module.exports = {
         "magenta-900": "var(--color-magenta-900)",
         "gray-700": "var(--color-gray-700)",
         "gray-800": "var(--color-gray-800)",
-
       },
     },
   },
