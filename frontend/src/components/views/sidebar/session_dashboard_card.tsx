@@ -6,7 +6,11 @@ import {
   TriangleAlert,
   CornerDownRight,
 } from "lucide-react";
-import type { Session, SidebarRunStatus } from "../../types/datamodel";
+import type {
+  Session,
+  SidebarRunStatus,
+  InputRequest,
+} from "../../types/datamodel";
 import { SessionActionsMenu } from "./session_actions_menu";
 import { Button } from "../../common/Button";
 
@@ -42,6 +46,8 @@ interface SessionDashboardCardProps {
   isCurrent: boolean;
   isLoading?: boolean;
   status?: SidebarRunStatus;
+  inputRequest?: InputRequest;
+  errorMessage?: string;
   onSelect: () => void;
   onEdit: () => void;
   onStop: () => void;
@@ -54,6 +60,8 @@ export const SessionDashboardCard: React.FC<SessionDashboardCardProps> = ({
   isCurrent,
   isLoading = false,
   status = "created",
+  inputRequest,
+  errorMessage,
   onSelect,
   onEdit,
   onStop,
@@ -163,7 +171,6 @@ export const SessionDashboardCard: React.FC<SessionDashboardCardProps> = ({
   // TODO: Replace with actual data when backend provides:
   // - Step tracking (currentStep, totalSteps, stepDescription)
   // - Action count from Run messages
-  // - Detailed error messages from Run.error_message
   // - Progress calculation based on completed steps
   // ============================================================================
 
@@ -174,9 +181,14 @@ export const SessionDashboardCard: React.FC<SessionDashboardCardProps> = ({
   const currentStepDescription = "Look into existing code to...";
   const currentActionDescription = "Needs clarification: Framework...";
 
+  // Use actual data when available
   const additionalStatusMessage =
-    status === "awaiting_input" ? "Waiting for your input" : null;
-  const errorMessage = isError ? "Multiple failures - may need help" : null;
+    status === "awaiting_input"
+      ? inputRequest?.prompt || "Waiting for your input2"
+      : null;
+  const displayErrorMessage = isError
+    ? errorMessage || "An error occurred"
+    : null;
 
   return (
     <div
@@ -296,7 +308,7 @@ export const SessionDashboardCard: React.FC<SessionDashboardCardProps> = ({
       {/* Planning state message */}
       {isPlanning && (
         <div className="text-xs leading-4 text-[#99A1AF]">
-          Start chatting to make a plan
+          Enter a message to get started
         </div>
       )}
 
@@ -307,19 +319,19 @@ export const SessionDashboardCard: React.FC<SessionDashboardCardProps> = ({
           style={{ color: STATUS_COLOR.PAUSED }}
         >
           <Hand className="h-3 w-3 flex-shrink-0" />
-          <span>{additionalStatusMessage}</span>
+          <span className="truncate">{additionalStatusMessage}</span>
         </div>
       )}
 
       {/* Error message - only for error states */}
-      {isError && errorMessage && (
+      {isError && displayErrorMessage && (
         <div className="flex items-center justify-between">
           <div
             className="flex items-center gap-1.5 text-xs leading-4"
             style={{ color: STATUS_COLOR.ERROR }}
           >
             <TriangleAlert className="h-3 w-3 flex-shrink-0" />
-            <span>{errorMessage}</span>
+            <span className="truncate">{displayErrorMessage}</span>
           </div>
         </div>
       )}

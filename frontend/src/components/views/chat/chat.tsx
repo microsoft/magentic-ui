@@ -47,7 +47,11 @@ interface ChatViewProps {
     only_retrieve_existing_socket: boolean,
   ) => WebSocket | null;
   visible?: boolean;
-  onRunStatusChange: (sessionId: number, status: RunStatus) => void;
+  onRunStatusChange: (
+    sessionId: number,
+    status: RunStatus,
+    runData?: Partial<Run>,
+  ) => void;
   onSubMenuChange: React.Dispatch<React.SetStateAction<string>>;
 }
 
@@ -243,13 +247,13 @@ export default function ChatView({
     }
   }, [session?.id]);
 
-  // Add ref to track previous status
+  // Add ref to track previous status and run data
   const previousStatus = React.useRef<SidebarRunStatus | null>(null);
+  const previousRunData = React.useRef<Partial<Run> | null>(null);
 
   // Add effect to update run status when currentRun changes
   React.useEffect(() => {
     if (currentRun && session?.id) {
-      // Only call onRunStatusChange if the status has actually changed
       let statusToReport: SidebarRunStatus = currentRun.status;
       const lastMsg = currentRun.messages?.[currentRun.messages.length - 1];
       const beforeLastMsg =
@@ -268,8 +272,7 @@ export default function ChatView({
         statusToReport = "final_answer_awaiting_input";
       }
 
-      // Special case: if previous status was final_answer_awaiting_input and current is stopped,
-      // it means the input timed out - this is not an error, just expiration
+      // Check if we're in final_answer_stopped state
       if (
         previousStatus.current === "final_answer_awaiting_input" &&
         currentRun.status === "stopped"
@@ -277,21 +280,45 @@ export default function ChatView({
         statusToReport = "final_answer_stopped";
       }
 
-      if (statusToReport !== previousStatus.current) {
-        onRunStatusChange(session.id, statusToReport as RunStatus);
-        previousStatus.current = statusToReport; // Update the previous status
+      // Prepare run data
+      const runData: Partial<Run> = {
+        input_request: currentRun.input_request,
+        error_message: currentRun.error_message,
+      };
+
+      // Check if status or run data has actually changed
+      const statusChanged = statusToReport !== previousStatus.current;
+
+      // Deep comparison for input_request and error_message
+      const inputRequestChanged =
+        previousRunData.current?.input_request?.prompt !==
+          runData.input_request?.prompt ||
+        previousRunData.current?.input_request?.input_type !==
+          runData.input_request?.input_type;
+      const errorMessageChanged =
+        previousRunData.current?.error_message !== runData.error_message;
+      const runDataChanged = inputRequestChanged || errorMessageChanged;
+
+      // Only call onRunStatusChange if something actually changed
+      if (statusChanged || runDataChanged) {
+        onRunStatusChange(session.id, statusToReport as RunStatus, runData);
+        previousStatus.current = statusToReport;
+        previousRunData.current = runData;
+
         // Clear error state when status changes
-        setError(null);
+        if (statusChanged) {
+          setError(null);
+        }
       }
     }
   }, [
     currentRun?.status,
     currentRun?.messages,
+    currentRun?.input_request,
+    currentRun?.error_message,
     session?.id,
     onRunStatusChange,
-  ]);
-
-  // Track if user was at bottom before new messages
+  ]); // Track if user was at bottom before new messages
   const wasAtBottomRef = React.useRef(true);
 
   // Check if user is at bottom before messages change
@@ -363,6 +390,13 @@ export default function ChatView({
           }
           console.log("Error: ", message.error);
 
+          // Set error status and message
+          return {
+            ...current,
+            status: "error",
+            error_message: message.error || "An error occurred",
+          };
+
         case "message":
           if (!message.data) return current;
 
@@ -379,17 +413,19 @@ export default function ChatView({
           };
 
         case "input_request":
-          //console.log("InputRequest: " + JSON.stringify(message))
-
           var input_request: InputRequest;
+          var input_request_message = message as InputRequestMessage;
+
           switch (message.input_type) {
             case "text_input":
             case null:
             default:
-              input_request = { input_type: "text_input" };
+              input_request = {
+                input_type: "text_input",
+                prompt: input_request_message.prompt, // Extract prompt for text_input too
+              };
               break;
             case "approval":
-              var input_request_message = message as InputRequestMessage;
               input_request = {
                 input_type: "approval",
                 prompt: input_request_message.prompt,
@@ -447,6 +483,8 @@ export default function ChatView({
           return {
             ...current,
             status,
+            error_message:
+              status === "error" ? message.error || "Task failed" : undefined,
             team_result:
               message.data && isTeamResult(message.data) ? message.data : null,
           };

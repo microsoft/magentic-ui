@@ -4,6 +4,7 @@ import type {
   Session,
   GroupedSessions,
   SidebarRunStatus,
+  Run,
 } from "../../types/datamodel";
 import { SessionRunStatusIndicator } from "../statusicon";
 import { SessionActionsMenu } from "./session_actions_menu";
@@ -19,6 +20,7 @@ interface SessionListProps {
   onEditSession: (session?: Session) => void;
   onDeleteSession: (sessionId: number) => void;
   sessionRunStatuses: { [sessionId: number]: SidebarRunStatus };
+  sessionRunData: { [sessionId: number]: Partial<Run> };
 }
 
 export const SessionList: React.FC<SessionListProps> = ({
@@ -31,6 +33,7 @@ export const SessionList: React.FC<SessionListProps> = ({
   onEditSession,
   onDeleteSession,
   sessionRunStatuses,
+  sessionRunData,
 }) => {
   // Helper function to render session group
   const renderSessionGroup = useCallback(

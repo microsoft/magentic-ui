@@ -19,6 +19,7 @@ import type {
   Session,
   GroupedSessions,
   SidebarRunStatus,
+  Run,
 } from "../types/datamodel";
 import SubMenu from "../common/SubMenu";
 import { SessionList } from "./sidebar/session_list";
@@ -35,6 +36,7 @@ interface SidebarProps {
   onDeleteSession: (sessionId: number) => void;
   isLoading?: boolean;
   sessionRunStatuses: { [sessionId: number]: SidebarRunStatus };
+  sessionRunData: { [sessionId: number]: Partial<Run> };
   activeSubMenuItem: string;
   onSubMenuChange: (tabId: string) => void;
   onStopSession: (sessionId: number) => void;
@@ -50,6 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteSession,
   isLoading = false,
   sessionRunStatuses,
+  sessionRunData,
   activeSubMenuItem,
   onSubMenuChange,
   onStopSession,
@@ -123,6 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             "created",
             "active",
             "awaiting_input",
+            "error",
             "paused",
             "pausing",
             "resuming",
@@ -141,7 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       // History: all sessions
       return sortedSessions;
     }
-  }, [sortedSessions, sessionsViewMode, sessionRunStatuses]);
+  }, [sortedSessions, sessionsViewMode, sessionRunStatuses, sessionRunData]);
 
   const sidebarContent = useMemo(() => {
     if (!isOpen) {
@@ -247,6 +251,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onStopSession={onStopSession}
                 onDeleteSession={onDeleteSession}
                 sessionRunStatuses={sessionRunStatuses}
+                sessionRunData={sessionRunData}
               />
             ) : (
               <SessionDashboard
@@ -258,6 +263,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onStopSession={onStopSession}
                 onDeleteSession={onDeleteSession}
                 sessionRunStatuses={sessionRunStatuses}
+                sessionRunData={sessionRunData}
               />
             )}
           </>
@@ -270,12 +276,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onSubMenuChange,
     sortedSessions,
     groupedSessions,
+    filteredSessions,
     isLoading,
     onEditSession,
     onSelectSession,
     onStopSession,
     onDeleteSession,
     sessionRunStatuses,
+    sessionRunData,
     currentSession,
     sessionsViewMode,
   ]);

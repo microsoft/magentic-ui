@@ -8,13 +8,19 @@ import React, {
 import { message, Spin } from "antd";
 import { useConfigStore } from "../../hooks/store";
 import { appContext } from "../../hooks/provider";
+import { useWebSocketDebug } from "../../hooks/webSocketDebug";
 import { sessionAPI } from "./api";
 import { SessionEditor } from "./session_editor";
 import type { Session } from "../types/datamodel";
 import ChatView from "./chat/chat";
 import { Sidebar } from "./sidebar";
 import { getServerUrl } from "../utils";
-import { RunStatus, SidebarRunStatus } from "../types/datamodel";
+import {
+  RunStatus,
+  SidebarRunStatus,
+  Run,
+  InputRequest,
+} from "../types/datamodel";
 import ContentHeader from "../contentheader";
 import PlanList from "../features/Plans/PlanList";
 import McpServersList from "../features/McpServersConfig/McpServersList";
@@ -43,6 +49,9 @@ export const SessionManager: React.FC = () => {
   const [sessionSockets, setSessionSockets] = useState<SessionWebSockets>({});
   const [sessionRunStatuses, setSessionRunStatuses] = useState<{
     [sessionId: number]: SidebarRunStatus;
+  }>({});
+  const [sessionRunData, setSessionRunData] = useState<{
+    [sessionId: number]: Partial<Run>;
   }>({});
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSubMenuItem, setActiveSubMenuItem] = useState("");
@@ -325,11 +334,20 @@ export const SessionManager: React.FC = () => {
   const updateSessionRunStatus = (
     sessionId: number,
     status: SidebarRunStatus,
+    runData?: Partial<Run>,
   ) => {
     setSessionRunStatuses((prev) => ({
       ...prev,
       [sessionId]: status,
     }));
+
+    // Update run data if provided (e.g., input_request, error_message)
+    if (runData) {
+      setSessionRunData((prev) => ({
+        ...prev,
+        [sessionId]: { ...prev[sessionId], ...runData },
+      }));
+    }
   };
 
   const createDefaultSession = async () => {
@@ -434,6 +452,9 @@ export const SessionManager: React.FC = () => {
     };
   }, []); // Empty dependency array since we want this to run once on mount
 
+  // Enable debug tools in development mode
+  useWebSocketDebug(sessionSockets);
+
   const handleCreateSessionFromPlan = (
     sessionId: number,
     sessionName: string,
@@ -484,6 +505,7 @@ export const SessionManager: React.FC = () => {
             onDeleteSession={handleDeleteSession}
             isLoading={isLoading}
             sessionRunStatuses={sessionRunStatuses}
+            sessionRunData={sessionRunData}
             activeSubMenuItem={activeSubMenuItem}
             onSubMenuChange={setActiveSubMenuItem}
             onStopSession={(sessionId: number) => {
