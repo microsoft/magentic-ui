@@ -1,10 +1,10 @@
 import React from "react";
 import {
-  Clock4,
   CircleCheck,
   Hand,
   TriangleAlert,
   CornerDownRight,
+  LoaderCircle,
 } from "lucide-react";
 import type {
   Session,
@@ -12,32 +12,30 @@ import type {
   InputRequest,
 } from "../../types/datamodel";
 import { SessionActionsMenu } from "./session_actions_menu";
-import { Button } from "../../common/Button";
 
 // Status color definitions
-const STATUS_COLOR = {
-  PLANNING: "#6A7282", // Gray
-  RUNNING: "#2B7FFF", // Blue
-  PAUSED: "#FF6900", // Orange
-  ERROR: "#FB2C36", // Red
-  COMPLETED: "#00C950", // Green
+const STATUS_COLOR_CODE = {
+  GRAY: "#6A7282",
+  GREEN: "#00C950",
+  ORANGE: "#FF6900",
+  RED: "#FB2C36",
 } as const;
 
 // Map SidebarRunStatus to status colors
 const STATUS_COLORS: Record<SidebarRunStatus, string> = {
-  created: STATUS_COLOR.PLANNING,
-  active: STATUS_COLOR.RUNNING,
-  awaiting_input: STATUS_COLOR.PAUSED,
-  paused: STATUS_COLOR.PAUSED,
-  pausing: STATUS_COLOR.PAUSED,
-  timeout: STATUS_COLOR.ERROR,
-  error: STATUS_COLOR.ERROR,
-  stopped: STATUS_COLOR.ERROR,
-  final_answer_awaiting_input: STATUS_COLOR.COMPLETED,
-  final_answer_stopped: STATUS_COLOR.COMPLETED,
-  complete: STATUS_COLOR.COMPLETED,
-  resuming: STATUS_COLOR.RUNNING,
-  connected: STATUS_COLOR.RUNNING,
+  created: STATUS_COLOR_CODE.GRAY,
+  active: STATUS_COLOR_CODE.GREEN,
+  awaiting_input: STATUS_COLOR_CODE.ORANGE,
+  paused: STATUS_COLOR_CODE.ORANGE,
+  pausing: STATUS_COLOR_CODE.ORANGE,
+  timeout: STATUS_COLOR_CODE.RED,
+  error: STATUS_COLOR_CODE.RED,
+  stopped: STATUS_COLOR_CODE.RED,
+  final_answer_awaiting_input: STATUS_COLOR_CODE.GREEN,
+  final_answer_stopped: STATUS_COLOR_CODE.GREEN,
+  complete: STATUS_COLOR_CODE.GREEN,
+  resuming: STATUS_COLOR_CODE.GREEN,
+  connected: STATUS_COLOR_CODE.GREEN,
 };
 
 interface SessionDashboardCardProps {
@@ -75,98 +73,11 @@ export const SessionDashboardCard: React.FC<SessionDashboardCardProps> = ({
   const isPlanning = status === "created";
   const isError =
     status === "error" || status === "stopped" || status === "timeout";
-
-  // State to trigger re-render every second
-  const [currentTime, setCurrentTime] = React.useState(new Date());
-
-  // Update time every second
-  React.useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
+  const isActiveRunning =
+    status === "active" || status === "resuming" || status === "connected";
 
   // ============================================================================
   // REAL DATA: Calculated from actual Session data
-  // ============================================================================
-
-  // Calculate elapsed time from session creation
-  const formatElapsedTime = (): string => {
-    if (!session.created_at) return "0:00";
-
-    try {
-      // Use currentTime state instead of creating new Date() each time
-      const now = currentTime;
-
-      // Ensure the created_at string is in proper ISO format with timezone
-      // Backend might return format like "2025-10-28T00:12:34" without timezone
-      let createdAtStr = session.created_at;
-
-      // If the string doesn't have timezone info (Z or +/-), assume it's UTC
-      if (
-        !createdAtStr.includes("Z") &&
-        !createdAtStr.includes("+") &&
-        !createdAtStr.includes("-", 10)
-      ) {
-        // Add 'Z' to indicate UTC
-        createdAtStr = createdAtStr + "Z";
-      }
-
-      const created = new Date(createdAtStr);
-
-      // Check if date is valid
-      if (isNaN(created.getTime())) {
-        console.warn("Invalid created_at date:", session.created_at);
-        return "0:00";
-      }
-
-      const diffMs = now.getTime() - created.getTime();
-
-      // If negative, the created_at is in the future (likely timezone issue)
-      if (diffMs < 0) {
-        console.warn("Negative time difference:", {
-          now: now.toISOString(),
-          created: session.created_at,
-          createdParsed: created.toISOString(),
-          diffMs,
-        });
-        return "0:00";
-      }
-
-      const diffSecs = Math.floor(diffMs / 1000);
-      const totalMins = Math.floor(diffSecs / 60);
-      const totalHours = Math.floor(totalMins / 60);
-      const days = Math.floor(totalHours / 24);
-
-      const secs = diffSecs % 60;
-      const mins = totalMins % 60;
-      const hours = totalHours % 24;
-
-      // For times >= 24 hours, show text format (e.g., "2 days 5 hrs")
-      if (days > 0) {
-        const dayText = days === 1 ? "day" : "days";
-        return `${days} ${dayText} ${totalHours % 24} hrs`;
-      }
-
-      // For times >= 1 hour, show H:MM:SS format (e.g., "1:23:45")
-      if (totalHours > 0) {
-        return `${totalHours}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-      }
-
-      // For times < 1 hour, show MM:SS format (e.g., "23:45")
-      return `${totalMins}:${secs.toString().padStart(2, "0")}`;
-    } catch (error) {
-      console.error("Error calculating elapsed time:", error);
-      return "0:00";
-    }
-  };
-
-  const elapsedTime = formatElapsedTime();
-
-  // ============================================================================
-  // PLACEHOLDER DATA: For features not yet tracked by backend
   // ============================================================================
   // TODO: Replace with actual data when backend provides:
   // - Step tracking (currentStep, totalSteps, stepDescription)
@@ -219,21 +130,15 @@ export const SessionDashboardCard: React.FC<SessionDashboardCardProps> = ({
           </div>
         </div>
 
-        {/* Right side: Time or Completed status */}
-        <div className="flex flex-shrink-0 items-center gap-1 text-xs leading-4">
+        {/* Right side: Active indicator or Completed status */}
+        <div className="flex flex-shrink-0 items-center gap-1 text-xs leading-5">
           {isCompleted ? (
             <>
-              <CircleCheck
-                className="h-3 w-3"
-                style={{ color: STATUS_COLOR.COMPLETED }}
-              />
-              <span style={{ color: STATUS_COLOR.COMPLETED }}>Completed</span>
+              <CircleCheck className="h-3 w-3" style={{ color: statusColor }} />
+              <span style={{ color: statusColor }}>Completed</span>
             </>
-          ) : !isPlanning ? (
-            <>
-              <Clock4 className="h-3 w-3 text-[#85B5FF]" />
-              <span className="text-[#85B5FF]">{elapsedTime}</span>
-            </>
+          ) : isActiveRunning ? (
+            <LoaderCircle className="-mb-5 h-3 w-3 animate-spin text-[#85B5FF]" />
           ) : null}
         </div>
       </div>
@@ -256,12 +161,9 @@ export const SessionDashboardCard: React.FC<SessionDashboardCardProps> = ({
         <div
           className={`space-y-1 ${additionalStatusMessage || errorMessage ? "mb-2" : ""}`}
         >
-          {/* Step count and action count */}
-          <div className="flex items-center justify-between text-xs leading-4 text-[#99A1AF]">
-            <span>
-              Step {currentStep}/{totalSteps}
-            </span>
-            <span>{actionCount} actions</span>
+          {/* Step count */}
+          <div className="text-xs leading-4 text-[#99A1AF]">
+            Step {currentStep}/{totalSteps}
           </div>
 
           {/* Current step description */}
@@ -284,12 +186,9 @@ export const SessionDashboardCard: React.FC<SessionDashboardCardProps> = ({
       {/* Completed step details */}
       {isCompleted && (
         <div className="space-y-1">
-          {/* Step count and action count */}
-          <div className="flex items-center justify-between text-xs leading-4 text-[#99A1AF]">
-            <span>
-              Step {totalSteps}/{totalSteps}
-            </span>
-            <span>{actionCount} actions</span>
+          {/* Step count */}
+          <div className="text-xs leading-4 text-[#99A1AF]">
+            Step {totalSteps}/{totalSteps}
           </div>
 
           {/* Completed status */}
@@ -316,7 +215,7 @@ export const SessionDashboardCard: React.FC<SessionDashboardCardProps> = ({
       {additionalStatusMessage && !isError && (
         <div
           className="flex items-center gap-1.5 text-xs leading-4"
-          style={{ color: STATUS_COLOR.PAUSED }}
+          style={{ color: statusColor }}
         >
           <Hand className="h-3 w-3 flex-shrink-0" />
           <span className="truncate">{additionalStatusMessage}</span>
@@ -328,7 +227,7 @@ export const SessionDashboardCard: React.FC<SessionDashboardCardProps> = ({
         <div className="flex items-center justify-between">
           <div
             className="flex items-center gap-1.5 text-xs leading-4"
-            style={{ color: STATUS_COLOR.ERROR }}
+            style={{ color: statusColor }}
           >
             <TriangleAlert className="h-3 w-3 flex-shrink-0" />
             <span className="truncate">{displayErrorMessage}</span>
