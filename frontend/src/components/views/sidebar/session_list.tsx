@@ -1,25 +1,12 @@
 import React, { useMemo, useCallback } from "react";
-import { Dropdown, Menu } from "antd";
-import {
-  Plus,
-  Edit,
-  Trash2,
-  InfoIcon,
-  RefreshCcw,
-  Loader2,
-  FileText,
-  Archive,
-  MoreVertical,
-  StopCircle,
-  Server,
-} from "lucide-react";
+import { InfoIcon } from "lucide-react";
 import type {
   Session,
   GroupedSessions,
   RunStatus,
 } from "../../types/datamodel";
 import { SessionRunStatusIndicator } from "../statusicon";
-import LearnPlanButton from "../../features/Plans/LearnPlanButton";
+import { SessionActionsMenu } from "./session_actions_menu";
 import { Button } from "../../common/Button";
 
 interface SessionListProps {
@@ -77,64 +64,13 @@ export const SessionList: React.FC<SessionListProps> = ({
                   )}
                 </div>
                 <div className="flex w-8 flex-shrink-0 justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                  <Dropdown
-                    trigger={["click"]}
-                    overlay={
-                      <Menu>
-                        <Menu.Item
-                          key="edit"
-                          onClick={(e) => {
-                            e.domEvent.stopPropagation();
-                            onEditSession(s);
-                          }}
-                        >
-                          <Edit className="-mt-0.5 mr-1.5 inline-block h-4 w-4" />{" "}
-                          Edit
-                        </Menu.Item>
-                        <Menu.Item
-                          key="stop"
-                          onClick={(e) => {
-                            e.domEvent.stopPropagation();
-                            if (isActive && s.id) onStopSession(s.id);
-                          }}
-                          disabled={!isActive}
-                          danger
-                        >
-                          <StopCircle className="-mt-0.5 mr-1.5 inline-block h-4 w-4" />{" "}
-                          Disconnect
-                        </Menu.Item>
-                        <Menu.Item
-                          key="delete"
-                          onClick={(e) => {
-                            e.domEvent.stopPropagation();
-                            if (s.id) onDeleteSession(s.id);
-                          }}
-                          danger
-                        >
-                          <Trash2 className="-mt-0.5 mr-1.5 inline-block h-4 w-4" />{" "}
-                          Delete
-                        </Menu.Item>
-                        <Menu.Item
-                          key="learn-plan"
-                          onClick={(e) => e.domEvent.stopPropagation()}
-                        >
-                          <LearnPlanButton
-                            sessionId={Number(s.id)}
-                            messageId={-1}
-                          />
-                        </Menu.Item>
-                      </Menu>
-                    }
-                    placement="bottomRight"
-                  >
-                    <Button
-                      variant="tertiary"
-                      size="sm"
-                      icon={<MoreVertical className="h-4 w-4" />}
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-6 min-w-[24px] !p-0"
-                    />
-                  </Dropdown>
+                  <SessionActionsMenu
+                    sessionId={Number(s.id)}
+                    isActive={isActive}
+                    onEdit={() => onEditSession(s)}
+                    onStop={() => s.id && onStopSession(s.id)}
+                    onDelete={() => s.id && onDeleteSession(s.id)}
+                  />
                 </div>
               </div>
             </div>
