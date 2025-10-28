@@ -14,7 +14,7 @@ import type { Session } from "../types/datamodel";
 import ChatView from "./chat/chat";
 import { Sidebar } from "./sidebar";
 import { getServerUrl } from "../utils";
-import { RunStatus } from "../types/datamodel";
+import { RunStatus, SidebarRunStatus } from "../types/datamodel";
 import ContentHeader from "../contentheader";
 import PlanList from "../features/Plans/PlanList";
 import McpServersList from "../features/McpServersConfig/McpServersList";
@@ -42,7 +42,7 @@ export const SessionManager: React.FC = () => {
   const [messageApi, contextHolder] = message.useMessage();
   const [sessionSockets, setSessionSockets] = useState<SessionWebSockets>({});
   const [sessionRunStatuses, setSessionRunStatuses] = useState<{
-    [sessionId: number]: RunStatus;
+    [sessionId: number]: SidebarRunStatus;
   }>({});
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSubMenuItem, setActiveSubMenuItem] = useState("");
@@ -322,7 +322,10 @@ export const SessionManager: React.FC = () => {
     fetchSessions();
   }, [fetchSessions]);
 
-  const updateSessionRunStatus = (sessionId: number, status: RunStatus) => {
+  const updateSessionRunStatus = (
+    sessionId: number,
+    status: SidebarRunStatus,
+  ) => {
     setSessionRunStatuses((prev) => ({
       ...prev,
       [sessionId]: status,

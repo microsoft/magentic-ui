@@ -9,43 +9,40 @@ import {
   CheckCircle,
   Clock,
 } from "lucide-react";
-import { Run, InputRequest } from "../types/datamodel";
+import { Run, InputRequest, SidebarRunStatus } from "../types/datamodel";
 
 export const getStatusIcon = (
   status: Run["status"],
   errorMessage?: string,
   stopReason?: string,
   inputRequest?: InputRequest,
-  isSentinelSleeping?: boolean
+  isSentinelSleeping?: boolean,
 ) => {
   switch (status) {
     case "active":
       // Check if we're in a sentinel sleeping state
       if (isSentinelSleeping) {
         return (
-          <div className="inline-block mr-1">
-            <Clock
-              size={20}
-              className="inline-block mr-1 text-blue-600"
-            />
-            <span className="inline-block mr-2 ml-1 ">Sleeping</span>
+          <div className="mr-1 inline-block">
+            <Clock size={20} className="mr-1 inline-block text-blue-600" />
+            <span className="ml-1 mr-2 inline-block">Sleeping</span>
           </div>
         );
       }
       return (
-        <div className="inline-block mr-1">
+        <div className="mr-1 inline-block">
           <Loader2
             size={20}
-            className="inline-block mr-1 text-accent animate-spin"
+            className="mr-1 inline-block animate-spin text-accent"
           />
-          <span className="inline-block mr-2 ml-1 ">Processing</span>
+          <span className="ml-1 mr-2 inline-block">Processing</span>
         </div>
       );
     case "awaiting_input":
       const Icon =
         inputRequest?.input_type === "approval" ? HelpCircle : MessageSquare;
       return (
-        <div className="flex items-center text-sm mb-2">
+        <div className="mb-2 flex items-center text-sm">
           {inputRequest?.input_type === "approval" ? (
             <div>
               <div className="flex items-center">
@@ -59,7 +56,7 @@ export const getStatusIcon = (
             <>
               <MessageSquare
                 size={20}
-                className="flex-shrink-0 mr-2 text-accent"
+                className="mr-2 flex-shrink-0 text-accent"
               />
               <span className="flex-1">Waiting for your input</span>
             </>
@@ -68,50 +65,50 @@ export const getStatusIcon = (
       );
     case "complete":
       return (
-        <div className="text-sm mb-2">
-          <AlertTriangle size={20} className="inline-block mr-2 text-red-500" />
+        <div className="mb-2 text-sm">
+          <AlertTriangle size={20} className="mr-2 inline-block text-red-500" />
           {errorMessage || "An error occurred"}
         </div>
       );
     case "error":
       return (
-        <div className="text-sm mb-2">
-          <AlertTriangle size={20} className="inline-block mr-2 text-red-500" />
+        <div className="mb-2 text-sm">
+          <AlertTriangle size={20} className="mr-2 inline-block text-red-500" />
           {errorMessage || "An error occurred"}
         </div>
       );
     case "stopped":
       return (
-        <div className="text-sm mb-2 mt-4">
-          <StopCircle size={20} className="inline-block mr-2 text-red-500" />
+        <div className="mb-2 mt-4 text-sm">
+          <StopCircle size={20} className="mr-2 inline-block text-red-500" />
           Task was stopped: {stopReason}
         </div>
       );
     case "pausing":
       return (
-        <div className="text-sm mb-2">
+        <div className="mb-2 text-sm">
           <Loader2
             size={20}
-            className="inline-block mr-2 text-accent animate-spin"
+            className="mr-2 inline-block animate-spin text-accent"
           />
-          <span className="inline-block mr-2 ml-1">Pausing</span>
+          <span className="ml-1 mr-2 inline-block">Pausing</span>
         </div>
       );
     case "paused":
       return (
-        <div className="text-sm mb-2">
-          <PauseCircle size={20} className="inline-block mr-2 text-accent" />
-          <span className="inline-block mr-2 ml-1">Paused</span>
+        <div className="mb-2 text-sm">
+          <PauseCircle size={20} className="mr-2 inline-block text-accent" />
+          <span className="ml-1 mr-2 inline-block">Paused</span>
         </div>
       );
     case "resuming":
       return (
-        <div className="text-sm mb-2">
+        <div className="mb-2 text-sm">
           <Loader2
             size={20}
-            className="inline-block mr-2 text-accent animate-spin"
+            className="mr-2 inline-block animate-spin text-accent"
           />
-          <span className="inline-block mr-2 ml-1">Resuming</span>
+          <span className="ml-1 mr-2 inline-block">Resuming</span>
         </div>
       );
     default:
@@ -121,17 +118,19 @@ export const getStatusIcon = (
 
 // SessionRunStatusIndicator: for sidebar session status
 export const SessionRunStatusIndicator: React.FC<{
-  status?: Run["status"] | "final_answer_awaiting_input";
+  status?: SidebarRunStatus;
 }> = ({ status }) => {
   switch (status) {
     case "awaiting_input":
-      return <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />;
+      return <div className="h-2 w-2 animate-pulse rounded-full bg-red-500" />;
     case "active":
-      return <Loader2 className="w-3 h-3 animate-spin text-accent" />;
+      return <Loader2 className="h-3 w-3 animate-spin text-accent" />;
     case "final_answer_awaiting_input":
-      return <CheckCircle className="w-3 h-3 text-green-500" />;
+      return <CheckCircle className="h-3 w-3 text-green-500" />;
+    case "final_answer_stopped":
+      return <CheckCircle className="h-3 w-3 text-green-500" />;
     case "error":
-      return <AlertTriangle className="w-3 h-3 text-red-500" />;
+      return <AlertTriangle className="h-3 w-3 text-red-500" />;
     default:
       return null;
   }

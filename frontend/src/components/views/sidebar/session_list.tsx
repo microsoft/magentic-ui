@@ -3,7 +3,7 @@ import { InfoIcon } from "lucide-react";
 import type {
   Session,
   GroupedSessions,
-  RunStatus,
+  SidebarRunStatus,
 } from "../../types/datamodel";
 import { SessionRunStatusIndicator } from "../statusicon";
 import { SessionActionsMenu } from "./session_actions_menu";
@@ -18,7 +18,7 @@ interface SessionListProps {
   onStopSession: (sessionId: number) => void;
   onEditSession: (session?: Session) => void;
   onDeleteSession: (sessionId: number) => void;
-  sessionRunStatuses: { [sessionId: number]: RunStatus };
+  sessionRunStatuses: { [sessionId: number]: SidebarRunStatus };
 }
 
 export const SessionList: React.FC<SessionListProps> = ({

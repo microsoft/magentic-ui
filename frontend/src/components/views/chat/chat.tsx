@@ -9,7 +9,8 @@ import {
   InputRequestMessage,
   TeamConfig,
   AgentMessageConfig,
-  RunStatus as BaseRunStatus,
+  RunStatus,
+  SidebarRunStatus,
   TeamResult,
   Session,
   InputRequest,
@@ -29,9 +30,6 @@ import {
 import SampleTasks from "./sampletasks";
 import ProgressBar from "./progressbar";
 
-// Extend RunStatus for sidebar status reporting
-type SidebarRunStatus = BaseRunStatus | "final_answer_awaiting_input";
-
 const defaultTeamConfig: TeamConfig = {
   name: "Default Team",
   participants: [],
@@ -49,7 +47,7 @@ interface ChatViewProps {
     only_retrieve_existing_socket: boolean,
   ) => WebSocket | null;
   visible?: boolean;
-  onRunStatusChange: (sessionId: number, status: BaseRunStatus) => void;
+  onRunStatusChange: (sessionId: number, status: RunStatus) => void;
   onSubMenuChange: React.Dispatch<React.SetStateAction<string>>;
 }
 
@@ -256,6 +254,8 @@ export default function ChatView({
       const lastMsg = currentRun.messages?.[currentRun.messages.length - 1];
       const beforeLastMsg =
         currentRun.messages?.[currentRun.messages.length - 2];
+
+      // Check if we're in final_answer_awaiting_input state
       if (
         lastMsg &&
         ((typeof lastMsg.config?.content === "string" &&
@@ -267,8 +267,18 @@ export default function ChatView({
       ) {
         statusToReport = "final_answer_awaiting_input";
       }
+
+      // Special case: if previous status was final_answer_awaiting_input and current is stopped,
+      // it means the input timed out - this is not an error, just expiration
+      if (
+        previousStatus.current === "final_answer_awaiting_input" &&
+        currentRun.status === "stopped"
+      ) {
+        statusToReport = "final_answer_stopped";
+      }
+
       if (statusToReport !== previousStatus.current) {
-        onRunStatusChange(session.id, statusToReport as BaseRunStatus);
+        onRunStatusChange(session.id, statusToReport as RunStatus);
         previousStatus.current = statusToReport; // Update the previous status
         // Clear error state when status changes
         setError(null);
@@ -323,7 +333,7 @@ export default function ChatView({
           const message = JSON.parse(event.data) as WebSocketMessage;
           if (message.type === "system" && message.status && session.id) {
             // Update the run status even when not visible
-            onRunStatusChange(session.id, message.status as BaseRunStatus);
+            onRunStatusChange(session.id, message.status as RunStatus);
           }
         } catch (error) {}
       };
@@ -406,12 +416,12 @@ export default function ChatView({
           // update run status
           return {
             ...current,
-            status: message.status as BaseRunStatus,
+            status: message.status as RunStatus,
           };
 
         case "result":
         case "completion":
-          const status: BaseRunStatus =
+          const status: RunStatus =
             message.status === "complete"
               ? "complete"
               : message.status === "error"
@@ -672,7 +682,7 @@ export default function ChatView({
         if (!current) return null;
         const updatedRun = {
           ...current,
-          status: "stopped" as BaseRunStatus, // Cast "stopped" to BaseRunStatus
+          status: "stopped" as RunStatus, // Cast "stopped" to RunStatus
           input_request: undefined, // Changed null to undefined
         };
         return updatedRun;

@@ -340,4 +340,9 @@ export type RunStatus =
   | "resuming"
   | "connected";
 
+export type SidebarRunStatus =
+  | RunStatus
+  | "final_answer_awaiting_input"
+  | "final_answer_stopped";
+
 export type InputType = "text_input" | "approval";

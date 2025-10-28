@@ -15,7 +15,11 @@ import {
   AlignJustify,
   LayoutGrid,
 } from "lucide-react";
-import type { Session, GroupedSessions, RunStatus } from "../types/datamodel";
+import type {
+  Session,
+  GroupedSessions,
+  SidebarRunStatus,
+} from "../types/datamodel";
 import SubMenu from "../common/SubMenu";
 import { SessionList } from "./sidebar/session_list";
 import { SessionDashboard } from "./sidebar/session_dashboard";
@@ -30,7 +34,7 @@ interface SidebarProps {
   onEditSession: (session?: Session) => void;
   onDeleteSession: (sessionId: number) => void;
   isLoading?: boolean;
-  sessionRunStatuses: { [sessionId: number]: RunStatus };
+  sessionRunStatuses: { [sessionId: number]: SidebarRunStatus };
   activeSubMenuItem: string;
   onSubMenuChange: (tabId: string) => void;
   onStopSession: (sessionId: number) => void;
@@ -109,26 +113,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Filter sessions based on current tab
   const filteredSessions = useMemo(() => {
-    // TODO: Enable filtering once requirements are finalized
-    // if (sessionsViewMode === "active") {
-    //   // Active: sessions that are currently running
-    //   return sortedSessions.filter((s) => {
-    //     const status = s.id ? sessionRunStatuses[s.id] : undefined;
-    //     return status && ["active", "awaiting_input", "pausing", "paused"].includes(status);
-    //   });
-    // } else if (sessionsViewMode === "needs_attention") {
-    //   // Needs Attention: sessions awaiting input or paused
-    //   return sortedSessions.filter((s) => {
-    //     const status = s.id ? sessionRunStatuses[s.id] : undefined;
-    //     return status && ["awaiting_input", "paused"].includes(status);
-    //   });
-    // } else {
-    //   // History: all sessions
-    //   return sortedSessions;
-    // }
-
-    // For now, show all sessions regardless of tab
-    return sortedSessions;
+    if (sessionsViewMode === "active") {
+      // Active: sessions that are currently running (not completed or timeout)
+      return sortedSessions.filter((s) => {
+        const status = s.id ? sessionRunStatuses[s.id] : undefined;
+        return (
+          status &&
+          [
+            "created",
+            "active",
+            "awaiting_input",
+            "paused",
+            "pausing",
+            "resuming",
+            "connected",
+            "final_answer_awaiting_input",
+          ].includes(status)
+        );
+      });
+    } else if (sessionsViewMode === "needs_attention") {
+      // Needs Attention: sessions awaiting input, paused, or have errors
+      return sortedSessions.filter((s) => {
+        const status = s.id ? sessionRunStatuses[s.id] : undefined;
+        return status && ["awaiting_input", "error"].includes(status);
+      });
+    } else {
+      // History: all sessions
+      return sortedSessions;
+    }
   }, [sortedSessions, sessionsViewMode, sessionRunStatuses]);
 
   const sidebarContent = useMemo(() => {
@@ -239,7 +251,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ) : (
               <SessionDashboard
                 sortedSessions={filteredSessions}
-                groupedSessions={groupedSessions}
                 currentSession={currentSession}
                 isLoading={isLoading}
                 onSelectSession={onSelectSession}
