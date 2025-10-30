@@ -3,14 +3,13 @@ import { message } from "antd";
 import { convertFilesToBase64, getServerUrl } from "../../utils";
 import { IStatus } from "../../types/app";
 import {
-  Run,
+  UIRun,
   Message,
   WebSocketMessage,
   InputRequestMessage,
   TeamConfig,
   AgentMessageConfig,
-  RunStatus,
-  SidebarRunStatus,
+  UIRunStatus,
   TeamResult,
   Session,
   InputRequest,
@@ -29,6 +28,11 @@ import {
 } from "../../types/plan";
 import SampleTasks from "./sampletasks";
 import ProgressBar from "./progressbar";
+import {
+  extractFinalAnswerInfo,
+  getEffectivePlan,
+  calculateStepProgress,
+} from "./runDataHelpers";
 
 const defaultTeamConfig: TeamConfig = {
   name: "Default Team",
@@ -49,8 +53,8 @@ interface ChatViewProps {
   visible?: boolean;
   onRunStatusChange: (
     sessionId: number,
-    status: RunStatus,
-    runData?: Partial<Run>,
+    status: UIRunStatus,
+    runData?: Partial<UIRun>,
   ) => void;
   onSubMenuChange: React.Dispatch<React.SetStateAction<string>>;
 }
@@ -60,6 +64,7 @@ type PlanUpdateHandler = (plan: IPlanStep[]) => void;
 interface StepProgress {
   currentStep: number;
   totalSteps: number;
+  currentInstruction?: string;
   plan?: {
     task: string;
     steps: Array<{
@@ -94,7 +99,7 @@ export default function ChatView({
   const { user } = React.useContext(appContext);
 
   // Core state
-  const [currentRun, setCurrentRun] = React.useState<Run | null>(null);
+  const [currentRun, setCurrentRun] = React.useState<UIRun | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
   const [noMessagesYet, setNoMessagesYet] = React.useState(true);
   const chatContainerRef = React.useRef<HTMLDivElement | null>(null);
@@ -248,13 +253,13 @@ export default function ChatView({
   }, [session?.id]);
 
   // Add ref to track previous status and run data
-  const previousStatus = React.useRef<SidebarRunStatus | null>(null);
-  const previousRunData = React.useRef<Partial<Run> | null>(null);
+  const previousStatus = React.useRef<UIRunStatus | null>(null);
+  const previousRunData = React.useRef<Partial<UIRun> | null>(null);
 
   // Add effect to update run status when currentRun changes
   React.useEffect(() => {
     if (currentRun && session?.id) {
-      let statusToReport: SidebarRunStatus = currentRun.status;
+      let statusToReport: UIRunStatus = currentRun.status;
       const lastMsg = currentRun.messages?.[currentRun.messages.length - 1];
       const beforeLastMsg =
         currentRun.messages?.[currentRun.messages.length - 2];
@@ -280,10 +285,36 @@ export default function ChatView({
         statusToReport = "final_answer_stopped";
       }
 
-      // Prepare run data
-      const runData: Partial<Run> = {
+      // Get effective plan (user-edited plan takes priority)
+      const effectivePlan = getEffectivePlan(updatedPlan, currentPlan);
+      const isPlanExecuting = progress.currentStep >= 0;
+
+      // Extract final answer info if in completion states
+      const shouldExtractFinalAnswer =
+        statusToReport === "final_answer_awaiting_input" ||
+        statusToReport === "final_answer_stopped" ||
+        currentRun.status === "complete";
+
+      const { finalAnswer, stopReason } = shouldExtractFinalAnswer
+        ? extractFinalAnswerInfo(currentRun.messages, currentRun.team_result)
+        : { finalAnswer: undefined, stopReason: undefined };
+
+      // Calculate step progress information
+      const stepProgress = calculateStepProgress(
+        isPlanExecuting,
+        progress.currentStep,
+        progress.totalSteps,
+        effectivePlan,
+        progress.currentInstruction,
+      );
+
+      // Prepare run data including progress information
+      const runData: Partial<UIRun> = {
         input_request: currentRun.input_request,
         error_message: currentRun.error_message,
+        ...stepProgress, // Spread step progress fields
+        final_answer: finalAnswer,
+        stop_reason: stopReason,
       };
 
       // Check if status or run data has actually changed
@@ -297,11 +328,25 @@ export default function ChatView({
           runData.input_request?.input_type;
       const errorMessageChanged =
         previousRunData.current?.error_message !== runData.error_message;
-      const runDataChanged = inputRequestChanged || errorMessageChanged;
+      const progressChanged =
+        previousRunData.current?.current_step !== runData.current_step ||
+        previousRunData.current?.total_steps !== runData.total_steps ||
+        previousRunData.current?.current_step_title !==
+          runData.current_step_title ||
+        previousRunData.current?.current_instruction !==
+          runData.current_instruction;
+      const completionChanged =
+        previousRunData.current?.final_answer !== runData.final_answer ||
+        previousRunData.current?.stop_reason !== runData.stop_reason;
+      const runDataChanged =
+        inputRequestChanged ||
+        errorMessageChanged ||
+        progressChanged ||
+        completionChanged;
 
       // Only call onRunStatusChange if something actually changed
       if (statusChanged || runDataChanged) {
-        onRunStatusChange(session.id, statusToReport as RunStatus, runData);
+        onRunStatusChange(session.id, statusToReport, runData);
         previousStatus.current = statusToReport;
         previousRunData.current = runData;
 
@@ -316,6 +361,12 @@ export default function ChatView({
     currentRun?.messages,
     currentRun?.input_request,
     currentRun?.error_message,
+    currentRun?.team_result,
+    progress.currentStep,
+    progress.totalSteps,
+    progress.currentInstruction,
+    currentPlan?.steps,
+    updatedPlan,
     session?.id,
     onRunStatusChange,
   ]); // Track if user was at bottom before new messages
@@ -360,7 +411,7 @@ export default function ChatView({
           const message = JSON.parse(event.data) as WebSocketMessage;
           if (message.type === "system" && message.status && session.id) {
             // Update the run status even when not visible
-            onRunStatusChange(session.id, message.status as RunStatus);
+            onRunStatusChange(session.id, message.status);
           }
         } catch (error) {}
       };
@@ -374,7 +425,7 @@ export default function ChatView({
   }, [session?.id, visible, activeSocket, onRunStatusChange]);
 
   const handleWebSocketMessage = (message: WebSocketMessage) => {
-    setCurrentRun((current: Run | null) => {
+    setCurrentRun((current: UIRun | null) => {
       if (!current || !session?.id) return null;
 
       switch (message.type) {
@@ -407,6 +458,15 @@ export default function ChatView({
             session.id,
           );
 
+          // Reset updatedPlan when receiving a new plan message
+          // This indicates a new planning cycle has started
+          if (
+            typeof newMessage.config.content === "string" &&
+            messageUtils.isPlanMessage(newMessage.config.metadata)
+          ) {
+            setUpdatedPlan([]);
+          }
+
           return {
             ...current,
             messages: [...current.messages, newMessage],
@@ -433,8 +493,6 @@ export default function ChatView({
               break;
           }
 
-          // reset Updated Plan
-          setUpdatedPlan([]);
           // Create new Message object from websocket data only if its for URL approval
           if (input_request.input_type === "approval") {
             return {
@@ -452,12 +510,12 @@ export default function ChatView({
           // update run status
           return {
             ...current,
-            status: message.status as RunStatus,
+            status: message.status!,
           };
 
         case "result":
         case "completion":
-          const status: RunStatus =
+          const status: UIRunStatus =
             message.status === "complete"
               ? "complete"
               : message.status === "error"
@@ -648,7 +706,7 @@ export default function ChatView({
         }),
       );
 
-      setCurrentRun((current: Run | null) => {
+      setCurrentRun((current: UIRun | null) => {
         if (!current) return null;
         return {
           ...current,
@@ -716,14 +774,13 @@ export default function ChatView({
         }),
       );
 
-      setCurrentRun((current: Run | null) => {
+      setCurrentRun((current: UIRun | null) => {
         if (!current) return null;
-        const updatedRun = {
+        return {
           ...current,
-          status: "stopped" as RunStatus, // Cast "stopped" to RunStatus
-          input_request: undefined, // Changed null to undefined
+          status: "stopped",
+          input_request: undefined,
         };
-        return updatedRun;
       });
     } catch (error) {
       handleError(error);
@@ -751,7 +808,7 @@ export default function ChatView({
         }),
       );
 
-      setCurrentRun((current: Run | null) => {
+      setCurrentRun((current: UIRun | null) => {
         if (!current) return null;
         return {
           ...current,
@@ -1113,6 +1170,7 @@ export default function ChatView({
 
     let currentStepIndex = -1;
     let planLength = 0;
+    let currentInstruction = "";
 
     // Find the last final answer index
     const lastFinalAnswerIndex = currentRun.messages.findLastIndex(
@@ -1127,6 +1185,7 @@ export default function ChatView({
         ? currentRun.messages
         : currentRun.messages.slice(lastFinalAnswerIndex + 1);
 
+    // First pass: find the current step index
     relevantMessages.forEach((msg: Message) => {
       if (typeof msg.config.content === "string") {
         try {
@@ -1143,9 +1202,25 @@ export default function ChatView({
       }
     });
 
+    // Second pass: get the latest instruction for the current step
+    relevantMessages.forEach((msg: Message) => {
+      if (typeof msg.config.content === "string") {
+        try {
+          const content = JSON.parse(msg.config.content);
+          // Only update instruction if this message is for the current step
+          if (content.index === currentStepIndex && content.instruction) {
+            currentInstruction = content.instruction;
+          }
+        } catch {
+          // Skip if we can't parse the message
+        }
+      }
+    });
+
     setProgress({
       currentStep: currentStepIndex,
       totalSteps: planLength,
+      currentInstruction: currentInstruction,
       plan: currentPlan,
     });
 

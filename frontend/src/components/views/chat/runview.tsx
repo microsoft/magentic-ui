@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Globe2 } from "lucide-react";
-import { Run, Message } from "../../types/datamodel";
+import { UIRun, Message } from "../../types/datamodel";
 import { RenderMessage, messageUtils } from "./rendermessage";
 import { getStatusIcon } from "../statusicon";
 import DetailViewer from "./detail_viewer";
@@ -13,7 +13,7 @@ import { RcFile } from "antd/es/upload";
 const DETAIL_VIEWER_CONTAINER_ID = "detail-viewer-container";
 
 interface RunViewProps {
-  run: Run;
+  run: UIRun;
   onSavePlan?: (plan: IPlanStep[]) => void;
   onPause?: () => void;
   onRegeneratePlan?: () => void;

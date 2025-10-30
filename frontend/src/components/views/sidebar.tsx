@@ -4,8 +4,8 @@ import { Plus, RefreshCcw, Archive, Server } from "lucide-react";
 import type {
   Session,
   GroupedSessions,
-  SidebarRunStatus,
-  Run,
+  UIRunStatus,
+  UIRun,
 } from "../types/datamodel";
 import SubMenu from "../common/SubMenu";
 import { SessionList } from "./sidebar/session_list";
@@ -21,8 +21,8 @@ interface SidebarProps {
   onEditSession: (session?: Session) => void;
   onDeleteSession: (sessionId: number) => void;
   isLoading?: boolean;
-  sessionRunStatuses: { [sessionId: number]: SidebarRunStatus };
-  sessionRunData: { [sessionId: number]: Partial<Run> };
+  sessionRunStatuses: { [sessionId: number]: UIRunStatus };
+  sessionRunData: { [sessionId: number]: Partial<UIRun> };
   activeSubMenuItem: string;
   onSubMenuChange: (tabId: string) => void;
   onStopSession: (sessionId: number) => void;
@@ -228,7 +228,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {sessionsViewMode === "history" ? (
               <SessionList
-                sortedSessions={filteredSessions}
                 groupedSessions={groupedSessions}
                 currentSession={currentSession}
                 isLoading={isLoading}
@@ -241,7 +240,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               />
             ) : (
               <SessionDashboard
-                sortedSessions={filteredSessions}
+                filteredSessions={filteredSessions}
                 currentSession={currentSession}
                 isLoading={isLoading}
                 onSelectSession={onSelectSession}

@@ -15,12 +15,7 @@ import type { Session } from "../types/datamodel";
 import ChatView from "./chat/chat";
 import { Sidebar } from "./sidebar";
 import { getServerUrl } from "../utils";
-import {
-  RunStatus,
-  SidebarRunStatus,
-  Run,
-  InputRequest,
-} from "../types/datamodel";
+import { UIRunStatus, UIRun } from "../types/datamodel";
 import ContentHeader from "../contentheader";
 import PlanList from "../features/Plans/PlanList";
 import McpServersList from "../features/McpServersConfig/McpServersList";
@@ -48,10 +43,10 @@ export const SessionManager: React.FC = () => {
   const [messageApi, contextHolder] = message.useMessage();
   const [sessionSockets, setSessionSockets] = useState<SessionWebSockets>({});
   const [sessionRunStatuses, setSessionRunStatuses] = useState<{
-    [sessionId: number]: SidebarRunStatus;
+    [sessionId: number]: UIRunStatus;
   }>({});
   const [sessionRunData, setSessionRunData] = useState<{
-    [sessionId: number]: Partial<Run>;
+    [sessionId: number]: Partial<UIRun>;
   }>({});
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSubMenuItem, setActiveSubMenuItem] = useState("");
@@ -333,15 +328,14 @@ export const SessionManager: React.FC = () => {
 
   const updateSessionRunStatus = (
     sessionId: number,
-    status: SidebarRunStatus,
-    runData?: Partial<Run>,
+    status: UIRunStatus,
+    runData?: Partial<UIRun>,
   ) => {
     setSessionRunStatuses((prev) => ({
       ...prev,
       [sessionId]: status,
     }));
 
-    // Update run data if provided (e.g., input_request, error_message)
     if (runData) {
       setSessionRunData((prev) => ({
         ...prev,
@@ -386,13 +380,10 @@ export const SessionManager: React.FC = () => {
 
   const chatViews = useMemo(() => {
     return sessions.map((s: Session) => {
-      const status = (s.id ? sessionRunStatuses[s.id] : undefined) as RunStatus;
-      const isSessionPotentiallyActive = [
-        "active",
-        "awaiting_input",
-        "pausing",
-        "paused",
-      ].includes(status);
+      const status = s.id ? sessionRunStatuses[s.id] : undefined;
+      const isSessionPotentiallyActive =
+        status &&
+        ["active", "awaiting_input", "pausing", "paused"].includes(status);
 
       if (!isSessionPotentiallyActive && session?.id !== s.id) return null;
 

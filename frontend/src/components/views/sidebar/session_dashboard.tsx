@@ -1,22 +1,22 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useCallback } from "react";
 import { InfoIcon } from "lucide-react";
-import type { Session, SidebarRunStatus, Run } from "../../types/datamodel";
+import type { Session, UIRunStatus, UIRun } from "../../types/datamodel";
 import { SessionDashboardCard } from "./session_dashboard_card";
 
 interface SessionDashboardProps {
-  sortedSessions: Session[];
+  filteredSessions: Session[];
   currentSession: Session | null;
   isLoading?: boolean;
   onSelectSession: (session: Session) => void;
   onStopSession: (sessionId: number) => void;
   onEditSession: (session?: Session) => void;
   onDeleteSession: (sessionId: number) => void;
-  sessionRunStatuses: { [sessionId: number]: SidebarRunStatus };
-  sessionRunData: { [sessionId: number]: Partial<Run> };
+  sessionRunStatuses: { [sessionId: number]: UIRunStatus };
+  sessionRunData: { [sessionId: number]: Partial<UIRun> };
 }
 
 export const SessionDashboard: React.FC<SessionDashboardProps> = ({
-  sortedSessions,
+  filteredSessions,
   currentSession,
   isLoading = false,
   onSelectSession,
@@ -26,16 +26,45 @@ export const SessionDashboard: React.FC<SessionDashboardProps> = ({
   sessionRunStatuses,
   sessionRunData,
 }) => {
+  // Stable callback handlers that accept sessionId
+  const handleSelect = useCallback(
+    (session: Session) => {
+      onSelectSession(session);
+    },
+    [onSelectSession],
+  );
+
+  const handleEdit = useCallback(
+    (session: Session) => {
+      onEditSession(session);
+    },
+    [onEditSession],
+  );
+
+  const handleStop = useCallback(
+    (sessionId: number) => {
+      onStopSession(sessionId);
+    },
+    [onStopSession],
+  );
+
+  const handleDelete = useCallback(
+    (sessionId: number) => {
+      onDeleteSession(sessionId);
+    },
+    [onDeleteSession],
+  );
+
   return (
     <div className="scroll h-[calc(100%-200px)] w-full overflow-y-auto">
-      {sortedSessions.length === 0 ? (
+      {filteredSessions.length === 0 ? (
         <div className="mr-2 rounded border border-dashed p-2 text-center text-sm text-secondary">
           <InfoIcon className="-mt-0.5 mr-1.5 inline-block h-4 w-4" />
           No sessions found
         </div>
       ) : (
         <div className="space-y-2">
-          {sortedSessions.map((s) => {
+          {filteredSessions.map((s) => {
             const status = s.id ? sessionRunStatuses[s.id] : undefined;
             const runData = s.id ? sessionRunData[s.id] : undefined;
             const isActive = status
@@ -53,10 +82,16 @@ export const SessionDashboard: React.FC<SessionDashboardProps> = ({
                 status={status}
                 inputRequest={runData?.input_request}
                 errorMessage={runData?.error_message}
-                onSelect={() => onSelectSession(s)}
-                onEdit={() => onEditSession(s)}
-                onStop={() => s.id && onStopSession(s.id)}
-                onDelete={() => s.id && onDeleteSession(s.id)}
+                currentStep={runData?.current_step}
+                totalSteps={runData?.total_steps}
+                currentStepTitle={runData?.current_step_title}
+                currentInstruction={runData?.current_instruction}
+                finalAnswer={runData?.final_answer}
+                stopReason={runData?.stop_reason}
+                onSelect={handleSelect}
+                onEdit={handleEdit}
+                onStop={handleStop}
+                onDelete={handleDelete}
               />
             );
           })}

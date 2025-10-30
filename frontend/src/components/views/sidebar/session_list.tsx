@@ -3,15 +3,14 @@ import { InfoIcon } from "lucide-react";
 import type {
   Session,
   GroupedSessions,
-  SidebarRunStatus,
-  Run,
+  UIRunStatus,
+  UIRun,
 } from "../../types/datamodel";
 import { SessionRunStatusIndicator } from "../statusicon";
 import { SessionActionsMenu } from "./session_actions_menu";
 import { Button } from "../../common/Button";
 
 interface SessionListProps {
-  sortedSessions: Session[];
   groupedSessions: GroupedSessions;
   currentSession: Session | null;
   isLoading?: boolean;
@@ -19,12 +18,11 @@ interface SessionListProps {
   onStopSession: (sessionId: number) => void;
   onEditSession: (session?: Session) => void;
   onDeleteSession: (sessionId: number) => void;
-  sessionRunStatuses: { [sessionId: number]: SidebarRunStatus };
-  sessionRunData: { [sessionId: number]: Partial<Run> };
+  sessionRunStatuses: { [sessionId: number]: UIRunStatus };
+  sessionRunData: { [sessionId: number]: Partial<UIRun> };
 }
 
 export const SessionList: React.FC<SessionListProps> = ({
-  sortedSessions,
   groupedSessions,
   currentSession,
   isLoading = false,
@@ -35,6 +33,16 @@ export const SessionList: React.FC<SessionListProps> = ({
   sessionRunStatuses,
   sessionRunData,
 }) => {
+  // Calculate total number of sessions from grouped sessions
+  const totalSessions = useMemo(
+    () =>
+      groupedSessions.today.length +
+      groupedSessions.yesterday.length +
+      groupedSessions.last7Days.length +
+      groupedSessions.last30Days.length +
+      groupedSessions.older.length,
+    [groupedSessions],
+  );
   // Helper function to render session group
   const renderSessionGroup = useCallback(
     (sessions: Session[]) => (
@@ -95,7 +103,7 @@ export const SessionList: React.FC<SessionListProps> = ({
   const content = useMemo(
     () => (
       <div className="scroll h-[calc(100%-200px)] overflow-y-auto">
-        {sortedSessions.length === 0 ? (
+        {totalSessions === 0 ? (
           <div className="mr-2 rounded border border-dashed p-2 text-center text-sm text-secondary">
             <InfoIcon className="-mt-0.5 mr-1.5 inline-block h-4 w-4" />
             No recent sessions found
@@ -136,7 +144,7 @@ export const SessionList: React.FC<SessionListProps> = ({
         )}
       </div>
     ),
-    [sortedSessions, groupedSessions, renderSessionGroup],
+    [totalSessions, groupedSessions, renderSessionGroup],
   );
 
   return content;

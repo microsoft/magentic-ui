@@ -9,10 +9,10 @@ import {
   CheckCircle,
   Clock,
 } from "lucide-react";
-import { Run, InputRequest, SidebarRunStatus } from "../types/datamodel";
+import { InputRequest, UIRunStatus } from "../types/datamodel";
 
 export const getStatusIcon = (
-  status: Run["status"],
+  status: UIRunStatus,
   errorMessage?: string,
   stopReason?: string,
   inputRequest?: InputRequest,
@@ -118,7 +118,7 @@ export const getStatusIcon = (
 
 // SessionRunStatusIndicator: for sidebar session status
 export const SessionRunStatusIndicator: React.FC<{
-  status?: SidebarRunStatus;
+  status?: UIRunStatus;
 }> = ({ status }) => {
   switch (status) {
     case "awaiting_input":

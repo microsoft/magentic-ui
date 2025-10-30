@@ -122,7 +122,8 @@ export interface WebSocketMessage {
     | "system";
   data?: AgentMessageConfig | TaskResult;
   input_type?: InputType;
-  status?: RunStatus;
+  // Note: Using UIRunStatus because backend sends RunStatus enum values plus "connected".
+  status?: UIRunStatus;
   error?: string;
   timestamp?: string;
 }
@@ -305,6 +306,8 @@ export interface TeamResult {
   duration: number;
 }
 
+// Run data structure from database
+// Backend: src/magentic_ui/backend/datamodel/db.py -> Run (SQLModel)
 export interface Run {
   id: string;
   created_at: string;
@@ -313,8 +316,22 @@ export interface Run {
   input_request?: InputRequest;
   task: AgentMessageConfig;
   team_result: TeamResult | null;
-  messages: Message[]; // Change to Message[]
+  messages: Message[];
   error_message?: string;
+}
+
+// Extended Run interface for UI with frontend-computed fields
+export interface UIRun extends Omit<Run, "status"> {
+  // Override status to allow UI-specific states
+  status: UIRunStatus;
+  // Progress tracking for active runs (computed from messages)
+  current_step?: number;
+  total_steps?: number;
+  current_step_title?: string;
+  current_instruction?: string;
+  // Completion information (computed from messages)
+  final_answer?: string;
+  stop_reason?: string;
 }
 
 export interface InputRequest {
@@ -327,21 +344,27 @@ export interface ApprovalInputRequest extends InputRequest {
   prompt: string;
 }
 
+// Run status from backend
+// Backend: src/magentic_ui/backend/datamodel/db.py -> RunStatus (Enum)
 export type RunStatus =
   | "created"
   | "active" // covers 'streaming'
   | "awaiting_input"
-  | "timeout"
   | "complete"
   | "error"
   | "stopped"
-  | "paused"
+  | "paused";
+
+// Extended run status for UI (includes frontend-only states)
+export type UIRunStatus =
+  | RunStatus
+  // Backend sends but not in enum:
+  | "connected"
+  // Frontend UI-only states (never from backend):
+  | "timeout"
   | "pausing"
   | "resuming"
-  | "connected";
-
-export type SidebarRunStatus =
-  | RunStatus
+  // Frontend-computed states:
   | "final_answer_awaiting_input"
   | "final_answer_stopped";
 

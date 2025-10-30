@@ -253,6 +253,25 @@ a:hover {
     right: 0;
   }
 }
+
+/* Progress bar stripe animation */
+@keyframes progress-stripes {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 12px 0;
+  }
+}
+
+@-webkit-keyframes progress-stripes {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 12px 0;
+  }
+}
 .scroll::-webkit-scrollbar {
   width: 8px;
   height: 8px;
