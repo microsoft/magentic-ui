@@ -522,7 +522,7 @@ export const SessionManager: React.FC = () => {
         </div>
 
         <div
-          className={`-mr-4 w-[200px] flex-1 pl-4 pr-4 transition-all duration-200 sm:pl-6 sm:pr-6 md:pl-12 md:pr-16 ${
+          className={`flex-1 pl-4 pr-4 transition-all duration-200 sm:pl-6 sm:pr-6 md:pl-12 md:pr-12 ${
             isSidebarOpen ? "ml-[360px]" : "ml-0"
           }`}
         >

@@ -57,14 +57,14 @@ const MagenticUILayout = ({
   }, [darkMode]);
 
   const layoutContent = (
-    <div className="h-screen flex">
+    <div className="flex h-screen overflow-hidden">
       {/* Content area */}
       <div
         className={classNames(
-          "flex-1 flex flex-col min-h-screen",
+          "flex h-full flex-1 flex-col",
           "transition-all duration-300 ease-in-out",
           "md:pl-1",
-          isExpanded ? "md:pl-1" : "md:pl-1"
+          isExpanded ? "md:pl-1" : "md:pl-1",
         )}
       >
         <ConfigProvider
@@ -79,13 +79,13 @@ const MagenticUILayout = ({
                 : theme.defaultAlgorithm,
           }}
         >
-          <main className="flex-1 p-1 text-primary" style={{ height: "100%" }}>
+          <main className="flex-1 overflow-hidden p-1 text-primary">
             <SessionManager />
           </main>
         </ConfigProvider>
-        <div className="text-sm text-primary mt-2 mb-2 text-center">
-          Magentic-UI can make mistakes. Please monitor its work and intervene if
-          necessary.
+        <div className="flex-shrink-0 py-2 text-center text-sm text-primary">
+          Magentic-UI can make mistakes. Please monitor its work and intervene
+          if necessary.
         </div>
       </div>
     </div>
