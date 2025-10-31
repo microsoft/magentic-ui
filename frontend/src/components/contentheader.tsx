@@ -29,7 +29,7 @@ const ContentHeader = ({
 
   return (
     <div className="sticky top-0 bg-primary">
-      <div className="flex h-16 items-center justify-between">
+      <div className="-mr-4 flex h-16 items-center justify-between pr-4 sm:pr-6 md:pr-12">
         {/* Left side: Logo and Title (aligned with sidebar) */}
         <div className="flex items-center gap-2">
           <div className="flex w-[360px] items-center">
