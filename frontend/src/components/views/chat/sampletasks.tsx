@@ -30,23 +30,23 @@ const SampleTasks: React.FC<SampleTasksProps> = ({ onSelect }) => {
   const maxVisibleTasks = isLargeScreen
     ? SAMPLE_TASKS.length
     : isExpanded
-    ? SAMPLE_TASKS.length
-    : defaultVisibleTasks;
+      ? SAMPLE_TASKS.length
+      : defaultVisibleTasks;
   const visibleTasks = SAMPLE_TASKS.slice(0, maxVisibleTasks);
   const shouldShowToggle =
     !isLargeScreen && SAMPLE_TASKS.length > defaultVisibleTasks;
 
   return (
     <div className="mb-6">
-      <div className="mt-4 mb-2 text-sm opacity-70 text-secondary">
+      <div className="mb-2 mt-4 text-sm text-secondary opacity-70">
         or try a sample task from below{" "}
       </div>
-      <div className="flex flex-col gap-2 w-full">
-        <div className="inline-flex flex-wrap justify-center gap-2 w-full">
+      <div className="flex w-full flex-col gap-2">
+        <div className="inline-flex w-full flex-wrap justify-center gap-2">
           {visibleTasks.map((task, idx) => (
             <button
               key={idx}
-              className="max-w-80 rounded px-4 py-2 text-left transition-colors text-primary hover:bg-secondary bg-tertiary"
+              className="w-80 rounded bg-tertiary px-4 py-2 text-left text-primary transition-colors hover:bg-secondary"
               onClick={() => onSelect(task)}
               type="button"
             >
@@ -56,7 +56,7 @@ const SampleTasks: React.FC<SampleTasksProps> = ({ onSelect }) => {
         </div>
         {shouldShowToggle && (
           <button
-            className="text-primary hover:text-secondary transition-colors text-sm font-medium mt-1"
+            className="mt-1 text-sm font-medium text-primary transition-colors hover:text-secondary"
             onClick={() => setIsExpanded(!isExpanded)}
             type="button"
           >
