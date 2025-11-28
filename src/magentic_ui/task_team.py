@@ -5,7 +5,13 @@ from autogen_agentchat.base import ChatAgent
 from autogen_core import ComponentModel
 from autogen_core.models import ChatCompletionClient
 
-from .agents import USER_PROXY_DESCRIPTION, CoderAgent, FileSurfer, WebSurfer
+from .agents import (
+    USER_PROXY_DESCRIPTION,
+    CoderAgent,
+    FileSurfer,
+    FaraWebSurfer,
+    WebSurfer,
+)
 from .agents.mcp import McpAgent
 from .agents.users import DummyUserProxy, MetadataUserProxy
 from .agents.web_surfer import WebSurferConfig
@@ -189,7 +195,10 @@ async def get_task_team(
             ),
         )
     with ApprovalGuardContext.populate_context(approval_guard):
-        web_surfer = WebSurfer.from_config(websurfer_config)
+        if magentic_ui_config.use_fara_agent:
+            web_surfer = FaraWebSurfer.from_config(websurfer_config)
+        else:
+            web_surfer = WebSurfer.from_config(websurfer_config)
     if websurfer_loop_team:
         # simplified team of only the web surfer
         team = RoundRobinGroupChat(

@@ -70,6 +70,15 @@ ollama = [
     "autogen-ext[ollama]==0.5.7"
 ]
 
+fara = [
+    "pillow",
+    "tenacity",
+    "pyyaml",
+    "jsonschema",
+    "browserbase",
+    "vllm>=0.10.0",
+]
+
 [project.scripts]
 magentic = "magentic_ui.backend.cli:run"
 magentic-ui = "magentic_ui.backend.cli:run"
@@ -132,7 +141,7 @@ exclude = ["src/magentic_ui/eval"]
 
 [tool.pyright]
 include = ["src", "tests", "samples"]
-exclude = ["src/magentic_ui/eval/benchmarks/assistantbench/evaluate_utils", "src/magentic_ui/agents/web_surfer/_cua_web_surfer.py", "src/magentic_ui/backend/web/routes"]
+exclude = ["src/magentic_ui/eval/benchmarks/assistantbench/evaluate_utils", "src/magentic_ui/agents/web_surfer/_cua_web_surfer.py", "src/magentic_ui/backend/web/routes", "src/magentic_ui/agents/web_surfer/fara", "src/magentic_ui/tools/playwright/playwright_controller_fara.py"]
 typeCheckingMode = "strict"
 reportUnnecessaryIsInstance = false
 reportMissingTypeStubs = false

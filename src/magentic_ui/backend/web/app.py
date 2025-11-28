@@ -48,6 +48,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         else:
             logger.info("No config file provided, using defaults.")
 
+        if os.environ.get("FARA_AGENT") is not None:
+            config["use_fara_agent"] = os.environ["FARA_AGENT"] == "True"
+
         # Initialize managers (DB, Connection, Team)
         await init_managers(
             initializer.database_uri,

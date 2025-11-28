@@ -284,6 +284,16 @@ class TeamManager:
                 "inside_docker": self.inside_docker,
             }
 
+            # Prefer the frontend setting, but fall back to the CLI/environment flag.
+            use_fara_agent: bool | None = settings_config.get("use_fara_agent")  # type: ignore[assignment]
+            if use_fara_agent is None and isinstance(self.config, dict):
+                use_fara_agent = self.config.get("use_fara_agent")  # type: ignore[assignment]
+
+            if use_fara_agent is not None:
+                config_params["use_fara_agent"] = bool(use_fara_agent)
+                if use_fara_agent:
+                    config_params["websurfer_loop"] = True
+
             # Override client configs if complete config from file is available
             if is_complete_config_from_file:
                 config_params["model_client_configs"] = model_client_from_config_file

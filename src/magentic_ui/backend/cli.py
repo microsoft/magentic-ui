@@ -83,6 +83,13 @@ def main(
             help="Run without docker. This will remove coder and filesurfer agents and disable live browser view.",
         ),
     ] = False,
+    fara_agent: Annotated[
+        bool,
+        typer.Option(
+            "--fara",
+            help="Launch the UI with the FARA-based web surfer agent instead of the default GPT-oriented surfer.",
+        ),
+    ] = False,
 ):
     """
     Magentic-UI: A human-centered interface for web agents.
@@ -108,6 +115,7 @@ def main(
             upgrade_database=upgrade_database,
             config=config,
             run_without_docker=run_without_docker,
+            fara_agent=fara_agent,
         )
 
 
@@ -122,6 +130,7 @@ def run_ui(
     upgrade_database: bool,
     config: Optional[str],
     run_without_docker: bool,
+    fara_agent: bool,
 ):
     """
     Core logic to run the Magentic-UI web application.
@@ -138,6 +147,7 @@ def run_ui(
         upgrade_database (bool, optional): Whether to upgrade the database schema. Defaults to False.
         config (str, optional): Path to the LLM config file. Defaults to config.yaml if present.
         run_without_docker (bool, optional): Run without docker. This will remove coder and filesurfer agents and disale live browser view. Defaults to False.
+        fara_agent (bool, optional): Use the FARA-based web surfer agent instead of the default GPT-oriented surfer. Defaults to False.
     """
     # Display a green, bold "Starting Magentic-UI" message
     typer.echo(typer.style("Starting Magentic-UI", fg=typer.colors.GREEN, bold=True))
@@ -219,6 +229,7 @@ def run_ui(
     env_vars["EXTERNAL_WORKSPACE_ROOT"] = appdir
     env_vars["INTERNAL_WORKSPACE_ROOT"] = appdir
     env_vars["RUN_WITHOUT_DOCKER"] = str(run_without_docker)
+    env_vars["FARA_AGENT"] = str(fara_agent)
 
     # Handle configuration file path
     if not config:
@@ -270,6 +281,13 @@ def ui(
             help="Run without docker. This will remove coder and filesurfer agents and disale live browser view.",
         ),
     ] = False,
+    fara_agent: Annotated[
+        bool,
+        typer.Option(
+            "--fara",
+            help="Launch the UI with the FARA-based web surfer agent instead of the default GPT-oriented surfer.",
+        ),
+    ] = False,
 ):
     """
     [Deprecated] Run Magentic-UI.
@@ -287,6 +305,7 @@ def ui(
         upgrade_database=upgrade_database,
         config=config,
         run_without_docker=run_without_docker,
+        fara_agent=fara_agent,
     )
 
 

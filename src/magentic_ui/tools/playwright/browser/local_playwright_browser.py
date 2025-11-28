@@ -106,14 +106,12 @@ class LocalPlaywrightBrowser(
                 **launch_options,
                 args=["--disable-extensions", "--disable-file-system"],
                 env={},
-                chromium_sandbox=True,
             )
         else:
             # Launch regular browser and create new context
             self._browser = await self._playwright.chromium.launch(
                 **launch_options,
                 args=["--disable-extensions", "--disable-file-system"],
-                chromium_sandbox=True,
                 env={} if self._headless else {"DISPLAY": ":0"},
             )
 

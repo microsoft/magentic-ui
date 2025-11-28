@@ -78,6 +78,7 @@ class MagenticUIConfig(BaseModel):
         allow_for_replans (bool): Whether to allow the orchestrator to create a new plan when needed. Default: True.
         do_bing_search (bool): Flag to determine if Bing search should be used to come up with information for the plan. Default: False.
         websurfer_loop (bool): Flag to determine if the websurfer should loop through the plan. Default: False.
+        use_fara_agent (bool): Whether to instantiate the FARA-flavoured web surfer instead of the default GPT-oriented agent. Default: False.
         retrieve_relevant_plans (Literal["never", "hint", "reuse"]): Determines if the orchestrator should retrieve relevant plans from memory. Default: `never`.
         memory_controller_key (str, optional): The key to retrieve the memory_controller for a particular user. Default: None.
         model_context_token_limit (int, optional): The maximum number of tokens the model can use. Default: 110000.
@@ -112,6 +113,7 @@ class MagenticUIConfig(BaseModel):
     allow_for_replans: bool = True
     do_bing_search: bool = False
     websurfer_loop: bool = False
+    use_fara_agent: bool = False
     retrieve_relevant_plans: Literal["never", "hint", "reuse"] = "never"
     memory_controller_key: Optional[str] = None
     model_context_token_limit: int = 110000
