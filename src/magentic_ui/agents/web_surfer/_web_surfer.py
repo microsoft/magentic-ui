@@ -136,7 +136,7 @@ class WebSurferConfig(BaseModel):
     single_tab_mode: bool = False
     json_model_output: bool = False
     multiple_tools_per_call: bool = False
-    viewport_height: int = 1440
+    viewport_height: int = 900
     viewport_width: int = 1440
     use_action_guard: bool = False
     search_engine: str = "duckduckgo"
@@ -251,7 +251,7 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         single_tab_mode: bool = False,
         json_model_output: bool = False,
         multiple_tools_per_call: bool = False,
-        viewport_height: int = 1440,
+        viewport_height: int = 900,
         viewport_width: int = 1440,
         use_action_guard: bool = False,
         search_engine: str = "duckduckgo",
