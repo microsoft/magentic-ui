@@ -1,7 +1,7 @@
 #!/bin/bash
 
 IMAGE_NAME=magentic-ui-browser
-IMAGE_VERSION=0.0.1
+IMAGE_VERSION=0.0.2
 REGISTRY=ghcr.io/microsoft
 
 # Check if --push flag is provided or PUSH environment variable is set

@@ -9,7 +9,7 @@ PYTHON_IMAGE_ENV_VAR = "MAGENTIC_UI_PYTHON_IMAGE"
 
 DOCKER_REGISTRY = "ghcr.io/microsoft"
 BROWSER_IMAGE = os.getenv(
-    BROWSER_IMAGE_ENV_VAR, f"{DOCKER_REGISTRY}/magentic-ui-browser:0.0.1"
+    BROWSER_IMAGE_ENV_VAR, f"{DOCKER_REGISTRY}/magentic-ui-browser:0.0.2"
 )
 PYTHON_IMAGE = os.getenv(
     PYTHON_IMAGE_ENV_VAR, f"{DOCKER_REGISTRY}/magentic-ui-python-env:0.0.1"

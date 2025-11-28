@@ -14,7 +14,7 @@ const port = process.env.PLAYWRIGHT_PORT || 37367;
     args: [
       "--start-fullscreen",
       "--start-maximized",
-      "--window-size=1440,1440",
+      "--window-size=1440,900",
       "--window-position=0,0",
       "--disable-infobars",
       "--no-default-browser-check",

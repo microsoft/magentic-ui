@@ -9,7 +9,7 @@ fi
 xsetroot -solid "#000000"
 
 # Force X11 to use the exact screen dimensions without any offsets
-xrandr --output default --mode 1440x1440 --pos 0x0
+xrandr --output default --mode 1440x900 --pos 0x0
 
 # Set proper DPI settings for the display
 echo "Xft.dpi: 96" | xrdb -merge
