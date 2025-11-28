@@ -130,6 +130,9 @@ class RoundRobinGroupChatManager(BaseGroupChatManager):
             # If paused, let the user speak next
             for name in self._participant_names:
                 if name == "user_proxy":
+                    self._next_speaker_index = (
+                        self._participant_names.index(name) + 1
+                    ) % len(self._participant_names)
                     return name
             # If no user_proxy found, continue with round-robin
 
