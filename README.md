@@ -18,6 +18,9 @@ Magentic-UI is a **research prototype** human-centered AI agent that solves comp
 
 ## ✨ What's New
 
+Microsoft latest agentic model [Fara-7B](https://www.microsoft.com/en-us/research/blog/fara-7b-an-efficient-agentic-model-for-computer-use/) is now integrated in Magentic-UI, read how to launch in <a href="#Magentic-UI with Fara-7B">Fara-7B guide</a>.
+
+
 - **"Tell me When"**: Automate monitoring tasks and repeatable workflows that require web or API access that span minutes to days. *Learn more [here](https://www.microsoft.com/en-us/research/blog/tell-me-when-building-agents-that-can-wait-monitor-and-act/).*
 - **File Upload Support**: Upload any file through the UI for analysis or modification
 - **MCP Agents**: Extend capabilities with your favorite MCP servers
@@ -211,6 +214,59 @@ If you face issues with Docker, please refer to the [TROUBLESHOOTING.md](TROUBLE
 
 Once the server is running, you can access the UI at <http://localhost:8081>.
 
+
+
+### Magentic-UI with Fara-7B
+
+1) First install magentic-ui with the fara extras:
+
+```bash
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install magentic-ui[fara]
+```
+
+2) In a seperate process, serve the Fara-7B model using vLLM:
+
+```bash
+vllm serve "microsoft/Fara-7B" --port 5000 --dtype auto 
+```
+
+3) First create a `fara_config.yaml` file with the following content:
+
+```yaml
+model_config_local_surfer: &client_surfer
+  provider: OpenAIChatCompletionClient
+  config:
+    model: "microsoft/Fara-7B"
+    base_url: http://localhost:5000/v1
+    api_key: not-needed
+    model_info:
+      vision: true
+      function_calling: true
+      json_output: false
+      family: "unknown" 
+      structured_output: false
+      multiple_system_messages: false
+
+orchestrator_client: *client_surfer
+coder_client: *client_surfer
+web_surfer_client: *client_surfer
+file_surfer_client: *client_surfer
+action_guard_client: *client_surfer
+model_client: *client_surfer
+```
+Note: if you are hosting vLLM on a different port or host, change the `base_url` accordingly.
+
+
+Then launch Magentic-UI with the fara agent:
+
+```bash
+magentic-ui --fara --port 8081 --config fara_config.yaml 
+```
+
+Finally, navigate to <http://localhost:8081> to access the interface!
 
 ### Configuration
 

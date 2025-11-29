@@ -1,0 +1,20 @@
+model_config_local_surfer: &client_surfer
+  provider: OpenAIChatCompletionClient
+  config:
+    model: "microsoft/Fara-7B"
+    base_url: http://localhost:5000/v1
+    api_key: not-needed
+    model_info:
+      vision: true
+      function_calling: true
+      json_output: false
+      family: "unknown" 
+      structured_output: false
+      multiple_system_messages: false
+
+orchestrator_client: *client_surfer
+coder_client: *client_surfer
+web_surfer_client: *client_surfer
+file_surfer_client: *client_surfer
+action_guard_client: *client_surfer
+model_client: *client_surfer
