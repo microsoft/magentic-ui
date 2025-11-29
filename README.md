@@ -18,7 +18,7 @@ Magentic-UI is a **research prototype** human-centered AI agent that solves comp
 
 ## ✨ What's New
 
-Microsoft latest agentic model [Fara-7B](https://www.microsoft.com/en-us/research/blog/fara-7b-an-efficient-agentic-model-for-computer-use/) is now integrated in Magentic-UI, read how to launch in <a href="#Magentic-UI with Fara-7B">Fara-7B guide</a>.
+Microsoft latest agentic model [Fara-7B](https://www.microsoft.com/en-us/research/blog/fara-7b-an-efficient-agentic-model-for-computer-use/) is now integrated in Magentic-UI, read how to launch in [Fara-7B guide](#️##-Fara-7B)
 
 
 - **"Tell me When"**: Automate monitoring tasks and repeatable workflows that require web or API access that span minutes to days. *Learn more [here](https://www.microsoft.com/en-us/research/blog/tell-me-when-building-agents-that-can-wait-monitor-and-act/).*
@@ -216,7 +216,7 @@ Once the server is running, you can access the UI at <http://localhost:8081>.
 
 
 
-### Magentic-UI with Fara-7B
+### Fara-7B
 
 1) First install magentic-ui with the fara extras:
 
