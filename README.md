@@ -155,7 +155,7 @@ To reproduce these experimental results, please see the following [instructions]
 If you're interested in reading more checkout our [technical report](https://www.microsoft.com/en-us/research/wp-content/uploads/2025/07/magentic-ui-report.pdf) and [blog post](https://www.microsoft.com/en-us/research/blog/magentic-ui-an-experimental-human-centered-web-agent/).
 
 
-## 🛠️ Installation
+## Installation
 ### Pre-Requisites
 
 **Note**: If you're using Windows, we highly recommend using [WSL2](https://docs.microsoft.com/en-us/windows/wsl/install) (Windows Subsystem for Linux).
