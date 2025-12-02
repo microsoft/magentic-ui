@@ -244,7 +244,7 @@ model_config_local_surfer: &client_surfer
     model_info:
       vision: true
       function_calling: true
-      json_output: false
+      json_output: true
       family: "unknown" 
       structured_output: false
       multiple_system_messages: false
