@@ -932,6 +932,12 @@ class Orchestrator(BaseGroupChatManager):
                 cancellation_token=cancellation_token,
             )
             self._state.in_planning_mode = False
+            if self._state.plan is None:
+                # produce final answer if no plan was created
+                await self._prepare_final_answer(
+                    "No plan was created.", cancellation_token
+                )
+                return
             await self._orchestrate_step_execution(cancellation_token, first_step=True)
 
     async def _orchestrate_step_execution(
