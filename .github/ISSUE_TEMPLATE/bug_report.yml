@@ -1,0 +1,74 @@
+name: Bug report
+description: Report a bug or unexpected behavior
+title: "[bug] "
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear, concise description of what's wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The minimum sequence that triggers the bug.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened. Include error messages, screenshots, or log excerpts.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: MagenticLite version
+      description: Output of `magentic-ui --version`.
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Windows (WSL)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.12"
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model client / provider
+      description: Which orchestrator / web-surfer model you're running.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Config snippets (with secrets redacted), recent changes, workarounds tried.

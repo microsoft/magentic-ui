@@ -1,0 +1,76 @@
+name: Build & Release Wheel
+
+on:
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: "Create a GitHub Release with the wheel"
+        type: boolean
+        default: false
+      overwrite_existing:
+        description: "Overwrite existing release with same version tag"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        working-directory: frontend
+        run: pnpm build
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build wheel
+        run: |
+          pip install build
+          python -m build --wheel
+
+      - name: Create GitHub Release
+        if: ${{ inputs.create_release }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(python -c "exec(open('src/magentic_ui/version.py').read()); print(VERSION)")
+          TAG="v$VERSION"
+          # Mark as prerelease when the version has an alpha/beta/rc suffix.
+          PRERELEASE_FLAG=""
+          if [[ "$VERSION" =~ (a|b|rc)[0-9]+$ ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          # Check if release already exists
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            if [ "${{ inputs.overwrite_existing }}" != "true" ]; then
+              echo "::error::Release $TAG already exists. Bump version in version.py or enable 'Overwrite existing release'."
+              exit 1
+            fi
+            echo "Overwriting existing release $TAG..."
+            gh release delete "$TAG" --yes --cleanup-tag
+          fi
+          gh release create "$TAG" dist/*.whl \
+            --generate-notes \
+            $PRERELEASE_FLAG

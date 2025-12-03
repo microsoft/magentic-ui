@@ -1,0 +1,466 @@
+@import 'tailwindcss';
+
+/* =============================================================================
+   Magentic UI Design Tokens
+
+   Auto-generated from Figma "Magentic x shadcn/ui" design system.
+
+   Structure:
+   - :root         → Light mode (magentic-light)
+   - .dark         → Dark mode (magentic-dark)
+   - @theme inline → Register as Tailwind utilities
+
+   Colors reference Tailwind's built-in palette (e.g., var(--color-neutral-900)).
+   See: https://tailwindcss.com/docs/colors
+
+   IMPORTANT: In components, always use semantic colors (bg-primary, text-foreground)
+   instead of raw Tailwind colors (bg-neutral-900). This ensures theme consistency.
+   ============================================================================= */
+
+/* =============================================================================
+   Light Mode Variables (magentic-light)
+   ============================================================================= */
+
+:root {
+  /* General */
+  --accent: var(--color-neutral-200);
+  --accent-foreground: var(--color-neutral-900);
+  --background: var(--color-white);
+  --border: var(--color-neutral-300);
+  --destructive: var(--color-red-500);
+  --foreground: var(--color-neutral-950);
+  --input: var(--color-neutral-300);
+  --muted: var(--color-neutral-100);
+  --muted-foreground: var(--color-neutral-600);
+  --primary: var(--color-fuchsia-500);
+  --primary-foreground: var(--color-neutral-50);
+  --secondary: var(--color-neutral-200);
+  --secondary-foreground: var(--color-neutral-900);
+
+  /* Card */
+  --card: var(--color-neutral-100);
+  --card-foreground: var(--color-neutral-950);
+  --card-hover: var(--color-neutral-200);
+  --card-selected-ring: var(--color-fuchsia-300);
+  --card-error-ring: var(--color-red-300);
+
+  /* Popover */
+  --popover: var(--color-neutral-50);
+  --popover-foreground: var(--color-neutral-950);
+
+  /* Focus */
+  --ring: var(--color-blue-500);
+  --ring-error: var(--color-red-500);
+
+  /* Sidebar */
+  --sidebar: var(--color-neutral-50);
+  --sidebar-accent: var(--color-neutral-200);
+  --sidebar-accent-foreground: var(--color-neutral-900);
+  --sidebar-border: var(--color-neutral-300);
+  --sidebar-foreground: var(--color-neutral-700);
+  --sidebar-primary: var(--color-neutral-900);
+  --sidebar-primary-foreground: var(--color-neutral-50);
+  --sidebar-ring: var(--color-blue-500);
+  --sidebar-muted: var(--color-neutral-500);
+
+  /* Session Status */
+  --status-stopped: var(--color-zinc-600);
+  --status-error: var(--color-red-600);
+  --status-active: var(--color-blue-600);
+  --status-completed: var(--color-green-600);
+  --status-waiting-input: var(--color-amber-600);
+
+  /* Extended Tokens */
+  --accent-0: var(--color-neutral-100);
+  --accent-2: var(--color-neutral-300);
+  --accent-3: var(--color-neutral-400);
+  --backdrop: oklch(0 0 0 / 0.6);
+  --body-background: var(--color-neutral-50);
+  --border-0: var(--color-neutral-50);
+  --border-1: var(--color-neutral-100);
+  --border-3: var(--color-neutral-300);
+  --border-4: var(--color-neutral-400);
+  --border-5: var(--color-neutral-500);
+  --contrast: var(--color-black);
+  --destructive-border: var(--color-red-500);
+  --destructive-foreground: var(--color-white);
+  --destructive-subtle: var(--color-red-50);
+  --foreground-alt: var(--color-neutral-700);
+  --ghost: oklch(1 0 0 / 0);
+  --ghost-foreground: var(--color-neutral-700);
+  --ghost-hover: oklch(0 0 0 / 0.05);
+  --mid-alt: var(--color-neutral-600);
+  --outline: oklch(1 0 0 / 0.1);
+  --outline-active: oklch(0 0 0 / 0.05);
+  --outline-hover: oklch(0 0 0 / 0.03);
+  --primary-hover: var(--color-neutral-700);
+  --secondary-hover: var(--color-neutral-100);
+
+  /* Border Radius */
+  --radius-lg: 0.5rem;
+  --radius-md: calc(var(--radius-lg) - 2px);
+  --radius-sm: calc(var(--radius-lg) - 4px);
+}
+
+/* =============================================================================
+   Dark Mode Variables (magentic-dark)
+   ============================================================================= */
+
+.dark {
+  /* General */
+  --accent: var(--color-neutral-800);
+  --accent-foreground: var(--color-neutral-100);
+  --background: var(--color-black);
+  --border: var(--color-neutral-700);
+  --destructive: var(--color-red-500);
+  --foreground: var(--color-neutral-50);
+  --input: var(--color-neutral-700);
+  --muted: var(--color-neutral-900);
+  --muted-foreground: var(--color-neutral-400);
+  --primary: var(--color-fuchsia-500);
+  --primary-foreground: var(--color-neutral-50);
+  --secondary: var(--color-neutral-800);
+  --secondary-foreground: var(--color-neutral-100);
+
+  /* Card */
+  --card: var(--color-neutral-900);
+  --card-foreground: var(--color-white);
+  --card-hover: var(--color-neutral-800);
+  --card-selected-ring: var(--color-fuchsia-800);
+  --card-error-ring: var(--color-red-800);
+
+  /* Popover */
+  --popover: var(--color-neutral-950);
+  --popover-foreground: var(--color-neutral-50);
+
+  /* Focus */
+  --ring: var(--color-blue-500);
+  --ring-error: var(--color-red-500);
+
+  /* Sidebar */
+  --sidebar: var(--color-neutral-950);
+  --sidebar-accent: var(--color-neutral-900);
+  --sidebar-accent-foreground: var(--color-neutral-100);
+  --sidebar-border: var(--color-neutral-700);
+  --sidebar-foreground: var(--color-neutral-300);
+  --sidebar-primary: var(--color-neutral-50);
+  --sidebar-primary-foreground: var(--color-neutral-900);
+  --sidebar-ring: var(--color-blue-500);
+  --sidebar-muted: var(--color-neutral-500);
+
+  /* Session Status */
+  --status-stopped: var(--color-zinc-400);
+  --status-error: var(--color-red-500);
+  --status-active: var(--color-blue-500);
+  --status-completed: var(--color-green-500);
+  --status-waiting-input: var(--color-amber-500);
+
+  /* Extended Tokens */
+  --accent-0: var(--color-neutral-900);
+  --accent-2: var(--color-neutral-700);
+  --accent-3: var(--color-neutral-600);
+  --backdrop: oklch(26.86% 0 263.28 / 0.6);
+  --body-background: var(--color-neutral-950);
+  --border-0: var(--color-neutral-950);
+  --border-1: var(--color-neutral-900);
+  --border-3: var(--color-neutral-700);
+  --border-4: var(--color-neutral-600);
+  --border-5: var(--color-neutral-500);
+  --contrast: var(--color-white);
+  --destructive-border: var(--color-red-500);
+  --destructive-foreground: var(--color-white);
+  --destructive-subtle: var(--color-red-950);
+  --foreground-alt: var(--color-neutral-300);
+  --ghost: oklch(1 0 0 / 0);
+  --ghost-foreground: var(--color-neutral-200);
+  --ghost-hover: oklch(1 0 0 / 0.1);
+  --mid-alt: var(--color-neutral-400);
+  --outline: oklch(1 0 0 / 0.05);
+  --outline-active: oklch(1 0 0 / 0.15);
+  --outline-hover: oklch(1 0 0 / 0.1);
+  --primary-hover: var(--color-neutral-700);
+  --secondary-hover: var(--color-neutral-700);
+}
+
+/* =============================================================================
+   Theme Registration (@theme inline)
+   Maps CSS variables to Tailwind utilities (bg-*, text-*, border-*, etc.)
+   ============================================================================= */
+
+@theme inline {
+  --color-accent: var(--accent);
+  --color-accent-0: var(--accent-0);
+  --color-accent-2: var(--accent-2);
+  --color-accent-3: var(--accent-3);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-backdrop: var(--backdrop);
+  --color-background: var(--background);
+  --color-body-background: var(--body-background);
+  --color-border: var(--border);
+  --color-border-0: var(--border-0);
+  --color-border-1: var(--border-1);
+  --color-border-3: var(--border-3);
+  --color-border-4: var(--border-4);
+  --color-border-5: var(--border-5);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-card-hover: var(--card-hover);
+  --color-card-selected-ring: var(--card-selected-ring);
+  --color-card-error-ring: var(--card-error-ring);
+  --color-contrast: var(--contrast);
+  --color-destructive: var(--destructive);
+  --color-destructive-border: var(--destructive-border);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-subtle: var(--destructive-subtle);
+  --color-foreground: var(--foreground);
+  --color-foreground-alt: var(--foreground-alt);
+  --color-ghost: var(--ghost);
+  --color-ghost-foreground: var(--ghost-foreground);
+  --color-ghost-hover: var(--ghost-hover);
+  --color-input: var(--input);
+  --color-mid-alt: var(--mid-alt);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-outline: var(--outline);
+  --color-outline-active: var(--outline-active);
+  --color-outline-hover: var(--outline-hover);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-ring: var(--ring);
+  --color-ring-error: var(--ring-error);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-status-stopped: var(--status-stopped);
+  --color-status-error: var(--status-error);
+  --color-status-active: var(--status-active);
+  --color-status-completed: var(--status-completed);
+  --color-status-waiting-input: var(--status-waiting-input);
+}
+
+/* =============================================================================
+   Base Styles
+   ============================================================================= */
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif;
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--accent-2);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-3);
+  }
+
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-2) transparent;
+  }
+}
+
+/* =============================================================================
+   Code Block Syntax Highlighting (Prism.js)
+
+   Used by:
+   - CodeBlock component (chat messages)
+   - Settings YAML editor
+
+   Theme-aware via data-theme attribute on .code-editor-wrapper
+   ============================================================================= */
+
+/* Light theme */
+.code-editor-wrapper[data-theme='light'] {
+  background-color: var(--color-neutral-100);
+  color: var(--color-neutral-900);
+}
+
+.code-editor-wrapper[data-theme='light'] .token.comment,
+.code-editor-wrapper[data-theme='light'] .token.prolog,
+.code-editor-wrapper[data-theme='light'] .token.doctype,
+.code-editor-wrapper[data-theme='light'] .token.cdata {
+  color: var(--color-neutral-500);
+}
+
+.code-editor-wrapper[data-theme='light'] .token.punctuation {
+  color: var(--color-neutral-600);
+}
+
+.code-editor-wrapper[data-theme='light'] .token.property,
+.code-editor-wrapper[data-theme='light'] .token.tag,
+.code-editor-wrapper[data-theme='light'] .token.boolean,
+.code-editor-wrapper[data-theme='light'] .token.number,
+.code-editor-wrapper[data-theme='light'] .token.constant,
+.code-editor-wrapper[data-theme='light'] .token.symbol {
+  color: var(--color-blue-600);
+}
+
+.code-editor-wrapper[data-theme='light'] .token.selector,
+.code-editor-wrapper[data-theme='light'] .token.attr-name,
+.code-editor-wrapper[data-theme='light'] .token.string,
+.code-editor-wrapper[data-theme='light'] .token.char,
+.code-editor-wrapper[data-theme='light'] .token.builtin {
+  color: var(--color-green-600);
+}
+
+.code-editor-wrapper[data-theme='light'] .token.operator,
+.code-editor-wrapper[data-theme='light'] .token.entity,
+.code-editor-wrapper[data-theme='light'] .token.url,
+.code-editor-wrapper[data-theme='light'] .token.variable {
+  color: var(--color-orange-600);
+}
+
+.code-editor-wrapper[data-theme='light'] .token.atrule,
+.code-editor-wrapper[data-theme='light'] .token.attr-value,
+.code-editor-wrapper[data-theme='light'] .token.keyword {
+  color: var(--color-purple-600);
+}
+
+.code-editor-wrapper[data-theme='light'] .token.function,
+.code-editor-wrapper[data-theme='light'] .token.class-name {
+  color: var(--color-fuchsia-600);
+}
+
+.code-editor-wrapper[data-theme='light'] .token.regex,
+.code-editor-wrapper[data-theme='light'] .token.important {
+  color: var(--color-amber-600);
+}
+
+/* Dark theme */
+.code-editor-wrapper[data-theme='dark'] {
+  background-color: var(--color-neutral-900);
+  color: var(--color-neutral-100);
+}
+
+.code-editor-wrapper[data-theme='dark'] .token.comment,
+.code-editor-wrapper[data-theme='dark'] .token.prolog,
+.code-editor-wrapper[data-theme='dark'] .token.doctype,
+.code-editor-wrapper[data-theme='dark'] .token.cdata {
+  color: var(--color-neutral-500);
+}
+
+.code-editor-wrapper[data-theme='dark'] .token.punctuation {
+  color: var(--color-neutral-400);
+}
+
+.code-editor-wrapper[data-theme='dark'] .token.property,
+.code-editor-wrapper[data-theme='dark'] .token.tag,
+.code-editor-wrapper[data-theme='dark'] .token.boolean,
+.code-editor-wrapper[data-theme='dark'] .token.number,
+.code-editor-wrapper[data-theme='dark'] .token.constant,
+.code-editor-wrapper[data-theme='dark'] .token.symbol {
+  color: var(--color-sky-400);
+}
+
+.code-editor-wrapper[data-theme='dark'] .token.selector,
+.code-editor-wrapper[data-theme='dark'] .token.attr-name,
+.code-editor-wrapper[data-theme='dark'] .token.string,
+.code-editor-wrapper[data-theme='dark'] .token.char,
+.code-editor-wrapper[data-theme='dark'] .token.builtin {
+  color: var(--color-green-400);
+}
+
+.code-editor-wrapper[data-theme='dark'] .token.operator,
+.code-editor-wrapper[data-theme='dark'] .token.entity,
+.code-editor-wrapper[data-theme='dark'] .token.url,
+.code-editor-wrapper[data-theme='dark'] .token.variable {
+  color: var(--color-orange-400);
+}
+
+.code-editor-wrapper[data-theme='dark'] .token.atrule,
+.code-editor-wrapper[data-theme='dark'] .token.attr-value,
+.code-editor-wrapper[data-theme='dark'] .token.keyword {
+  color: var(--color-purple-400);
+}
+
+.code-editor-wrapper[data-theme='dark'] .token.function,
+.code-editor-wrapper[data-theme='dark'] .token.class-name {
+  color: var(--color-fuchsia-400);
+}
+
+.code-editor-wrapper[data-theme='dark'] .token.regex,
+.code-editor-wrapper[data-theme='dark'] .token.important {
+  color: var(--color-amber-400);
+}
+
+/* =============================================================================
+   Animations
+   ============================================================================= */
+
+/* Stripe animation for progress indicators (used in TakeoverNotice) */
+@keyframes stripe-move {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 40px 0;
+  }
+}
+
+.animate-stripe {
+  background: repeating-linear-gradient(
+    -45deg,
+    oklch(from var(--primary) l c h / 0.2) 0px,
+    oklch(from var(--primary) l c h / 0.2) 14px,
+    oklch(from var(--primary) l c h / 0.3) 14px,
+    oklch(from var(--primary) l c h / 0.3) 28px
+  );
+  background-size: 40px 40px;
+  animation: stripe-move 0.8s linear infinite;
+}
+
+@keyframes text-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    var(--foreground) 0%,
+    oklch(from var(--foreground) l c h / 0.5) 25%,
+    var(--foreground) 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: text-shimmer 3s linear infinite;
+}

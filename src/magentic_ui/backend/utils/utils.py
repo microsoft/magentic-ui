@@ -1,117 +1,61 @@
-import base64
 import os
-from typing import Any, List, Sequence, Dict
+from pathlib import Path
+from typing import Any, List, Dict, Iterable, TypedDict
 import json
-from autogen_agentchat.messages import ChatMessage, MultiModalMessage, TextMessage
-from autogen_core import Image
 from loguru import logger
-import shutil
-from typing import Optional
 
 
-def construct_task(
-    query: str, files: List[Dict[str, Any]] | None = None
-) -> Sequence[ChatMessage]:
+class ModifiedFileInfo(TypedDict):
+    """File info returned by get_modified_files()."""
+
+    path: str
+    short_path: str
+    name: str
+    extension: str
+    type: str
+    timestamp: float
+
+
+def sanitize_filename(filename: str) -> str:
+    """Sanitize filename to prevent path traversal.
+
+    Strips directory components (including Windows-style backslash paths),
+    rejects dangerous patterns.
+    Raises ValueError for invalid filenames.
     """
-    Construct a task from a query string and list of files.
-    Returns a list of ChatMessages that combines all files and the query.
-    Args:
-        query (str): The text query from the user
-        files (List[Dict[str, Any]]): List of file objects with properties name, content, and type
+    # Normalize Windows backslashes so os.path.basename strips all directory components
+    # (e.g., browsers may send "C:\\fakepath\\file.txt")
+    normalized = filename.replace("\\", "/")
+    safe = os.path.basename(normalized)
+    if not safe or safe in (".", "..") or safe.startswith("."):
+        raise ValueError(f"Invalid filename: {filename!r}")
+    return safe
 
-    Returns:
-        Sequence[ChatMessage]: A list of ChatMessages that combines all files and the query.
+
+def find_available_filename(
+    directory: Path,
+    filename: str,
+    reserved: Iterable[str] = (),
+) -> str:
+    """Return ``filename``, or an ``_N``-suffixed variant if it collides on
+    disk or with ``reserved``.
+
+    ``filename`` must already be sanitized (no directory components).
+    The suffix avoids spaces/parentheses to stay shell- and path-safe.
     """
-    if files is None:
-        files = []
+    reserved_set = set(reserved)
 
-    images: List[Image] = []
-    text_parts: List[str] = []
-    messages_return: Sequence[ChatMessage] = []
-    attached_files: List[Dict[str, Any]] = []
-    # Process each file based on its type
-    for file in files:
-        try:
-            # Check if this is an uploaded file reference
-            if file.get("uploaded") and file.get("path"):
-                # Handle uploaded file by path reference
-                file_path = file.get("path", "")
-                text_parts.append(f"Attached file: {file.get('name', 'unknown.file')}")
-                attached_files.append(
-                    {
-                        "name": file.get("name", "unknown.file"),
-                        "type": file.get("type", "file"),
-                        "path": file_path,
-                        "uploaded": True,
-                    }
-                )
-            elif file.get("type", "").startswith("image/"):
-                # Handle image file using from_base64 method
-                image = Image.from_base64(file["content"])
-                images.append(image)
-                text_parts.append(f"Attached image: {file.get('name', 'unknown.img')}")
-                # name and type
-                attached_files.append(
-                    {
-                        "name": file.get("name", "unknown.img"),
-                        "type": file.get("type", "image"),
-                    }
-                )
-            else:
-                # Handle all other files as text (base64 encoded content)
-                try:
-                    text_content = base64.b64decode(file["content"]).decode("utf-8")
-                    text_parts.append(
-                        f"Attached file: {file.get('name', 'unknown.file')}\n{text_content}"
-                    )
-                    attached_files.append(
-                        {
-                            "name": file.get("name", "unknown.file"),
-                            "type": file.get("type", "text"),
-                        }
-                    )
-                except Exception as e:
-                    logger.error(f"Error processing file content: {str(e)}")
-                    text_parts.append(
-                        f"Attached file: {file.get('name', 'unknown.file')} (failed to process content)"
-                    )
-                    attached_files.append(
-                        {
-                            "name": file.get("name", "unknown.file"),
-                            "type": file.get("type", "text"),
-                        }
-                    )
-        except Exception as e:
-            logger.error(f"Error processing file {file.get('name')}: {str(e)}")
+    if not (directory / filename).exists() and filename not in reserved_set:
+        return filename
 
-    # Add the user query at the end
-    combined_text = "\n\n".join(text_parts)
-    attached_files_json = json.dumps(attached_files)
-    # Return a MultiModalMessage if there are images, otherwise a TextMessage
-    if len(text_parts) > 0:
-        messages_return.append(
-            TextMessage(
-                source="user", content=combined_text, metadata={"internal": "yes"}
-            )
-        )
-    if images:
-        messages_return.append(
-            MultiModalMessage(
-                source="user",
-                content=[query, *images],
-                metadata={"attached_files": attached_files_json},
-            )
-        )
-    else:
-        messages_return.append(
-            TextMessage(
-                source="user",
-                content=query,
-                metadata={"attached_files": attached_files_json},
-            )
-        )
-
-    return messages_return
+    stem = Path(filename).stem
+    suffix = Path(filename).suffix
+    counter = 1
+    while True:
+        candidate = f"{stem}_{counter}{suffix}"
+        if not (directory / candidate).exists() and candidate not in reserved_set:
+            return candidate
+        counter += 1
 
 
 def get_file_type(file_path: str) -> str:
@@ -206,7 +150,7 @@ def get_file_type(file_path: str) -> str:
 
 def get_modified_files(
     start_timestamp: float, end_timestamp: float, source_dir: str
-) -> List[Dict[str, str]]:
+) -> List[ModifiedFileInfo]:
     """
     Identify files from source_dir that were modified within a specified timestamp range.
     The function excludes files with certain file extensions and names.
@@ -216,14 +160,14 @@ def get_modified_files(
         end_timestamp (float): The floating-point number representing the end timestamp to filter modified files.
         source_dir (str): The directory to search for modified files.
     Returns:
-        List[Dict[str, str]]: A list of dictionaries with details of relative file paths that were modified.
-            Dictionary format: {path: "", name: "", extension: "", type: ""}
-             Files with extensions "__pycache__", "*.pyc", "__init__.py", and "*.cache"
-             are ignored.
+        List[ModifiedFileInfo]: A list of typed dicts with file path, name, extension, type, and timestamp.
+            Files with extensions "*.pyc", "*.cache" and names "__pycache__", "__init__.py" are ignored.
     """
-    modified_files: List[Dict[str, str]] = []
+    modified_files: List[ModifiedFileInfo] = []
     ignore_extensions = {".pyc", ".cache"}
-    ignore_files = {"__pycache__", "__init__.py"}
+    # .agent holds agent-internal output (transcripts, traces, tool outputs)
+    # that shouldn't surface as user-visible generated files in the UI.
+    ignore_files = {"__pycache__", "__init__.py", ".agent"}
 
     # Walk through the directory tree
     for root, dirs, files in os.walk(source_dir):
@@ -248,13 +192,14 @@ def get_modified_files(
                 )
                 file_type = get_file_type(file_path)
 
-                file_dict = {
+                file_dict: ModifiedFileInfo = {
                     "path": file_relative_path,
                     "short_path": file_relative_path,
                     "name": os.path.basename(file),
                     # Remove the dot
                     "extension": os.path.splitext(file)[1].lstrip("."),
                     "type": file_type,
+                    "timestamp": file_mtime,
                 }
                 modified_files.append(file_dict)
 
@@ -263,59 +208,58 @@ def get_modified_files(
     return modified_files
 
 
-def copy_files_to_run_directory(
-    new_files: List[Dict[str, Any]],
-    run_path: str,
-    source_dir: str = "./debug",
-    app_dir: Optional[str] = None,
-) -> List[Dict[str, Any]]:
-    """
-    Copy multiple files to the user's run directory.
+class ConstructTaskResult(TypedDict):
+    """Return type for construct_task()."""
 
-    Args:
-        new_files (List[Dict[str, Any]]): List of dictionaries containing file information (path, name)
-        run_path (str): Path segment containing user_id/run_id
-        source_dir (str, optional): Directory where source files are located if path is not specified. Default: `./debug`
-        app_dir (str, optional): Base application directory, defaults to ~/.magentic_ui if None. Default: None
+    agent_task: str  # Task string with file references (for the agent)
+    attached_files: List[Dict[str, Any]]  # Raw attached-file dicts (for in-process use)
+    attached_files_json: str  # JSON string of attached file metadata (for DB/WS)
 
-    Returns:
-        List[Dict[str, Any]]: List of file info dictionaries with updated paths
-    """
-    # Determine app directory if not provided
-    if app_dir is None:
-        app_dir = os.path.join(os.path.expanduser("~"), ".magentic_ui")
 
-    # Create the destination directory if it doesn't exist
-    dest_dir = os.path.join(app_dir, "files", run_path)
-    os.makedirs(dest_dir, exist_ok=True)
+def construct_task(
+    query: str,
+    files: List[Dict[str, Any]] | None = None,
+) -> ConstructTaskResult:
+    """Augment a task string with reference lines for uploaded files and return the attached-file metadata."""
+    empty_result: ConstructTaskResult = {
+        "agent_task": query,
+        "attached_files": [],
+        "attached_files_json": json.dumps([]),
+    }
+    if not files:
+        return empty_result
 
-    copied_files: List[Dict[str, Any]] = []
+    extra_lines: List[str] = []
+    attached_files: List[Dict[str, Any]] = []
 
-    for file_info in new_files:
+    for f in files:
+        raw_name = f.get("name", "unknown.file")
+        # Ensure name is a string before sanitizing to avoid TypeError
+        name = raw_name if isinstance(raw_name, str) else "unknown.file"
         try:
-            # Source file path
-            src_path = file_info.get("path", "")
-            if not src_path:
-                # If no path is specified, look in the source directory
-                src_path = os.path.join(source_dir, file_info.get("name", ""))
+            name = sanitize_filename(name)
+        except (ValueError, TypeError):
+            logger.warning(f"Skipping file with invalid name: {raw_name!r}")
+            continue
 
-            # Destination file path
-            dest_path = os.path.join(dest_dir, file_info.get("name", ""))
+        if f.get("uploaded") and f.get("path"):
+            extra_lines.append(
+                f"Attached file: {name} — newly uploaded by the user, "
+                f"saved at ./{name} in your current working directory. "
+                f"Open it directly to see what the user is referring to."
+            )
+            attached_files.append(
+                {
+                    "name": name,
+                    "type": f.get("type", "file"),
+                    "path": f["path"],
+                    "uploaded": True,
+                }
+            )
 
-            # Copy the file
-            if os.path.exists(src_path):
-                shutil.copy2(src_path, dest_path)
-
-                # Create a copy of the file info with updated path
-                updated_file_info = file_info.copy()
-                updated_file_info["path"] = dest_path
-                updated_file_info["short_path"] = os.path.join(
-                    run_path, file_info.get("name", "")
-                )
-                copied_files.append(updated_file_info)
-            else:
-                print(f"Warning: Source file not found: {src_path}")
-        except Exception as e:
-            print(f"Failed to copy file {file_info.get('name')}: {e}")
-
-    return copied_files
+    agent_task = query + "\n\n" + "\n".join(extra_lines) if extra_lines else query
+    return {
+        "agent_task": agent_task,
+        "attached_files": attached_files,
+        "attached_files_json": json.dumps(attached_files),
+    }

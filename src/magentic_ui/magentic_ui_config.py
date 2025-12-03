@@ -1,133 +1,237 @@
-from typing import Any, ClassVar, Dict, List, Literal, Optional, Union
+from __future__ import annotations
 
-from autogen_core import ComponentModel
+from enum import Enum
+from pathlib import Path
+from typing import Annotated, Any, Literal
+
+import yaml
 from pydantic import BaseModel, Field
 
-from .agents.mcp import McpAgentConfig
-from .types import Plan
+
+# ---------------------------------------------------------------------------
+# Agent mode
+# ---------------------------------------------------------------------------
 
 
-class SentinelPlanConfig(BaseModel):
-    """Configuration for sentinel plan functionality.
+class AgentMode(str, Enum):
+    """Deployment mode controlling which agents are active."""
 
-    Attributes:
-        enable_sentinel_steps (bool): Whether sentinel plan steps are enabled. Default: False.
-        dynamic_sentinel_sleep (bool): Whether to dynamically adapt sleep duration based on LLM response. Default: False.
+    ALL = "all"
+    WEBSURFER_ONLY = "websurfer_only"
+    OMNIAGENT_ONLY = "omniagent_only"
+
+
+def required_roles_for_mode(agent_mode: AgentMode) -> set[str]:
+    """Return the ``model_client_configs`` keys required by ``agent_mode``."""
+    if agent_mode == AgentMode.OMNIAGENT_ONLY:
+        return {"orchestrator"}
+    if agent_mode == AgentMode.WEBSURFER_ONLY:
+        return {"web_surfer"}
+    return {"orchestrator", "web_surfer"}
+
+
+def is_onboarding_complete(config: dict[str, Any]) -> bool:
+    """True iff every model required by the active ``agent_mode`` is set in
+    ``model_client_configs``.
+
+    Tolerates a missing or invalid ``agent_mode`` (falls back to ``ALL``).
+    """
+    raw_mode = config.get("agent_mode") or AgentMode.ALL.value
+    try:
+        mode = AgentMode(raw_mode)
+    except ValueError:
+        mode = AgentMode.ALL
+    raw_model_configs = config.get("model_client_configs", {})
+    if not isinstance(raw_model_configs, dict):
+        return False
+    model_configs: dict[str, Any] = raw_model_configs  # pyright: ignore[reportUnknownVariableType]
+    return all(model_configs.get(role) for role in required_roles_for_mode(mode))
+
+
+class ApprovalPolicy(str, Enum):
+    """Policy for tool approval prompts.
+
+    Controls whether the user is prompted before executing tools that
+    have ``requires_approval=True``.
     """
 
-    enable_sentinel_steps: bool = True
-    dynamic_sentinel_sleep: bool = False
+    AUTO_APPROVE = "auto_approve"
+    """Skip all approval prompts (eval runs, trusted environments)."""
+
+    REQUIRE_APPROVAL_UNTRUSTED = "require_approval_untrusted"
+    """Prompt for tools with requires_approval=True (default)."""
+
+    REQUIRE_APPROVAL_ALL = "require_approval_all"
+    """Prompt for every tool call."""
+
+
+# ---------------------------------------------------------------------------
+# Sandbox config (matching harness pattern)
+# ---------------------------------------------------------------------------
+
+
+class QuicksandSandboxConfig(BaseModel):
+    """Quicksand VM sandbox configuration."""
+
+    type: Literal["quicksand"] = "quicksand"
+    memory: str = "6G"
+    cpus: int = 3
+    pool_size: int = 5
+
+
+class NullSandboxConfig(BaseModel):
+    """No sandbox — runs commands directly on host."""
+
+    type: Literal["null"] = "null"
+
+
+SandboxConfig = Annotated[
+    QuicksandSandboxConfig | NullSandboxConfig,
+    Field(discriminator="type"),
+]
+
+
+# ---------------------------------------------------------------------------
+# Model info & role defaults
+# ---------------------------------------------------------------------------
+
+
+class ModelInfoConfig(BaseModel):
+    """Model capability flags for a model endpoint."""
+
+    vision: bool = False
+    function_calling: bool = False
+    json_output: bool = True
+    family: str = "unknown"
+    structured_output: bool = False
+    multiple_system_messages: bool = False
+
+
+# Authoritative defaults for non-user-facing fields per agent role.
+# Used by onboarding API and YAML config loading to fill missing fields.
+ROLE_DEFAULTS: dict[str, dict[str, Any]] = {
+    "orchestrator": {
+        "provider": "OpenAIChatCompletionClient",
+        "max_retries": 3,
+        "model_info": ModelInfoConfig().model_dump(),
+    },
+    "web_surfer": {
+        "provider": "OpenAIChatCompletionClient",
+        "max_retries": 3,
+        "model_info": ModelInfoConfig(vision=True).model_dump(),
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Model client configs
+# ---------------------------------------------------------------------------
 
 
 class ModelClientConfigs(BaseModel):
-    """Configurations for the model clients.
-    Attributes:
-        default_client_config (dict): Default configuration for the model clients.
-        orchestrator (Optional[Union[ComponentModel, Dict[str, Any]]]): Configuration for the orchestrator component. Default: None.
-        web_surfer (Optional[Union[ComponentModel, Dict[str, Any]]]): Configuration for the web surfer component. Default: None.
-        coder (Optional[Union[ComponentModel, Dict[str, Any]]]): Configuration for the coder component. Default: None.
-        file_surfer (Optional[Union[ComponentModel, Dict[str, Any]]]): Configuration for the file surfer component. Default: None.
-        action_guard (Optional[Union[ComponentModel, Dict[str, Any]]]): Configuration for the action guard component. Default: None.
+    """Configurations for the model clients."""
+
+    orchestrator: dict[str, Any] | None = None
+    web_surfer: dict[str, Any] | None = None
+
+
+# ---------------------------------------------------------------------------
+# Harness config
+# ---------------------------------------------------------------------------
+
+
+class OrchestratorHarnessConfig(BaseModel):
+    """Harness config for the orchestrator agent.
+
+    ``max_rounds`` caps how many tool-execution rounds the orchestrator may
+    run per batch. When the cap is reached the orchestrator pauses and
+    asks the user whether to keep going via a ``ContinuationRequest``;
+    a best-effort final answer is generated only if the user chooses
+    Stop. The value is exposed through the Settings UI so users can
+    extend or shorten long tasks without restarting the backend.
     """
 
-    orchestrator: Optional[Union[ComponentModel, Dict[str, Any]]] = None
-    web_surfer: Optional[Union[ComponentModel, Dict[str, Any]]] = None
-    coder: Optional[Union[ComponentModel, Dict[str, Any]]] = None
-    file_surfer: Optional[Union[ComponentModel, Dict[str, Any]]] = None
-    action_guard: Optional[Union[ComponentModel, Dict[str, Any]]] = None
+    approval_policy: ApprovalPolicy = ApprovalPolicy.REQUIRE_APPROVAL_UNTRUSTED
+    temperature: float = 0.6
+    max_rounds: int = Field(default=100, ge=1, le=1000)
 
-    default_client_config: ClassVar[Dict[str, Any]] = {
-        "provider": "OpenAIChatCompletionClient",
-        "config": {
-            "model": "gpt-4.1-2025-04-14",
-        },
-        "max_retries": 10,
-    }
-    default_action_guard_config: ClassVar[Dict[str, Any]] = {
-        "provider": "OpenAIChatCompletionClient",
-        "config": {
-            "model": "gpt-4.1-nano-2025-04-14",
-        },
-        "max_retries": 10,
-    }
 
-    @classmethod
-    def get_default_client_config(cls) -> Dict[str, Any]:
-        return cls.default_client_config
+class WebSurferHarnessConfig(BaseModel):
+    """Harness config for the FaraWebSurfer agent (CUA).
 
-    @classmethod
-    def get_default_action_guard_config(cls) -> Dict[str, Any]:
-        return cls.default_action_guard_config
+    ``max_rounds`` caps how many actions the CUA may take before pausing
+    to ask the user whether to keep going. When the cap is reached the
+    harness yields a ``ContinuationRequest`` (``input_type="continuation"``)
+    instead of failing — the user can choose to keep going (resets the
+    counter for another batch) or to stop with a best-effort answer.
+    Free-text replies in the chat input map to Stop (only ``yes`` /
+    ``continue`` count as Continue).
+    """
+
+    max_rounds: int = Field(default=100, ge=1, le=1000)
+
+
+class HarnessConfig(BaseModel):
+    """Harness configuration — controls safety checks and approval policies."""
+
+    orchestrator: OrchestratorHarnessConfig = Field(
+        default_factory=OrchestratorHarnessConfig
+    )
+    web_surfer: WebSurferHarnessConfig = Field(default_factory=WebSurferHarnessConfig)
+
+
+# ---------------------------------------------------------------------------
+# Eval config
+# ---------------------------------------------------------------------------
+
+
+class EvalConfig(BaseModel):
+    """Evaluation-specific configs — not used by the main agent pipeline."""
+
+    eval_client: dict[str, Any] | None = None  # LLM-as-judge
+    sim_user_client: dict[str, Any] | None = None  # Simulated user
+
+
+# ---------------------------------------------------------------------------
+# Top-level config
+# ---------------------------------------------------------------------------
 
 
 class MagenticUIConfig(BaseModel):
-    """
-    A simplified set of configuration options for Magentic-UI.
+    """Magentic-UI configuration."""
 
-    Attributes:
-        model_client_configs (ModelClientConfigs): Configurations for the model client.
-        mcp_agent_configs (List[McpAgentConfig], optional): Configs for AssistantAgents with access to MCP Servers.
-        cooperative_planning (bool): Enable co-planning mode (default: enabled), user will be involved in the planning process. Default: True.
-        autonomous_execution (bool): Enable autonomous execution mode (default: disabled), user will not be involved in the execution. Default: False.
-        allowed_websites (List[str], optional): List of websites that are permitted.
-        max_actions_per_step (int): Maximum number of actions allowed per step. Default: 5.
-        multiple_tools_per_call (bool): Allow multiple tools to be called in a single step. Default: False.
-        max_turns (int): Maximum number of operational turns allowed. Default: 20.
-        plan (Plan, optional): A pre-defined plan. In cooperative planning mode, the plan will be enhanced with user feedback.
-        approval_policy (str, optional): Policy for action approval. Default: "auto-conservative".
-        allow_for_replans (bool): Whether to allow the orchestrator to create a new plan when needed. Default: True.
-        do_bing_search (bool): Flag to determine if Bing search should be used to come up with information for the plan. Default: False.
-        websurfer_loop (bool): Flag to determine if the websurfer should loop through the plan. Default: False.
-        use_fara_agent (bool): Whether to instantiate the FARA-flavoured web surfer instead of the default GPT-oriented agent. Default: False.
-        retrieve_relevant_plans (Literal["never", "hint", "reuse"]): Determines if the orchestrator should retrieve relevant plans from memory. Default: `never`.
-        memory_controller_key (str, optional): The key to retrieve the memory_controller for a particular user. Default: None.
-        model_context_token_limit (int, optional): The maximum number of tokens the model can use. Default: 110000.
-        allow_follow_up_input (bool): Flag to determine if new input should be requested after a final answer is given. Default: True.
-        final_answer_prompt (str, optional): Prompt for the final answer. Should be a string that can be formatted with the {task} variable. Default: None.
-        playwright_port (int, optional): Port for the Playwright browser. Default: -1 (auto-assign).
-        novnc_port (int, optional): Port for the noVNC server. Default: -1 (auto-assign).
-        user_proxy_type (str, optional): Type of user proxy agent to use ("dummy", "metadata", or None for default). Default: None.
-        task (str, optional): Task to be performed by the agents. Default: None.
-        hints (str, optional): Helpful hints for the task. Default: None.
-        answer (str, optional): Answer to the task. Default: None.
-        inside_docker (bool, optional): Whether to run inside a docker container. Default: True.
-        browser_headless (bool, optional): Whether to run a headless browser or not. Default: False.
-        browser_local (bool, optional): Whether to run a local browser (as opposed to dockerized browser). Default: False.
-        sentinel_plan (SentinelPlanConfig, optional): Configuration for sentinel plan functionality. Default: SentinelPlanConfig().
-        run_without_docker (bool, optional): If docker is not available, run without docker for browser, remove coder and filesurfer agents. Default: False.
-        network_name (str, optional): The name of the network to use for the browser. Default: "my-network".
-    """
-
+    # Model clients
     model_client_configs: ModelClientConfigs = Field(default_factory=ModelClientConfigs)
-    mcp_agent_configs: List[McpAgentConfig] = Field(default_factory=lambda: [])
-    cooperative_planning: bool = True
-    autonomous_execution: bool = False
-    allowed_websites: Optional[List[str]] = None
-    max_actions_per_step: int = 5
-    multiple_tools_per_call: bool = False
-    max_turns: int = 20
-    plan: Optional[Plan] = None
-    approval_policy: Literal[
-        "always", "never", "auto-conservative", "auto-permissive"
-    ] = "auto-conservative"
-    allow_for_replans: bool = True
-    do_bing_search: bool = False
-    websurfer_loop: bool = False
-    use_fara_agent: bool = False
-    retrieve_relevant_plans: Literal["never", "hint", "reuse"] = "never"
-    memory_controller_key: Optional[str] = None
-    model_context_token_limit: int = 110000
-    allow_follow_up_input: bool = True
+
+    # Sandbox
+    sandbox: SandboxConfig = QuicksandSandboxConfig()
+
+    # Agent behavior
+    agent_mode: AgentMode = AgentMode.ALL
+    # Which Fara agent implementation to launch:
+    #   "qwen3"      — FaraQwen3Agent (11 actions, legacy coordinate API)
+    #   "qwen3_next" — FaraQwen3NextAgent (adds double/right/triple_click, drag,
+    #                  hscroll, read_page_answer_question, ask_user_question)
+    # TODO: For release we get rid of this and pick the one that works best
+    web_surfer_variant: Literal["qwen3", "qwen3_next"] = "qwen3_next"
     final_answer_prompt: str | None = None
-    playwright_port: int = -1
-    novnc_port: int = -1
-    user_proxy_type: Optional[str] = None
-    task: Optional[str] = None
-    hints: Optional[str] = None
-    answer: Optional[str] = None
-    inside_docker: bool = True
-    browser_local: bool = False
-    sentinel_plan: SentinelPlanConfig = Field(default_factory=SentinelPlanConfig)
-    run_without_docker: bool = False
-    browser_headless: bool = False
-    network_name: str = "my-network"
+    user_proxy_type: str | None = None
+
+    # Harness
+    harness_config: HarnessConfig = Field(default_factory=HarnessConfig)
+
+    # Eval
+    eval: EvalConfig = Field(default_factory=EvalConfig)
+
+    @classmethod
+    def from_yaml(cls, path: Path) -> MagenticUIConfig:
+        """Load config from a YAML file.
+
+        Returns a fully-validated MagenticUIConfig. Callers that need
+        the raw YAML dict (e.g. for partial-merge semantics) should
+        read the file directly with ``yaml.safe_load``.
+        """
+        path = path.expanduser().resolve()
+        with open(path) as f:
+            data: dict[str, Any] = yaml.safe_load(f) or {}
+        return cls(**data)

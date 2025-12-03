@@ -8,7 +8,7 @@ license = "MIT"
 dynamic = ["version"]
 description = "A research prototype of a human-centered interface powered by a multi-agent system"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 keywords = ["agents", "browser-use", "multi-agent", "ai-assistant", "playwright", "web-automation"]
 authors = [
     {name = "Microsoft Corporation", email = "magui@service.microsoft.com"}
@@ -25,15 +25,12 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "autogen-agentchat==0.5.7",
-    "autogen-core==0.5.7",
-    "autogen-ext[openai,docker,file-surfer,web-surfer,magentic-one,task-centric-memory,mcp]==0.5.7",
+    "openai>=1.0.0",
+    "azure-identity",
+    "markitdown~=0.1.5",
     "aioconsole",
     "nest_asyncio",
-    "docker",
-    "aiohttp",
-    "playwright==1.51",
-    "tldextract",
+    "playwright>=1.58,<1.61",
     "loguru",
     "pydantic",
     "pydantic-settings",
@@ -48,6 +45,13 @@ dependencies = [
     "pyyaml",
     "html2text",
     "psutil",
+    "pillow",
+    "tenacity",
+    "jsonschema",
+    "tiktoken>=0.12,<0.14",
+    "quick-sandbox[qemu,cua]~=0.11.14",
+    "quicksand-cua>=0.3.10",
+    "pip>=24",
 ]
 
 [project.urls]
@@ -55,40 +59,14 @@ Homepage = "https://github.com/microsoft/magentic-ui"
 Repository = "https://github.com/microsoft/magentic-ui"
 Issues = "https://github.com/microsoft/magentic-ui/issues"
 
-[project.optional-dependencies]
-eval = [
-    "huggingface_hub",
-    "pandas",
-    "scipy",
-]
-
-azure = [
-    "autogen-ext[azure]==0.5.7"
-]
-
-ollama = [
-    "autogen-ext[ollama]==0.5.7"
-]
-
-fara = [
-    "pillow",
-    "tenacity",
-    "pyyaml",
-    "jsonschema",
-    "browserbase",
-    "vllm>=0.10.0",
-]
-
 [project.scripts]
 magentic = "magentic_ui.backend.cli:run"
 magentic-ui = "magentic_ui.backend.cli:run"
-magentic-cli = "magentic_ui._cli:main"
 
 [tool.uv]
 dev-dependencies = [
     "poethepoet",
     "pyright==1.1.401",
-    "mypy==1.13.0",
     "ruff==0.4.8",
     "pytest_asyncio",
     "pytest-cov",
@@ -97,51 +75,32 @@ dev-dependencies = [
     "sphinx-autodoc-typehints",
     "sphinx_rtd_theme",
     "types-aiofiles",
-    "types-docker",
     "types-PyYaml",
+    "flake8",
 ]
-
-[tool.ruff]
-exclude = ["src/benchmarks/assistantbench"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
 [tool.poe.tasks]
-fmt = "ruff format src tests samples"
-format.ref = "fmt src"
-lint = "ruff check src"
-mypy = "mypy src"
+fmt = "ruff format src tests"
+format.ref = "fmt"
+lint = "ruff check src tests"
 pyright = "pyright src"
-test.env = { PYTHONPATH = "src" }
 test.sequence = [
     "playwright install",
-    "pytest -m \"not npx\" tests --cov=src --cov-report=xml --cov-report=term-missing",
+    "pytest tests --cov=src --cov-report=xml --cov-report=term-missing",
 ]
 test.default_item_type = "cmd"
 check = ["fmt", "lint", "pyright", "test"]
 
-[tool.mypy]
-strict = true
-python_version = "3.11"
-ignore_missing_imports = true
-
-# from https://blog.wolt.com/engineering/2021/09/30/professional-grade-mypy-configuration/
-disallow_untyped_defs = true
-no_implicit_optional = true
-check_untyped_defs = true
-warn_return_any = true
-show_error_codes = true
-warn_unused_ignores = false
-
-disallow_incomplete_defs = true
-disallow_untyped_decorators = true
-disallow_any_unimported = true
-exclude = ["src/magentic_ui/eval"]
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.pyright]
-include = ["src", "tests", "samples"]
-exclude = ["src/magentic_ui/eval/benchmarks/assistantbench/evaluate_utils", "src/magentic_ui/agents/web_surfer/_cua_web_surfer.py", "src/magentic_ui/backend/web/routes", "src/magentic_ui/agents/web_surfer/fara", "src/magentic_ui/tools/playwright/playwright_controller_fara.py"]
+include = ["src", "tests"]
+exclude = ["src/magentic_ui/backend/web/routes", "src/magentic_ui/agents/web_surfer/fara", "src/magentic_ui/tools/playwright/playwright_controller_fara.py"]
 typeCheckingMode = "strict"
 reportUnnecessaryIsInstance = false
 reportMissingTypeStubs = false
@@ -160,12 +119,13 @@ include = [
   "src/magentic_ui/**/*.yaml",
   "src/magentic_ui/**/*.json",
   "src/magentic_ui/**/*.js",
-  "src/magentic_ui/backend/web/ui/**/*", 
-  "src/magentic_ui/docker/**/*",
+  "src/magentic_ui/**/*.txt",
+  "src/magentic_ui/**/*.sh",
+  "src/magentic_ui/backend/web/ui/**/*",
 ]
 exclude = [
   "src/magentic_ui/tests/**",
   "**/__pycache__",
   "**/.*.swp",
 ]
-ignore-vcs = true 
+ignore-vcs = true

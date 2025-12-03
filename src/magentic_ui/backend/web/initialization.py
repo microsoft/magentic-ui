@@ -16,7 +16,6 @@ class _AppPaths(BaseModel):
     static_root: Path
     user_files: Path
     ui_root: Path
-    config_dir: Path
     database_uri: str
 
 
@@ -58,14 +57,13 @@ class AppInitializer:
             static_root=app_root / "files",
             user_files=app_root / "files" / "user",
             ui_root=self._app_path / "ui",
-            config_dir=app_root / self.settings.CONFIG_DIR,
             database_uri=self._get_database_uri(app_root),
         )
 
     def _create_directories(self) -> None:
         """Create all required directories"""
         self.app_root.mkdir(parents=True, exist_ok=True)
-        dirs = [self.static_root, self.user_files, self.ui_root, self.config_dir]
+        dirs = [self.static_root, self.user_files, self.ui_root]
         for path in dirs:
             path.mkdir(parents=True, exist_ok=True)
 
@@ -96,11 +94,6 @@ class AppInitializer:
     def ui_root(self) -> Path:
         """Directory for UI files"""
         return self._paths.ui_root
-
-    @property
-    def config_dir(self) -> Path:
-        """Directory for configuration files"""
-        return self._paths.config_dir
 
     @property
     def database_uri(self) -> str:

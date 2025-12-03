@@ -1,12 +1,14 @@
+from __future__ import annotations
+
 import socket
 from pathlib import Path
-from typing import Tuple
-from autogen_core import ComponentModel
+from typing import TYPE_CHECKING, Tuple
 
 from .base_playwright_browser import PlaywrightBrowser
-from .headless_docker_playwright_browser import HeadlessDockerPlaywrightBrowser
 from .local_playwright_browser import LocalPlaywrightBrowser
-from .vnc_docker_playwright_browser import VncDockerPlaywrightBrowser
+
+if TYPE_CHECKING:
+    from .quicksand_browser_manager import QuicksandBrowserManager
 
 
 def get_available_port() -> tuple[int, socket.socket]:
@@ -19,76 +21,42 @@ def get_available_port() -> tuple[int, socket.socket]:
     return port, s
 
 
-def _get_docker_browser_resource_config(
-    bind_dir: Path,
-    novnc_port: int,
-    playwright_port: int,
-    inside_docker: bool,
-    headless: bool,
-    network_name: str = "my-network",
-) -> Tuple[PlaywrightBrowser, int, int]:
-    if playwright_port == -1:
-        playwright_port, sock = get_available_port()
-        sock.close()
-
-    if headless:
-        browser = HeadlessDockerPlaywrightBrowser(
-            playwright_port=playwright_port,
-            inside_docker=inside_docker,
-        )
-    else:
-        if novnc_port == -1:
-            novnc_port, sock = get_available_port()
-            sock.close()
-
-        browser = VncDockerPlaywrightBrowser(
-            bind_dir=bind_dir,
-            playwright_port=playwright_port,
-            novnc_port=novnc_port,
-            inside_docker=inside_docker,
-            network_name=network_name,
-        )
-
-    return browser, novnc_port, playwright_port
-
-
-def get_browser_resource_config(
+def get_browser_resource(
     bind_dir: Path,
     novnc_port: int = -1,
     playwright_port: int = -1,
-    inside_docker: bool = True,
     headless: bool = True,
     local: bool = False,
-    network_name: str = "my-network",
-) -> Tuple[ComponentModel, int, int]:
+    quicksand_manager: QuicksandBrowserManager | None = None,
+) -> Tuple[PlaywrightBrowser, int, int]:
     """
-    Create a VNC Docker Playwright Browser Resource configuration. The requested ports for novnc and playwright may be overwritten. The final values for each port number will be in the return value.
+    Create a Playwright browser instance.
 
     Args:
-        bind_dir (str): Directory to bind for the browser resource.
-        novnc_port (int, optional): Port for the noVNC server. Default: -1 (auto-assign).
-        playwright_port (int, optional): Port for the Playwright browser. Default: -1 (auto-assign).
-        inside_docker (bool, optional): Whether the browser is running inside Docker. Default: True.
-        headless (bool, optional): Whether the browser is running in headless mode. Default: True.
-        local (bool, optional): Whether the browser is running locally. Default: False.
-        network_name (str, optional): Name of the Docker network to use. Default: "my-network".
+        bind_dir: Directory to bind for the browser resource.
+        novnc_port: Port for the noVNC server. Default: -1 (auto-assign).
+        playwright_port: Port for the Playwright browser. Default: -1 (auto-assign).
+        headless: Whether the browser is running in headless mode. Default: True.
+        local: Whether the browser is running locally. Default: False.
+        quicksand_manager: If provided, route the browser through this
+            Quicksand VM manager (acquires a slot inside the VM); otherwise
+            a local Playwright browser is launched on the host.
+
     Returns:
-        A tuple containing the following:
-            - VncDockerPlaywrightBrowserResource: Configured browser resource.
-            - int: Port number for the noVNC server.
-            - int: Port number for the Playwright browser.
+        A tuple containing:
+            - PlaywrightBrowser: The browser instance.
+            - int: Port number for the noVNC server (-1 for quicksand until _start).
+            - int: Port number for the Playwright browser (-1 for quicksand until _start).
     """
+    if quicksand_manager is not None:
+        from .quicksand_playwright_browser import QuicksandPlaywrightBrowser
 
-    if local:
-        browser = LocalPlaywrightBrowser(headless=headless)
-    else:
-        browser, novnc_port, playwright_port = _get_docker_browser_resource_config(
-            bind_dir=bind_dir,
-            novnc_port=novnc_port,
-            playwright_port=playwright_port,
-            inside_docker=inside_docker,
-            headless=headless,
-            network_name=network_name,
+        browser = QuicksandPlaywrightBrowser(
+            browser_manager=quicksand_manager,
         )
+        # Ports are not known until _start() acquires a slot.
+        # Callers read ports from browser.novnc_host_port after start.
+        return browser, -1, -1
 
-    return browser.dump_component(), novnc_port, playwright_port
+    browser = LocalPlaywrightBrowser(headless=headless)
+    return browser, novnc_port, playwright_port

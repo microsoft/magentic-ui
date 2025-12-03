@@ -1,86 +1,191 @@
+"""TeamManager for the magentic-ui agent runtime.
+
+Simplified version that:
+- Only supports config file (--config), no UI settings merging
+- Removes file tracking (TODO: add back for OmniAgent+coder)
+- Removes EventLogger (TODO: add telemetry)
+
+Missing features to add later:
+- LLM call telemetry
+- Run completion signal with usage metrics
+- Duration tracking
+"""
+
 from __future__ import annotations
 
-import asyncio
-import json
-import logging
 import os
 import time
 from pathlib import Path
+from collections.abc import Callable
 from typing import (
+    TYPE_CHECKING,
     AsyncGenerator,
     Any,
-    cast,
-    Dict,
-    List,
-    Mapping,
     Optional,
-    Sequence,
-    Union,
 )
 from loguru import logger
-from autogen_agentchat.base import ChatAgent, TaskResult, Team
-from autogen_agentchat.messages import AgentEvent, ChatMessage, TextMessage
-from autogen_core import EVENT_LOGGER_NAME, CancellationToken, ComponentModel
-from autogen_core.logging import LLMCallEvent
+
+from ...agents.web_surfer.fara._types import StreamUpdate
+from ...types import ApprovalRequest, ContinuationRequest, InputRequest, PauseController
+
 from ...task_team import get_task_team
-from ...types import RunPaths
-from ...magentic_ui_config import MagenticUIConfig, ModelClientConfigs
-from ...input_func import InputFuncType
-from ...agents import WebSurfer
-
-from ..datamodel.types import EnvironmentVariable, LLMCallEventMessage, TeamResult
+from ...agents.message_schemas import (
+    file_generated_props,
+    input_request_props,
+    system_props,
+)
+from ...magentic_ui_config import (
+    AgentMode,
+    HarnessConfig,
+    MagenticUIConfig,
+    ModelClientConfigs,
+)
+from ...sandbox._path_normalizer import extract_dir_basename, normalize_host_path
+from ...sandbox._path_validator import validate_host_path
+from ..datamodel import Settings
 from ..datamodel.db import Run
-from ..utils.utils import get_modified_files
-from ...tools.playwright.browser.utils import get_browser_resource_config
+from ..utils.utils import get_modified_files, ModifiedFileInfo
+from ._upload_validation import validate_uploaded_files
+
+if TYPE_CHECKING:
+    from ...agents.base import SubAgentProtocol
+    from ...teams.omniagent._omni_agent import OmniAgent
+    from ..database import DatabaseManager
+    from ...tools.playwright.browser.quicksand_browser_manager import (
+        QuicksandBrowserManager,
+    )
 
 
-class RunEventLogger(logging.Handler):
-    """Event logger that queues LLMCallEvents for streaming"""
+def _file_to_ws(f: ModifiedFileInfo) -> dict[str, Any]:
+    """Convert a file dict from get_modified_files() to WebSocket format."""
+    return {
+        "name": f["name"],
+        "url": "/" + f["path"],
+        "timestamp": f["timestamp"],
+        "extension": f["extension"],
+        "file_type": f["type"],
+    }
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.events: asyncio.Queue[LLMCallEventMessage] = asyncio.Queue()
 
-    def emit(self, record: logging.LogRecord) -> None:
-        if isinstance(record.msg, LLMCallEvent):
-            self.events.put_nowait(LLMCallEventMessage(content=str(record.msg)))
+def _detect_changed_files(
+    current_files: list[ModifiedFileInfo],
+    known_files: dict[str, float],
+) -> list[dict[str, Any]]:
+    """Detect created/modified files relative to a known baseline.
+
+    Mutates `known_files` in-place to record the latest mtime for each
+    detected file so subsequent calls don't re-emit the same change.
+
+    Files matching internal noise (``tmp_code*``, ``supervisord.pid``)
+    are skipped. User-uploaded files participate in tracking via their
+    real path: they are recorded in `known_files` during the initial
+    snapshot, so a "created" emit is suppressed; later modifications by
+    agents surface as "modified" (issue #567).
+    """
+    changed: list[dict[str, Any]] = []
+    for f in current_files:
+        fpath = f["path"]
+        name = f["name"]
+        mtime = f["timestamp"]
+        if name.startswith("tmp_code") or name == "supervisord.pid":
+            continue
+        if fpath not in known_files:
+            changed.append({**_file_to_ws(f), "action": "created"})
+            known_files[fpath] = mtime
+        elif known_files[fpath] < mtime:
+            changed.append({**_file_to_ws(f), "action": "modified"})
+            known_files[fpath] = mtime
+    return changed
 
 
 class TeamManager:
-    """Manages team operations including loading configs and running teams"""
+    """Manages agent lifecycle for OmniAgent / FaraWebSurfer.
+
+    Simplified for MVP: config from file only (no UI settings),
+    FaraWebSurfer only (no OmniAgent yet), no file tracking.
+    """
 
     def __init__(
         self,
-        internal_workspace_root: Path,
-        external_workspace_root: Path,
-        run_without_docker: bool,
-        inside_docker: bool = True,
-        config: dict[str, Any] = {},
+        app_dir: Path,
+        config: MagenticUIConfig | None = None,
+        quicksand_manager: "QuicksandBrowserManager | None" = None,
+        db_manager: "DatabaseManager | None" = None,
     ) -> None:
-        self.team: Team | None = None
-        self.load_from_config = False
-        self.internal_workspace_root = internal_workspace_root
-        self.external_workspace_root = external_workspace_root
-        self.inside_docker = inside_docker
-        self.run_without_docker = run_without_docker
+        self.agent: "SubAgentProtocol | OmniAgent | None" = None
+        self.app_dir = app_dir
         self.config = config
-        # Track uploaded files across the entire conversation
-        self.uploaded_files: set[str] = set()
+        self._quicksand_manager = quicksand_manager
+        self._db_manager = db_manager
 
-    @staticmethod
-    async def load_from_file(path: Union[str, Path]) -> Dict[str, Any]:
-        """Load team configuration from JSON/YAML file"""
-        raise NotImplementedError(
-            "This method should be implemented in a subclass or replaced with actual loading logic."
-        )
+        # Full WebSocket-shaped info for files the user uploaded for this run
+        # (name, url, timestamp, extension, file_type). Surfaced in the
+        # end-of-run summary so the frontend can show a "Files you uploaded"
+        # section alongside the agent's generated/modified files.
+        self._uploaded_file_infos: list[dict[str, Any]] = []
 
-    def prepare_run_paths(
+        # Baseline file mtimes for change detection, mutated in place by
+        # both agent activity and mid-run uploads.
+        self._known_files: dict[str, float] = {}
+
+        # Pause controller shared with agent for pause/resume
+        self._pause_controller: PauseController = PauseController()
+
+        # Pending InputRequest respond callback (set when agent yields InputRequest)
+        self._pending_respond: Callable[[str], None] | None = None
+        # Whether the pending input is an approval (for NL response metadata)
+        self._pending_is_approval: bool = False
+        # Whether the pending input is a max-rounds continuation prompt.
+        self._pending_is_continuation: bool = False
+
+        # Session mount state (quicksand dynamic CIFS mounts)
+        self._mount_handles: list[Any] = []
+        self._session_id: str | None = None
+
+    def set_uploaded_file_infos(
+        self,
+        attached_files: list[dict[str, Any]],
+        run: Optional[Run] = None,
+    ) -> None:
+        """Record validated upload metadata for the end-of-run summary.
+
+        REPLACES any previously recorded list. Use
+        :py:meth:`add_uploaded_files` for mid-run uploads, which appends
+        and also registers paths in the change-detection baseline.
+        """
+        validated = validate_uploaded_files(self.app_dir, attached_files, run=run)
+        self._uploaded_file_infos = [info for info, _url, _safe in validated]
+
+    def add_uploaded_files(
+        self,
+        attached_files: list[dict[str, Any]],
+        run: Optional[Run] = None,
+    ) -> list[dict[str, Any]]:
+        """Register validated mid-run uploads and return safe refs.
+
+        Appends to ``_uploaded_file_infos`` and registers each path in
+        ``_known_files`` so the next change-detection cycle does not emit
+        it as ``"created"``. Returns server-validated refs in the
+        ``construct_task`` input shape; callers should use these (not
+        the raw client payload) when persisting/broadcasting metadata.
+        """
+        validated = validate_uploaded_files(self.app_dir, attached_files, run=run)
+        safe_refs: list[dict[str, Any]] = []
+        for info, url_path, safe_ref in validated:
+            self._uploaded_file_infos.append(info)
+            self._known_files[url_path] = info["timestamp"]
+            safe_refs.append(safe_ref)
+        return safe_refs
+
+    def prepare_host_run_dir(
         self,
         run: Optional[Run] = None,
-    ) -> RunPaths:
-        external_workspace_root = self.external_workspace_root
-        internal_workspace_root = self.internal_workspace_root
+    ) -> Path:
+        """Prepare and return the host-side run directory.
 
+        Creates the directory on disk. The guest (VM) path is derived
+        at runtime via sandbox.to_guest_path().
+        """
         if run:
             run_suffix = os.path.join(
                 "files",
@@ -94,444 +199,483 @@ class TeamManager:
                 "files", "user", "unknown_user", "unknown_session", "unknown_run"
             )
 
-        internal_run_dir = internal_workspace_root / Path(run_suffix)
-        external_run_dir = external_workspace_root / Path(run_suffix)
-        # Can only make dir on internal, as it is what a potential docker container sees.
-        # TO-ANSWER: why ?
-        logger.info(f"Creating run dirs: {internal_run_dir} and {external_run_dir}")
-        if self.inside_docker:
-            internal_run_dir.mkdir(parents=True, exist_ok=True)
-        else:
-            external_run_dir.mkdir(parents=True, exist_ok=True)
+        host_run_dir = self.app_dir / Path(run_suffix)
+        logger.info(f"Creating run dir: {host_run_dir}")
+        host_run_dir.mkdir(parents=True, exist_ok=True)
+        return host_run_dir
 
-        return RunPaths(
-            internal_root_dir=internal_workspace_root,
-            external_root_dir=external_workspace_root,
-            run_suffix=run_suffix,
-            internal_run_dir=internal_run_dir,
-            external_run_dir=external_run_dir,
-        )
+    def _read_settings_from_db(self) -> dict[str, Any]:
+        """Read the raw config dict from the user's Settings row.
 
-    def _extract_uploaded_file_names(
-        self, task: Optional[Union[ChatMessage, str, Sequence[ChatMessage]]]
-    ) -> set[str]:
-        """Extract names of uploaded files from the task to exclude them from generated files tracking"""
-        uploaded_files: set[str] = set()
+        Returns the full config dict (model_client_configs, agent_mode, etc.)
+        or an empty dict on miss / error.
+        """
+        try:
+            from ..web.config import settings as app_settings
 
-        if not task:
-            return uploaded_files
+            if not self._db_manager:
+                return {}
 
-        # Handle different task types
-        if isinstance(task, str):
-            return uploaded_files
-        elif hasattr(task, "metadata"):
-            # Single ChatMessage
-            messages = [task]
-        else:
-            # Handle Sequence[ChatMessage]
-            try:
-                messages = list(task)
-            except TypeError:
-                return uploaded_files
+            response = self._db_manager.get(
+                Settings, filters={"user_id": app_settings.DEFAULT_USER_ID}
+            )
+            if not response.status or not response.data:
+                return {}
 
-        for message in messages:
-            if hasattr(message, "metadata"):
-                metadata = getattr(message, "metadata", None)
-                if metadata and isinstance(metadata, dict):
-                    attached_files_json: Any = metadata.get("attached_files")  # type: ignore
-                    if attached_files_json and isinstance(attached_files_json, str):
-                        try:
-                            attached_files: Any = json.loads(attached_files_json)
-                            if isinstance(attached_files, list):
-                                for file_info in attached_files:  # type: ignore
-                                    if isinstance(file_info, dict) and cast(
-                                        Dict[str, Any], file_info
-                                    ).get("uploaded", False):
-                                        file_name: Any = cast(
-                                            Dict[str, Any], file_info
-                                        ).get("name", "")
-                                        if isinstance(file_name, str):
-                                            uploaded_files.add(file_name)
-                        except (json.JSONDecodeError, TypeError):
-                            # If parsing fails, continue without crashing
-                            pass
-
-        return uploaded_files
-
-    def add_uploaded_files(self, file_names: set[str]) -> None:
-        """Add uploaded file names to the tracking set to exclude them from generated files"""
-        self.uploaded_files.update(file_names)
-        logger.info(f"Added {len(file_names)} uploaded files to tracking: {file_names}")
-        logger.info(f"Total uploaded files being tracked: {self.uploaded_files}")
+            raw = response.data[0].config
+            if not isinstance(raw, dict):
+                return {}
+            return raw  # pyright: ignore[reportUnknownVariableType]
+        except Exception as e:
+            logger.warning(f"Failed to read settings from DB: {e}")
+            return {}
 
     @staticmethod
-    async def load_from_directory(directory: Union[str, Path]) -> List[Dict[str, Any]]:
-        """Load all team configurations from a directory"""
-        raise NotImplementedError(
-            "This method should be implemented in a subclass or replaced with actual loading logic."
-        )
+    def _extract_model_configs(raw: dict[str, Any]) -> dict[str, Any]:
+        """Pull orchestrator / web_surfer dicts out of a raw settings config."""
+        model_configs: dict[str, Any] = raw.get("model_client_configs", {})  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        if not isinstance(model_configs, dict):
+            return {}
+        result: dict[str, Any] = {}
+        if model_configs.get("orchestrator"):  # pyright: ignore[reportUnknownMemberType]
+            result["orchestrator"] = model_configs["orchestrator"]
+        if model_configs.get("web_surfer"):  # pyright: ignore[reportUnknownMemberType]
+            result["web_surfer"] = model_configs["web_surfer"]
+        return result
 
-    async def _create_team(
-        self,
-        team_config: Union[str, Path, Dict[str, Any], ComponentModel],
-        state: Optional[Mapping[str, Any] | str] = None,
-        input_func: Optional[InputFuncType] = None,
-        env_vars: Optional[List[EnvironmentVariable]] = None,
-        settings_config: dict[str, Any] = {},
-        *,
-        paths: RunPaths,
-    ) -> tuple[Team, int, int]:
-        """Create team instance from config"""
-        if not self.run_without_docker:
-            _, novnc_port, playwright_port = get_browser_resource_config(
-                paths.external_run_dir, -1, -1, self.inside_docker
-            )
-        else:
-            novnc_port = -1
-            playwright_port = -1
-
+    @staticmethod
+    def _extract_agent_mode(raw: dict[str, Any]) -> AgentMode | None:
+        """Pull agent_mode out of a raw settings config; None if unset/invalid."""
+        value = raw.get("agent_mode")
+        if not value:
+            return None
         try:
-            # Logic here: we first see if the config file passed to magentic-ui has valid configs for all clients
-            # If Yes: this takes precedent over the UI LLM config and is passed to magentic-ui team
-            # If No: we disregard it and use the UI LLM config
-            model_client_from_config_file = ModelClientConfigs(
-                orchestrator=self.config.get("orchestrator_client", None),
-                web_surfer=self.config.get("web_surfer_client", None),
-                coder=self.config.get("coder_client", None),
-                file_surfer=self.config.get("file_surfer_client", None),
-                action_guard=self.config.get("action_guard_client", None),
-            )
-            is_complete_config_from_file = all(
-                [
-                    model_client_from_config_file.orchestrator,
-                    model_client_from_config_file.web_surfer,
-                    model_client_from_config_file.coder,
-                    model_client_from_config_file.file_surfer,
-                    model_client_from_config_file.action_guard,
-                ]
-            )
+            return AgentMode(value)
+        except ValueError:
+            logger.warning(f"Invalid agent_mode in DB: {value!r}")
+            return None
 
-            # Logic here: first, we see if the config file passed to magentic-ui has valid MCP agent configuration
-            # If valid: the configuration file takes precedent over the UI settings to configure MCP agent for team
-            # If invalid: we disregard in the configuration file and use the UI settings to configure MCP agent for team
-
-            # Get mcp_agent_configs from configuration file
-            mcp_agent_config_from_config_file: List[Dict[str, Any]] = self.config.get(
-                "mcp_agent_configs", []
-            )
-            # Get mcp_agent_configs from frontend settings
-            settings_mcp_configs = settings_config.get("mcp_agent_configs", [])
-
-            # Verify the MCP agent configuration in the configuration file
-            def validate_mcp_config(mcp_config: Dict[str, Any]) -> bool:
-                """
-                Verify the MCP agent configuration is valid
-                Check if the mcp_servers field is a list and has at least one element, and name and description are alpha-numeric
-                """
-                mcp_servers: List[Dict[str, Any]] = mcp_config.get("mcp_servers", [])
-                if not isinstance(mcp_servers, list) or len(mcp_servers) == 0:
-                    return False
-
-                agent_name: str | None = mcp_config.get("name")
-                agent_description: str | None = mcp_config.get("description")
-                if (
-                    not isinstance(agent_name, str)
-                    or not agent_name.isalnum()
-                    or not isinstance(agent_description, str)
-                ):
-                    return False
-
-                for server in mcp_servers:
-                    if not isinstance(server, dict):
-                        return False
-                    server_name = server.get("server_name")
-                    if not isinstance(server_name, str) or not server_name.isalnum():
-                        return False
-
-                return True
-
-            # If there are MCP configurations in config file, validate and use them
-            if mcp_agent_config_from_config_file:
-                # Verify the MCP agent configuration in the configuration file
-                all_valid = True
-                for config in mcp_agent_config_from_config_file:
-                    if validate_mcp_config(config):
-                        pass
-                    else:
-                        all_valid = False
-                        break
-
-                if not all_valid:
-                    logger.warning(
-                        "MCP agent configurations in config file are invalid, falling back to frontend settings."
-                    )
-                    settings_config["mcp_agent_configs"] = settings_mcp_configs
-                else:
-                    settings_config["mcp_agent_configs"] = (
-                        mcp_agent_config_from_config_file
-                    )
-            else:
-                # If no MCP configurations in config file, use frontend settings
-                settings_config["mcp_agent_configs"] = settings_mcp_configs
-
-            # Common configuration parameters
-            config_params = {
-                **settings_config,  # type: ignore,
-                # These must always be set to the values computed above
-                "playwright_port": playwright_port,
-                "novnc_port": novnc_port,
-                # Defer to self for inside_docker
-                "inside_docker": self.inside_docker,
-            }
-
-            # Prefer the frontend setting, but fall back to the CLI/environment flag.
-            use_fara_agent: bool | None = settings_config.get("use_fara_agent")  # type: ignore[assignment]
-            if use_fara_agent is None and isinstance(self.config, dict):
-                use_fara_agent = self.config.get("use_fara_agent")  # type: ignore[assignment]
-
-            if use_fara_agent is not None:
-                config_params["use_fara_agent"] = bool(use_fara_agent)
-                if use_fara_agent:
-                    config_params["websurfer_loop"] = True
-
-            # Override client configs if complete config from file is available
-            if is_complete_config_from_file:
-                config_params["model_client_configs"] = model_client_from_config_file
-            else:
+    @staticmethod
+    def _apply_runtime_max_rounds(
+        baseline: HarnessConfig, raw: dict[str, Any]
+    ) -> HarnessConfig:
+        """Override only ``max_rounds`` from DB on top of the baseline."""
+        section_raw = raw.get("harness_config")
+        if not isinstance(section_raw, dict):
+            return baseline
+        section: dict[str, Any] = section_raw  # pyright: ignore[reportUnknownVariableType]
+        merged = baseline.model_copy(deep=True)
+        for sub_name in ("orchestrator", "web_surfer"):
+            sub_raw = section.get(sub_name)
+            if not isinstance(sub_raw, dict):
+                continue
+            sub: dict[str, Any] = sub_raw  # pyright: ignore[reportUnknownVariableType]
+            if "max_rounds" not in sub:
+                continue
+            try:
+                value = int(sub["max_rounds"])
+            except (TypeError, ValueError):
                 logger.warning(
-                    "Using LLM client configurations from UI settings (default is OpenAI) since no config file passed or config file incomplete."
+                    f"Invalid {sub_name}.max_rounds in DB ({sub['max_rounds']!r}); ignoring"
                 )
-            if self.run_without_docker:
-                config_params["run_without_docker"] = True
-                # Allow browser_headless to be set by settings_config
-            else:
-                if settings_config.get("run_without_docker", False):
-                    # Allow settings_config to set browser_headless
-                    pass
-                else:
-                    config_params["browser_headless"] = False
-            magentic_ui_config = MagenticUIConfig(**config_params)  # type: ignore
-            self.team = cast(
-                Team,
-                await get_task_team(
-                    magentic_ui_config=magentic_ui_config,
-                    input_func=input_func,
-                    paths=paths,
+                continue
+            if value < 1 or value > 1000:
+                logger.warning(
+                    f"Out-of-range {sub_name}.max_rounds in DB ({value}); ignoring"
+                )
+                continue
+            setattr(getattr(merged, sub_name), "max_rounds", value)
+        return merged
+
+    async def _create_agent(
+        self,
+        host_run_dir: Path,
+        run: Optional[Run] = None,
+    ) -> "SubAgentProtocol | OmniAgent":
+        """Create agent with config from DB.
+
+        When ``run`` is supplied, the resolved ``agent_mode`` is also
+        persisted onto the run row so the frontend (and any later
+        consumers) can render this run with the correct mode even after
+        the user changes Settings.
+        """
+        try:
+            # Single DB read per session — extract both agent_mode and model
+            # configs from the same Settings row so UI changes take effect on
+            # the next session without restart.
+            raw_settings = self._read_settings_from_db()
+            agent_mode = (
+                self._extract_agent_mode(raw_settings)
+                or (self.config.agent_mode if self.config else None)
+                or AgentMode.ALL
+            )
+            db_configs = self._extract_model_configs(raw_settings)
+            if db_configs:
+                logger.info("Loaded model configs from DB")
+
+            # Persist the resolved agent_mode onto the run row so the
+            # frontend can disambiguate "FARA-only final answer vs OmniAgent
+            # final answer" even after the user later changes Settings.
+            # Best-effort: a write failure must not block agent creation.
+            # On failure we revert the in-memory ``run.agent_mode`` so a
+            # subsequent caller that re-uses the same ``run`` object can't
+            # accidentally resurrect this failed write the next time it
+            # upserts the row.
+            if run is not None and getattr(run, "id", None) is not None:
+                previous_agent_mode = run.agent_mode
+                run.agent_mode = agent_mode.value
+                try:
+                    if self._db_manager is not None:
+                        self._db_manager.upsert(run, return_json=False)
+                except Exception:
+                    run.agent_mode = previous_agent_mode
+                    logger.exception(
+                        "Failed to persist agent_mode={} on run {}",
+                        agent_mode.value,
+                        run.id,
+                    )
+
+            web_surfer_config = db_configs.get("web_surfer")
+            orchestrator_config = db_configs.get("orchestrator")
+
+            # Validate required model configs based on the active agent_mode.
+            if agent_mode in (AgentMode.ALL, AgentMode.OMNIAGENT_ONLY) and (
+                orchestrator_config is None
+            ):
+                raise ValueError(
+                    "No orchestrator model config found in DB. Complete onboarding first."
+                )
+            if agent_mode in (AgentMode.ALL, AgentMode.WEBSURFER_ONLY) and (
+                web_surfer_config is None
+            ):
+                raise ValueError(
+                    "No web_surfer model config found in DB. Complete onboarding first."
+                )
+
+            # Build MagenticUIConfig with minimal settings.
+            # ModelClientConfigs allows None for either side; the inactive
+            # side is ignored downstream by task_team.
+            baseline_harness = (
+                self.config.harness_config if self.config else HarnessConfig()
+            )
+            harness_config = self._apply_runtime_max_rounds(
+                baseline_harness, raw_settings
+            )
+            magentic_ui_config = MagenticUIConfig(
+                agent_mode=agent_mode,
+                web_surfer_variant=(
+                    self.config.web_surfer_variant if self.config else "qwen3_next"
+                ),
+                harness_config=harness_config,
+                model_client_configs=ModelClientConfigs(
+                    orchestrator=orchestrator_config,
+                    web_surfer=web_surfer_config,
                 ),
             )
-            if hasattr(self.team, "_participants"):
-                for agent in cast(list[ChatAgent], self.team._participants):  # type: ignore
-                    if isinstance(agent, WebSurfer):
-                        novnc_port = agent.novnc_port
-                        playwright_port = agent.playwright_port
 
-            if state:
-                if isinstance(state, str):
-                    # Check if the string is empty or whitespace only
-                    if not state.strip():
-                        # Skip loading if state is empty
-                        pass
-                    else:
-                        try:
-                            state_dict = json.loads(state)
-                            await self.team.load_state(state_dict)
-                        except json.JSONDecodeError as json_error:
-                            # Log error and skip loading invalid JSON state
-                            logger.warning(
-                                f"Warning: Failed to load state - invalid JSON: {json_error}"
-                            )
+            self.agent = await get_task_team(
+                magentic_ui_config=magentic_ui_config,
+                host_run_dir=host_run_dir,
+                pause_controller=self._pause_controller,
+                quicksand_manager=self._quicksand_manager,
+                session_id=self._session_id,
+            )
 
-                else:
-                    await self.team.load_state(state)
+            return self.agent
 
-            return self.team, novnc_port, playwright_port
         except Exception as e:
-            logger.error(f"Error creating team: {e}")
+            logger.error(f"Error creating agent: {e}")
             await self.close()
             raise
 
     async def run_stream(
         self,
-        task: Optional[Union[ChatMessage, str, Sequence[ChatMessage]]],
-        team_config: Union[str, Path, dict[str, Any], ComponentModel],
-        state: Optional[Mapping[str, Any] | str] = None,
-        input_func: Optional[InputFuncType] = None,
-        cancellation_token: Optional[CancellationToken] = None,
-        env_vars: Optional[List[EnvironmentVariable]] = None,
-        settings_config: Optional[Dict[str, Any]] = None,
+        task: str,
         run: Optional[Run] = None,
-    ) -> AsyncGenerator[
-        Union[AgentEvent, ChatMessage, LLMCallEventMessage, TeamResult], None
-    ]:
-        """Stream team execution results"""
-        start_time = time.time()
+        mount_dirs: list[str] | None = None,
+    ) -> AsyncGenerator[Any, None]:
+        # TODO: Narrow return type to AsyncGenerator[StreamUpdate, None]
+        # once OmniAgent yields StreamUpdate (currently yields Any).
+        """Stream agent execution results with file tracking.
 
-        # Setup logger correctly
-        logger = logging.getLogger(EVENT_LOGGER_NAME)
-        logger.setLevel(logging.CRITICAL)
-        llm_event_logger = RunEventLogger()
-        logger.handlers = [llm_event_logger]  # Replace all handlers
-        logger.info(f"Running in docker: {self.inside_docker}")
-        paths = self.prepare_run_paths(run=run)
-        known_files = set(
-            file["name"]
-            for file in get_modified_files(
-                0, time.time(), source_dir=str(paths.internal_run_dir)
-            )
-        )
+        Detects new/modified files in the run directory after each agent update
+        and yields type:"file" messages for them.
 
-        # Extract uploaded file names from the task to exclude them from generated files tracking
-        task_uploaded_files = self._extract_uploaded_file_names(task)
-        self.uploaded_files.update(task_uploaded_files)
+        Args:
+            task: User task string.
+            run: Database run object (provides session_id, user_id).
+            mount_dirs: Host directories to mount into the session
+                (quicksand mode only).
+        """
+        host_run_dir = self.prepare_host_run_dir(run=run)
         logger.info(
-            f"Found {len(task_uploaded_files)} new uploaded files to exclude from generated files tracking: {task_uploaded_files}"
+            "run_stream: mount_dirs={}, host_run_dir={}", mount_dirs, host_run_dir
         )
-        logger.info(f"Total uploaded files being tracked: {self.uploaded_files}")
 
-        global_new_files: List[Dict[str, str]] = []
+        # Create session mounts when using quicksand
+        session_id = str(run.session_id) if run and run.session_id else None
+        if self._quicksand_manager is not None and session_id:
+            self._session_id = session_id
+            logger.info(
+                "Creating quicksand session: sid={}, workspace_host_path={}, host_dirs={}",
+                session_id,
+                str(host_run_dir),
+                mount_dirs,
+            )
+            self._mount_handles = await self._quicksand_manager.sandbox.create_session(
+                session_id=session_id,
+                workspace_host_path=str(host_run_dir),
+                host_dirs=mount_dirs,
+            )
+            logger.info(
+                "Quicksand session created: {} mount handles",
+                len(self._mount_handles),
+            )
+
+        # Augment task with mount context so agents know about available dirs.
+        # Path scheme differs by sandbox: Quicksand exposes /sessions/<sid>/...
+        # guest paths; NullSandbox has no isolation namespace, so the agent
+        # sees real host paths.
+        if mount_dirs and session_id:
+            if self._quicksand_manager is not None:
+                mount_paths = [
+                    f"/sessions/{session_id}/mounts/{extract_dir_basename(d)}"
+                    for d in mount_dirs
+                ]
+                workspace_path = f"/sessions/{session_id}/workspace"
+            else:
+                mount_paths: list[str] = []
+                for d in mount_dirs:
+                    n = normalize_host_path(d)
+                    n = os.fspath(Path(n).expanduser().resolve())
+                    mount_paths.append(validate_host_path(n))
+                workspace_path = os.fspath(host_run_dir.resolve())
+            task = self._augment_task_with_mounts(task, mount_paths, workspace_path)
+            logger.info("Augmented task with mount context:\n{}", task)
+
+        if self.agent is None:
+            logger.info("Creating agent with host_run_dir={}", host_run_dir)
+            await self._create_agent(host_run_dir=host_run_dir, run=run)
+
+        if self.agent is None:
+            raise RuntimeError("Failed to create agent")
+
         try:
-            # TODO: This might cause problems later if we are not careful
-            if self.team is None:
-                # TODO: if we start allowing load from config, we'll need to write the novnc and playwright ports back to the team config..
-                _, _, _ = await self._create_team(
-                    team_config,
-                    state,
-                    input_func,
-                    env_vars,
-                    settings_config or {},
-                    paths=paths,
-                )
+            # File tracking always uses host-side path (VM paths don't exist on host)
+            file_tracking_dir = str(host_run_dir)
 
-                # Initialize known files by name for tracking
-                initial_files = get_modified_files(
-                    start_time, time.time(), source_dir=str(paths.internal_run_dir)
-                )
-                known_files = {file["name"] for file in initial_files}
-                # Add uploaded files to known_files so they don't get marked as generated
-                known_files.update(self.uploaded_files)
+            # Snapshot existing files: {path: mtime} — keyed by relative path
+            # to correctly track files with the same basename in different subdirs.
+            # User-uploaded files are already on disk at this point and will be
+            # captured here, so they will NOT trigger a "created" emit later.
+            # If an agent modifies them, mtime will exceed this baseline and they
+            # will be emitted as "modified" (issue #567).
+            initial_files = get_modified_files(
+                0, time.time(), source_dir=file_tracking_dir
+            )
+            self._known_files = {f["path"]: f["timestamp"] for f in initial_files}
+            global_new_files: list[dict[str, Any]] = []
 
-                async for message in self.team.run_stream(  # type: ignore
-                    task=task, cancellation_token=cancellation_token
-                ):
-                    if cancellation_token and cancellation_token.is_cancelled():
-                        break
-
-                    # Get all current files with full metadata
-                    modified_files = get_modified_files(
-                        start_time, time.time(), source_dir=str(paths.internal_run_dir)
+            # Stream agent responses (pass plain string — both FaraWebSurfer
+            # and OmniAgent handle str input directly)
+            async for event in self.agent.run_stream(task=task):
+                if isinstance(event, ApprovalRequest):
+                    # Approval request — store callback and send with tool metadata
+                    self._pending_respond = event.respond
+                    self._pending_is_approval = True
+                    self._pending_is_continuation = False
+                    yield StreamUpdate(
+                        additional_properties=dict(
+                            system_props("system", "awaiting_input")
+                        ),
                     )
-                    current_file_names = {file["name"] for file in modified_files}
-
-                    # Find new files, excluding uploaded files
-                    new_file_names = (
-                        current_file_names - known_files - self.uploaded_files
-                    )
-                    known_files = current_file_names  # Update for next iteration
-
-                    # Get the full data for new files
-                    new_files = [
-                        file
-                        for file in modified_files
-                        if file["name"] in new_file_names
-                    ]
-
-                    if new_files:
-                        # filter files that start with "tmp_code"
-                        new_files = [
-                            file
-                            for file in new_files
-                            if not file["name"].startswith("tmp_code")
-                            and not file["name"].startswith("supervisord.pid")
-                        ]
-                        if len(new_files) > 0:
-                            file_message = TextMessage(
-                                source="system",
-                                content="File Generated",
-                                metadata={
-                                    "internal": "no",
-                                    "type": "file",
-                                    "files": json.dumps(new_files),
-                                },
+                    yield StreamUpdate(
+                        additional_properties=dict(
+                            input_request_props(
+                                "system",
+                                event.prompt,
+                                input_type="approval",
+                                tool=event.tool_name,
+                                tool_args=event.tool_args,
+                                category=event.category,
+                                reason=event.reason,
                             )
-                            global_new_files.extend(new_files)
-                            yield file_message
+                        ),
+                    )
+                    continue
+                elif isinstance(event, ContinuationRequest):
+                    # Max-rounds reached — render a Continue/Stop card on the
+                    # frontend (input_type="continuation").
+                    self._pending_respond = event.respond
+                    self._pending_is_approval = False
+                    self._pending_is_continuation = True
+                    yield StreamUpdate(
+                        additional_properties=dict(
+                            system_props("system", "awaiting_input")
+                        ),
+                    )
+                    yield StreamUpdate(
+                        additional_properties=dict(
+                            input_request_props(
+                                "system",
+                                event.prompt,
+                                input_type="continuation",
+                            )
+                        ),
+                    )
+                    continue
+                elif isinstance(event, InputRequest):
+                    # Store callback so provide_input() can resolve the future
+                    self._pending_respond = event.respond
+                    self._pending_is_approval = False
+                    self._pending_is_continuation = False
+                    # Frontend expects two messages: system status + input_request
+                    yield StreamUpdate(
+                        additional_properties=dict(
+                            system_props("system", "awaiting_input")
+                        ),
+                    )
+                    yield StreamUpdate(
+                        additional_properties=dict(
+                            input_request_props("system", event.prompt)
+                        ),
+                    )
+                    continue
+                yield event
 
-                    if isinstance(message, TaskResult):
-                        yield TeamResult(
-                            task_result=message,
-                            usage="",
-                            duration=time.time() - start_time,
-                            files=modified_files,  # Full file data preserved
+                # Detect new/modified files
+                current_files = get_modified_files(
+                    0, time.time(), source_dir=file_tracking_dir
+                )
+                changed_files = _detect_changed_files(current_files, self._known_files)
+
+                if changed_files:
+                    global_new_files.extend(changed_files)
+                    yield StreamUpdate(
+                        text="File Generated",
+                        additional_properties=dict(
+                            file_generated_props("system", changed_files)
+                        ),
+                    )
+
+            # Final aggregated file message (deduplicated by url, keep latest).
+            # Marked summary=True so the frontend renders it under a
+            # "Files the agent created or modified" header at the end of
+            # the run. Uploaded files (if any) are passed through too so the
+            # frontend can show a separate "Files you uploaded" section
+            # for overview.
+            if global_new_files or self._uploaded_file_infos:
+                deduped = list({f["url"]: f for f in global_new_files}.values())
+                yield StreamUpdate(
+                    text="File Generated",
+                    additional_properties=dict(
+                        file_generated_props(
+                            "system",
+                            deduped,
+                            summary=True,
+                            uploaded_files=self._uploaded_file_infos or None,
                         )
-                    else:
-                        yield message
+                    ),
+                )
 
-                    # Add generated files to final output
-                    if (
-                        isinstance(message, TextMessage)
-                        and message.metadata.get("type", "") == "final_answer"
-                    ):
-                        if len(global_new_files) > 0:
-                            # only keep unique file names, if there is a file with the same name, keep the latest one
-                            global_new_files = list(
-                                {
-                                    file["name"]: file for file in global_new_files
-                                }.values()
-                            )
-                            file_message = TextMessage(
-                                source="system",
-                                content="File Generated",
-                                metadata={
-                                    "internal": "no",
-                                    "type": "file",
-                                    "files": json.dumps(global_new_files),
-                                },
-                            )
-                            yield file_message
-                            global_new_files = []
-
-                    # Check for any LLM events
-                    while not llm_event_logger.events.empty():
-                        event = await llm_event_logger.events.get()
-                        yield event
         finally:
-            # Cleanup - remove our handler
-            if llm_event_logger in logger.handlers:
-                logger.handlers.remove(llm_event_logger)
+            # Per-task: unmount only. Agent/browser kept alive
+            if self._mount_handles and self._quicksand_manager and self._session_id:
+                try:
+                    await self._quicksand_manager.sandbox.destroy_session(
+                        session_id=self._session_id,
+                        handles=self._mount_handles,
+                    )
+                except Exception:
+                    logger.exception(f"Failed to destroy session {self._session_id}")
+                finally:
+                    self._mount_handles = []
+                    self._session_id = None
 
-            # Ensure cleanup happens
-            if self.team and hasattr(self.team, "close"):
-                logger.info("Closing team")
-                await self.team.close()  # type: ignore
-                logger.info("Team closed")
+    async def close(self) -> None:
+        """Close the agent and cleanup resources."""
+        # Unmount CIFS mounts before closing agents
+        if self._mount_handles and self._quicksand_manager and self._session_id:
+            try:
+                await self._quicksand_manager.sandbox.destroy_session(
+                    session_id=self._session_id,
+                    handles=self._mount_handles,
+                )
+            except Exception:
+                logger.exception(f"Failed to destroy session {self._session_id}")
+            finally:
+                self._mount_handles = []
+                self._session_id = None
 
-    async def close(self):
-        """Close the team manager"""
-        if self.team and hasattr(self.team, "close"):
-            logger.info("Closing team")
-            await self.team.close()  # type: ignore
-            self.team = None
-            logger.info("Team closed")
-        else:
-            logger.warning("Team manager is not initialized or already closed")
+        if self.agent is not None:
+            # FaraWebSurfer.close() handles browser cleanup
+            if hasattr(self.agent, "close"):
+                await self.agent.close()  # type: ignore[union-attr]
+            self.agent = None
+            logger.info("Agent closed")
 
-    async def run(
-        self,
-        task: ChatMessage | Sequence[ChatMessage] | str | None,
-        team_config: Union[str, Path, dict[str, Any], ComponentModel],
-        input_func: Optional[InputFuncType] = None,
-        cancellation_token: Optional[CancellationToken] = None,
-        env_vars: Optional[List[EnvironmentVariable]] = None,
-    ) -> TeamResult:
-        """Run team synchronously"""
-        raise NotImplementedError("Use run_stream instead")
+    # =========================================================================
+    # Session mount helpers
+    # =========================================================================
+
+    @staticmethod
+    def _augment_task_with_mounts(
+        task: str, mount_paths: list[str], workspace_path: str
+    ) -> str:
+        """Append mount directory context to the task message."""
+        mount_lines = "\n".join(f"- {p}" for p in mount_paths)
+        return (
+            f"{task}\n\n"
+            f"User has shared the following directories. "
+            f"Use these absolute paths when referring to them:\n"
+            f"{mount_lines}\n\n"
+            f"Your workspace: {workspace_path}"
+        )
+
+    # =========================================================================
+    # Pause/Resume methods
+    # =========================================================================
 
     async def pause_run(self) -> None:
-        """Pause the run"""
-        if self.team:
-            await self.team.pause()
+        """Pause the agent. Agent will check is_paused and yield InputRequest."""
+        self._pause_controller.pause()
+        logger.info("TeamManager: Agent paused")
 
     async def resume_run(self) -> None:
-        """Resume the run"""
-        if self.team:
-            await self.team.resume()
+        """Resume without input (e.g., frontend button)."""
+        self._pause_controller.resume()
+        logger.info("TeamManager: Agent resumed")
+
+    def cancel_input(self) -> None:
+        """Cancel any pending input wait. Used during stop_run()."""
+        self._pause_controller.cancel()
+
+    def provide_input(self, response: str) -> None:
+        """Resolve the pending InputRequest future, unblocking the agent."""
+        self._pause_controller.resume()
+        if self._pending_respond is not None:
+            self._pending_respond(response)
+            self._pending_respond = None
+            self._pending_is_approval = False
+            self._pending_is_continuation = False
+        logger.info(f"TeamManager: Input provided ({len(response)} chars)")
+
+    def queue_user_message(self, message: str) -> None:
+        """Queue a mid-run user message for the agent to drain at its next checkpoint."""
+        self._pause_controller.queue_message(message)
+        logger.info(f"TeamManager: User message queued ({len(message)} chars)")
+
+    @property
+    def has_pending_input(self) -> bool:
+        """Whether the agent is currently waiting on an InputRequest."""
+        return self._pending_respond is not None
+
+    @property
+    def has_pending_approval(self) -> bool:
+        """Whether the pending input request is an approval (not a text input)."""
+        return self._pending_is_approval
+
+    @property
+    def has_pending_continuation(self) -> bool:
+        """Whether the pending input request is a max-rounds continuation prompt."""
+        return self._pending_is_continuation

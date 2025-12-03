@@ -8,20 +8,13 @@ from pathlib import Path
 import logging
 
 from ..version import VERSION
-from .._docker import (
-    check_docker_running,
-    check_browser_image,
-    check_python_image,
-    pull_browser_image,
-    pull_python_image,
-)
 
 # Configure basic logging to show only errors
 logging.basicConfig(level=logging.ERROR)
 
 # Create a Typer application instance with a descriptive help message
 # This is the main entry point for CLI commands
-app = typer.Typer(help="Magentic-UI: A human-centered interface for web agents.")
+app = typer.Typer(help="MagenticLite: A human-centered interface for web agents.")
 
 # Ignore deprecation warnings from websockets
 warnings.filterwarnings("ignore", message="websockets.legacy is deprecated*")
@@ -55,7 +48,6 @@ def main(
     ctx: typer.Context,  # Typer context provides information about the command invocation
     host: str = typer.Option("127.0.0.1", help="Host to run the UI on."),
     port: int = typer.Option(8081, help="Port to run the UI on."),
-    workers: int = typer.Option(1, help="Number of workers to run the UI with."),
     reload: Annotated[
         bool, typer.Option("--reload", help="Reload the UI on code changes.")
     ] = False,
@@ -74,15 +66,8 @@ def main(
         None, "--config", help="Path to the config file."
     ),
     version: bool = typer.Option(
-        False, "--version", help="Print the version of Magentic-UI and exit."
+        False, "--version", help="Print the version of MagenticLite and exit."
     ),
-    run_without_docker: Annotated[
-        bool,
-        typer.Option(
-            "--run-without-docker",
-            help="Run without docker. This will remove coder and filesurfer agents and disable live browser view.",
-        ),
-    ] = False,
     fara_agent: Annotated[
         bool,
         typer.Option(
@@ -90,15 +75,20 @@ def main(
             help="Launch the UI with the FARA-based web surfer agent instead of the default GPT-oriented surfer.",
         ),
     ] = False,
+    reset_config: bool = typer.Option(
+        False,
+        "--reset-config",
+        help="Clear saved model config so onboarding runs again.",
+    ),
 ):
     """
-    Magentic-UI: A human-centered interface for web agents.
+    MagenticLite: A human-centered interface for web agents.
 
     Run `magentic-ui` to start the application.
     """
     # Check if version flag was provided
     if version:
-        typer.echo(f"Magentic-UI version: {VERSION}")
+        typer.echo(f"MagenticLite version: {VERSION}")
         raise typer.Exit()
 
     # This conditional checks if a subcommand was provided
@@ -107,104 +97,34 @@ def main(
         run_ui(
             host=host,
             port=port,
-            workers=workers,
             reload=reload,
             docs=docs,
             appdir=appdir,
             database_uri=database_uri,
             upgrade_database=upgrade_database,
             config=config,
-            run_without_docker=run_without_docker,
             fara_agent=fara_agent,
+            reset_config=reset_config,
         )
 
 
 def run_ui(
     host: str,
     port: int,
-    workers: int,
     reload: bool,
     docs: bool,
     appdir: str,
     database_uri: Optional[str],
     upgrade_database: bool,
     config: Optional[str],
-    run_without_docker: bool,
     fara_agent: bool,
+    reset_config: bool = False,
 ):
     """
     Core logic to run the Magentic-UI web application.
-    This function is used by both the main entry point and the legacy 'ui' command.
-
-    Args:
-        host (str, optional): Host to run the UI on. Defaults to 127.0.0.1 (localhost).
-        port (int, optional): Port to run the UI on. Defaults to 8081.
-        workers (int, optional): Number of workers to run the UI with. Defaults to 1.
-        reload (bool, optional): Whether to reload the UI on code changes. Defaults to False.
-        docs (bool, optional): Whether to generate API docs. Defaults to True.
-        appdir (str, optional): Path to the app directory where files are stored. Defaults to ~/.magentic_ui.
-        database_uri (str, optional): Database URI to connect to. Defaults to None.
-        upgrade_database (bool, optional): Whether to upgrade the database schema. Defaults to False.
-        config (str, optional): Path to the LLM config file. Defaults to config.yaml if present.
-        run_without_docker (bool, optional): Run without docker. This will remove coder and filesurfer agents and disale live browser view. Defaults to False.
-        fara_agent (bool, optional): Use the FARA-based web surfer agent instead of the default GPT-oriented surfer. Defaults to False.
     """
-    # Display a green, bold "Starting Magentic-UI" message
-    typer.echo(typer.style("Starting Magentic-UI", fg=typer.colors.GREEN, bold=True))
-
-    # === Docker Setup ===
-    # Check if Docker is running and prepare required images
-    if not run_without_docker:
-        typer.echo("Checking if Docker is running...", nl=False)
-
-        if not check_docker_running():
-            typer.echo(typer.style("Failed\n", fg=typer.colors.RED, bold=True))
-            typer.echo("Docker is not running. Please start Docker and try again.")
-            raise typer.Exit(1)  # Exit with error code 1
-        else:
-            typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
-
-        # Check and pull Docker images if needed
-        typer.echo("Checking Docker vnc browser image...", nl=False)
-        if not check_browser_image():
-            typer.echo(typer.style("Update\n", fg=typer.colors.YELLOW, bold=True))
-            typer.echo("Pulling Docker vnc image (this WILL take a few minutes)")
-            pull_browser_image()
-            typer.echo("\n")
-        else:
-            typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
-
-        typer.echo("Checking Docker python image...", nl=False)
-        if not check_python_image():
-            typer.echo(typer.style("Update\n", fg=typer.colors.YELLOW, bold=True))
-            typer.echo("Pulling Docker python image (this WILL take a few minutes)")
-            pull_python_image()
-            typer.echo("\n")
-        else:
-            typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
-
-        # Verify Docker images exist after attempted pull
-        if not check_browser_image() or not check_python_image():
-            typer.echo(typer.style("Failed\n", fg=typer.colors.RED, bold=True))
-            typer.echo(
-                "Docker images not found. Please pull or build the images and try again."
-            )
-            raise typer.Exit(1)
-    else:
-        typer.echo(
-            typer.style(
-                "Running without docker... This will remove the live browser view and will disable code and file manipulation.",
-                fg=typer.colors.YELLOW,
-                bold=True,
-            )
-        )
-        typer.echo(
-            typer.style(
-                "For the full experience of Magentic-UI please use docker.",
-                fg=typer.colors.YELLOW,
-                bold=True,
-            )
-        )
+    # Display a green, bold "Starting MagenticLite" message
+    typer.echo(typer.style("Starting MagenticLite", fg=typer.colors.GREEN, bold=True))
 
     typer.echo("Launching Web Application...")
 
@@ -224,12 +144,10 @@ def run_ui(
     if upgrade_database:
         env_vars["_UPGRADE_DATABASE"] = "1"
 
-    # Set Docker-related environment variables
-    env_vars["INSIDE_DOCKER"] = "0"
-    env_vars["EXTERNAL_WORKSPACE_ROOT"] = appdir
-    env_vars["INTERNAL_WORKSPACE_ROOT"] = appdir
-    env_vars["RUN_WITHOUT_DOCKER"] = str(run_without_docker)
     env_vars["FARA_AGENT"] = str(fara_agent)
+
+    if reset_config:
+        env_vars["_RESET_CONFIG"] = "1"
 
     # Handle configuration file path
     if not config:
@@ -241,7 +159,9 @@ def run_ui(
     if config:
         env_vars["_CONFIG"] = config
 
-    # Create a temporary environment file to share with Uvicorn workers
+    # Create a temporary environment file to share with the Uvicorn process.
+    # Magentic-UI runs single-process (WS connections, sandbox manager, and
+    # session token all live in per-process memory).
     env_file_path = get_env_file_path()
     with open(env_file_path, "w") as temp_env:
         for key, value in env_vars.items():
@@ -252,7 +172,6 @@ def run_ui(
         "magentic_ui.backend.web.app:app",  # Path to the ASGI application
         host=host,
         port=port,
-        workers=workers,
         reload=reload,
         reload_excludes=["**/alembic/*", "**/alembic.ini", "**/versions/*"]
         if reload
@@ -267,20 +186,12 @@ def run_ui(
 def ui(
     host: str = "127.0.0.1",
     port: int = 8081,
-    workers: int = 1,
     reload: Annotated[bool, typer.Option("--reload")] = False,
     docs: bool = True,
     appdir: str = str(Path.home() / ".magentic_ui"),
     database_uri: Optional[str] = None,
     upgrade_database: bool = False,
     config: Optional[str] = None,
-    run_without_docker: Annotated[
-        bool,
-        typer.Option(
-            "--run-without-docker",
-            help="Run without docker. This will remove coder and filesurfer agents and disale live browser view.",
-        ),
-    ] = False,
     fara_agent: Annotated[
         bool,
         typer.Option(
@@ -290,21 +201,18 @@ def ui(
     ] = False,
 ):
     """
-    [Deprecated] Run Magentic-UI.
+    [Deprecated] Run MagenticLite.
     This command is kept for backward compatibility.
     """
-    # Simply delegate to the main run_ui function with the same parameters
     run_ui(
         host=host,
         port=port,
-        workers=workers,
         reload=reload,
         docs=docs,
         appdir=appdir,
         database_uri=database_uri,
         upgrade_database=upgrade_database,
         config=config,
-        run_without_docker=run_without_docker,
         fara_agent=fara_agent,
     )
 
@@ -313,9 +221,9 @@ def ui(
 @app.command(hidden=True)
 def version():
     """
-    Print the version of the Magentic-UI backend CLI.
+    Print the version of the MagenticLite backend CLI.
     """
-    typer.echo(f"Magentic-UI version: {VERSION}")
+    typer.echo(f"MagenticLite version: {VERSION}")
 
 
 @app.command(hidden=True)

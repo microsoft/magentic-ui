@@ -1,0 +1,84 @@
+# Magentic-UI config template
+#
+# Copy this file to `config.yaml` at the repo root and edit to your needs.
+# `config.yaml` is gitignored.
+#
+# `magentic-ui` picks up `./config.yaml` automatically if `--config` isn't
+# passed explicitly.
+#
+# API keys: set OPENAI_API_KEY (or AZURE_OPENAI_API_KEY) as env vars instead
+# of putting them in this file. _ai_client.py falls back to the env var when
+# `api_key` is omitted from the yaml.
+
+# ---------------------------------------------------------------------------
+# Reusable model client snippets (YAML anchors)
+# ---------------------------------------------------------------------------
+
+# OmniAgent orchestrator — plans and produces the final answer.
+model_config_omni: &omni
+  provider: OpenAIChatCompletionClient
+  config:
+    model: your-orchestrator-model
+    base_url: https://api.openai.com/v1   # or your own endpoint
+    # api_key: set via OPENAI_API_KEY env var
+  max_retries: 5
+
+# Fara web surfer — drives the browser via CDP.
+model_config_fara: &fara
+  provider: OpenAIChatCompletionClient
+  config:
+    model: your-web-surfer-model
+    base_url: https://api.openai.com/v1   # or your own endpoint
+    # api_key: set via OPENAI_API_KEY env var
+  max_retries: 5
+
+# Optional Azure example (defined but unused by default). Swap *omni or
+# *fara below for *azure_example to route either agent through an
+# Azure-hosted model instead.
+model_config_azure_example: &azure_example
+  provider: AzureOpenAIChatCompletionClient
+  config:
+    model: your-azure-model
+    api_version: "2024-12-01-preview"
+    azure_endpoint: https://your-resource.openai.azure.com/
+    azure_deployment: your-deployment-name
+    azure_ad_token_provider:
+      config:
+        scopes:
+          - "https://your-token-scope.example.com/.default"
+  max_retries: 5
+
+# ---------------------------------------------------------------------------
+# MagenticUIConfig
+# ---------------------------------------------------------------------------
+
+# Model clients used by the agent pipeline.
+model_client_configs:
+  orchestrator: *omni
+  web_surfer: *fara
+
+# Sandbox configuration.
+sandbox:
+  type: quicksand        # "quicksand" | "null"
+  # memory: "6G"
+  # cpus: 3
+  # pool_size: 5
+
+# Agent mode:
+#   "all"             — OmniAgent + Fara (default; both local tasks and web browsing)
+#   "omniagent_only" — OmniAgent only (local tasks only)
+#   "websurfer_only" — Fara only (web browsing only; orchestrator skipped)
+agent_mode: all
+
+# Harness behavior knobs. Many of these are also editable from Settings →
+# General at runtime. Any field set here will overwrite the user's UI value
+# on the next backend restart with this --config — this is the same
+# behavior as `agent_mode`, `approval_policy`, etc.
+#
+# harness_config:
+#   orchestrator:
+#     approval_policy: require_approval_untrusted
+#     temperature: 0.6
+#     max_rounds: 30   # OmniAgent rounds per batch (default 100)
+#   web_surfer:
+#     max_rounds: 100  # Browser use actions per batch (default 100)

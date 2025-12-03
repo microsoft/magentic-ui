@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/microsoft/magentic-ui/discussions
+    about: For usage questions and general discussion, please use Discussions instead of an issue.

@@ -1,33 +1,82 @@
 # api/app.py
 import os
-import yaml
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Any
+from pathlib import Path
+from typing import AsyncGenerator, Any, Callable, Awaitable
 
 # import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from loguru import logger
 
 from ...version import VERSION
+from .auth import (
+    bad_host_response,
+    inject_token_into_html,
+    is_allowed_host,
+    require_api_auth,
+)
 from .config import settings
-from .deps import cleanup_managers, init_managers
+from .deps import cleanup_managers, get_db, init_db, init_managers
 from .initialization import AppInitializer
+from .routes.onboarding import reset_onboarding_config
+from ..database.config_file_loader import load_config_file
 from .routes import (
-    plans,
+    filesystem,
+    onboarding,
     runs,
     sessions,
-    settingsroute,
-    teams,
-    validation,
+    settings as settings_routes,
+    trusted_folders,
     ws,
-    mcp,
 )
 
 # Initialize application
 app_file_path = os.path.dirname(os.path.abspath(__file__))
 initializer = AppInitializer(settings, app_file_path)
+
+
+class SPAStaticFiles(StaticFiles):
+    """
+    Static files handler with SPA fallback and session-token injection.
+
+    Reads ``index.html`` once at construction (before the server accepts
+    traffic), then serves an injected copy for every SPA entrypoint.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        index_path = Path(str(self.directory)) / "index.html"
+        try:
+            self._index_html: str | None = index_path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            self._index_html = None
+
+    async def get_response(self, path: str, scope: Any) -> Any:
+        try:
+            response = await super().get_response(path, scope)
+        except StarletteHTTPException as ex:
+            if ex.status_code == 404:
+                return self._serve_index_with_token()
+            raise
+
+        # StaticFiles with html=True serves index.html for GET "/" (which
+        # Starlette normalises to path="."), and for direct /index.html
+        # requests. In either case, inject the token.
+        if path in ("", ".", "index.html"):
+            return self._serve_index_with_token()
+        return response
+
+    def _serve_index_with_token(self) -> HTMLResponse:
+        if self._index_html is None:
+            return HTMLResponse("index.html not found", status_code=500)
+        return HTMLResponse(
+            inject_token_into_html(self._index_html),
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+        )
 
 
 @asynccontextmanager
@@ -36,34 +85,33 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Lifecycle manager for the FastAPI application.
     Handles initialization and cleanup of application resources.
     """
-
     try:
-        # Load the config if provided
-        config: dict[str, Any] = {}
+        # Step 1: Initialize database
+        await init_db(
+            database_uri=initializer.database_uri,
+            app_root=initializer.app_root,
+        )
+
+        # Step 2: Seed DB from YAML / reset config (before sandbox startup)
+        db = await get_db()
+        if os.environ.get("_RESET_CONFIG") == "1":
+            reset_onboarding_config(db)
+            logger.info("Onboarding config reset via --reset-config flag")
         config_file = os.environ.get("_CONFIG")
         if config_file:
             logger.info(f"Loading config from file: {config_file}")
-            with open(config_file, "r") as f:
-                config = yaml.safe_load(f)
-        else:
-            logger.info("No config file provided, using defaults.")
+            if load_config_file(
+                db,
+                config_path=Path(config_file),
+                user_id=settings.DEFAULT_USER_ID,
+            ):
+                logger.info("DB seeded from config file")
 
-        if os.environ.get("FARA_AGENT") is not None:
-            config["use_fara_agent"] = os.environ["FARA_AGENT"] == "True"
-
-        # Initialize managers (DB, Connection, Team)
+        # Step 3: Initialize sandbox + connection managers (reads config from DB)
         await init_managers(
-            initializer.database_uri,
-            initializer.config_dir,
-            initializer.app_root,
-            os.environ["INTERNAL_WORKSPACE_ROOT"],
-            os.environ["EXTERNAL_WORKSPACE_ROOT"],
-            os.environ["INSIDE_DOCKER"] == "1",
-            config,
-            os.environ["RUN_WITHOUT_DOCKER"] == "True",
+            app_dir=os.environ.get("_APPDIR", str(Path.home() / ".magentic_ui")),
         )
 
-        # Any other initialization code
         logger.info(
             f"Application startup complete. Navigate to http://{os.environ.get('_HOST', '127.0.0.1')}:{os.environ.get('_PORT', '8081')}"
         )
@@ -86,26 +134,51 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 # Create FastAPI application
 app = FastAPI(lifespan=lifespan, debug=True)
 
-# CORS middleware configuration
+
+# Request flow (outermost first): Host check → CORS → API auth → handler.
+# FastAPI runs the LAST-registered middleware first, so we register in
+# reverse: auth, then CORS, then Host validation.
+
+
+@app.middleware("http")
+async def api_auth_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    unauthorized = await require_api_auth(request)
+    if unauthorized is not None:
+        return unauthorized
+    return await call_next(request)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "http://localhost:8001",
         "http://localhost:8081",
+        "http://127.0.0.1:8081",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def host_header_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    if not is_allowed_host(request.headers.get("host", "")):
+        return bad_host_response()
+    return await call_next(request)
+
+
 # Create API router with version and documentation
 api = FastAPI(
     root_path="/api",
-    title="Magentic-UI API",
+    title="MagenticLite API",
     version=VERSION,
-    description="Magentic-UI is an application to interact with web agents.",
+    description="MagenticLite is an application to interact with web agents.",
     docs_url="/docs" if settings.API_DOCS else None,
 )
 
@@ -118,26 +191,11 @@ api.include_router(
 )
 
 api.include_router(
-    plans.router,
-    prefix="/plans",
-    tags=["plans"],
-    responses={404: {"description": "Not found"}},
-)
-
-api.include_router(
     runs.router,
     prefix="/runs",
     tags=["runs"],
     responses={404: {"description": "Not found"}},
 )
-
-api.include_router(
-    teams.router,
-    prefix="/teams",
-    tags=["teams"],
-    responses={404: {"description": "Not found"}},
-)
-
 
 api.include_router(
     ws.router,
@@ -147,23 +205,29 @@ api.include_router(
 )
 
 api.include_router(
-    validation.router,
-    prefix="/validate",
-    tags=["validation"],
+    filesystem.router,
+    prefix="/filesystem",
+    tags=["filesystem"],
+)
+
+api.include_router(
+    trusted_folders.router,
+    prefix="/trusted-folders",
+    tags=["trusted-folders"],
+)
+
+api.include_router(
+    onboarding.router,
+    prefix="/onboarding",
+    tags=["onboarding"],
     responses={404: {"description": "Not found"}},
 )
 
 api.include_router(
-    settingsroute.router,
+    settings_routes.router,
     prefix="/settings",
     tags=["settings"],
     responses={404: {"description": "Not found"}},
-)
-
-api.include_router(
-    mcp.router,
-    prefix="/mcp",
-    tags=["mcp"],
 )
 
 
@@ -199,7 +263,8 @@ app.mount(
     StaticFiles(directory=initializer.static_root, html=True),
     name="files",
 )
-app.mount("/", StaticFiles(directory=initializer.ui_root, html=True), name="ui")
+# UI with SPA fallback - serves index.html for client-side routes
+app.mount("/", SPAStaticFiles(directory=initializer.ui_root, html=True), name="ui")
 
 # Error handlers
 

@@ -1,601 +1,942 @@
-from typing import AsyncGenerator, Sequence, List, Tuple, Dict, Any
+"""FaraWebSurfer — Harness wrapping the core Fara agent with magentic-ui features.
+
+Provides streaming (run_stream), pause/resume, critical point detection,
+ask_user_question handling, error retry, and noVNC integration.
+
+Uses composition: contains a core Fara agent instance and a
+PlaywrightBrowserEnvironment. The harness drives the action loop,
+calling agent methods individually so it can insert yields and
+checks between steps.
+"""
+
+from __future__ import annotations
+
 import asyncio
-import logging
-import io
+import base64
 import json
-import ast
-from urllib.parse import quote_plus
-from tenacity import retry, stop_after_attempt, wait_exponential, before_sleep_log
-from autogen_agentchat.base import Response
-from autogen_agentchat.messages import BaseChatMessage, TextMessage, MultiModalMessage
-from autogen_core.models import (
-    AssistantMessage,
-    LLMMessage,
-    SystemMessage,
-    UserMessage,
+from collections.abc import AsyncIterator
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from loguru import logger
+
+from ._browser_env import PlaywrightBrowserEnvironment
+from ._fara_qwen3 import FaraQwen3Agent
+from ._fara_qwen3_next import FaraQwen3NextAgent
+from ._state_io import message_from_dict, message_to_dict
+from ._types import ImageObj, LLMMessage, StreamUpdate
+from ...message_schemas import (
+    HandoffInfo,
+    HandoffReason,
+    HandoffStatus,
+    browser_address_props,
+    error_props,
+    final_answer_props,
+    screenshot_props,
+    tool_call_props,
 )
-from autogen_core import CancellationToken, Image as AGImage, FunctionCall
-import PIL.Image as Image
-
-from .._web_surfer import WebSurfer
-from ._prompts import get_computer_use_system_prompt
-from ....tools.playwright.browser import VncDockerPlaywrightBrowser
 from ....tools.playwright.playwright_controller_fara import PlaywrightController
-from ....types import HumanInputFormat
+from ....types import ContinuationRequest, InputRequest, PauseController
+
+if TYPE_CHECKING:
+    from playwright.async_api import BrowserContext
+
+    from ....tools.playwright.browser import PlaywrightBrowser
 
 
-def encode_search_query(query: str) -> str:
-    """Encode a search query for URL parameters."""
-    return quote_plus(query)
+class FaraWebSurfer:
+    """Core Fara agent + magentic-ui streaming, pause/resume, critical point.
 
+    This is the harness that wraps the core agent for use in magentic-ui.
+    It implements :class:`~magentic_ui.agents.base.SubAgentProtocol`
+    (``run_stream``, ``summarize_progress``, ``close``).
 
-class FaraWebSurfer(WebSurfer):
-    DEFAULT_DESCRIPTION = "A helpful assistant with access to a web browser. Ask them to perform web searches, open pages, and interact with content (e.g., clicking links, scrolling the viewport, etc., filling in form fields, etc.) It can also summarize the entire page, or answer questions based on the content of the page. It can also be asked to sleep and wait for pages to load, in cases where the pages seem to be taking a while to load."
+    The harness drives the action loop itself (does NOT call agent.run()),
+    calling agent._generate_model_call() and agent._execute_action()
+    individually so it can insert streaming yields, pause checks, critical
+    point detection, and error retry between steps.
+    """
 
-    DEFAULT_START_PAGE = "https://www.bing.com/"
-
-    # Viewport dimensions
-    # VIEWPORT_HEIGHT = 720
-    # VIEWPORT_WIDTH = 1280
-    VIEWPORT_HEIGHT = 900
-    VIEWPORT_WIDTH = 1440
-
-    # Size of the image we send to the MLM
-    # MLM_HEIGHT = 720
-    # MLM_WIDTH = 1280
-    MLM_HEIGHT = 900
-    MLM_WIDTH = 1440
-
-    MLM_PROCESSOR_IM_CFG = {
-        "min_pixels": 3136,
-        "max_pixels": 12845056,
-        "patch_size": 14,
-        "merge_size": 2,
-    }
-
-    SCREENSHOT_TOKENS = 1105
-    MAX_URL_LENGTH = 100
-    USER_MESSAGE = "Here is the next screenshot. Think about what to do next."
+    _name = "web_surfer"  # Matches frontend expectations
 
     def __init__(
         self,
-        max_n_images: int = 3,
-        fn_call_template: str = "default",
-        model_call_timeout: int = 20,
+        model_client_config: Any = None,
+        browser: PlaywrightBrowser | None = None,
+        novnc_port: int = -1,
+        playwright_port: int = -1,
+        task_id: str | None = None,
+        pause_controller: PauseController | None = None,
+        downloads_folder: str | None = None,
+        output_dir: str | None = None,
+        agent_variant: str = "qwen3_next",
         max_rounds: int = 100,
-        **kwargs,
+        state_dir: Path | None = None,
     ) -> None:
-        super().__init__(**kwargs)
-        self.max_n_images = max_n_images
-        self.fn_call_template = fn_call_template
-        self.model_call_timeout = model_call_timeout
-        self._facts = []
-        self._action_history = []
-        self._task_summary = None
-        self.max_rounds = max_rounds
-        self.logger = logging.getLogger(__name__)
-        self._mlm_width = 1440
-        self._mlm_height = 900
-        self.viewport_height = 900
-        self.viewport_width = 1440
-        self.original_user_message_indices = set()
-        self._playwright_controller = PlaywrightController(
+        self._model_client_config = model_client_config
+        self._browser = browser
+        self.novnc_port = novnc_port
+        self.playwright_port = playwright_port
+        # Per-acquire RFB password. Discovered from the browser backend
+        # in _lazy_init() once the slot is bound.
+        self.vnc_password: str = ""
+        self._task_id = task_id
+        self.downloads_folder = downloads_folder
+        self.output_dir = output_dir
+        self._agent_variant = agent_variant
+        self._max_rounds = max_rounds
+        # Session-scoped state file: last URL + chat history, restored
+        # by a follow-up run after the TM is closed (death/stop/idle).
+        self._state_path: Path | None = (
+            state_dir / "fara_state.json" if state_dir else None
+        )
+
+        # Pause/resume state
+        self._pause_controller = pause_controller
+
+        # Lazy initialized
+        self._agent: FaraQwen3Agent | None = None
+        self._env: PlaywrightBrowserEnvironment | None = None
+        self._browser_started = False
+        self._context: BrowserContext | None = None
+        # Snapshot of fara_state.json shared between init and lazy_init.
+        self._saved_state: dict[str, Any] = {}
+
+        # Harness-only state
+        self._pending_error_message: str | None = None
+        self._pending_user_response: str = ""
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    async def _init_agent_with_state(self) -> None:
+        """Build the core agent, restore chat_history from disk, cache the snapshot."""
+        if self._agent is not None:
+            return
+
+        client_config = self._parse_client_config(self._model_client_config)
+        if self._agent_variant == "qwen3_next":
+            self._agent = FaraQwen3NextAgent(
+                client_config=client_config, max_rounds=self._max_rounds
+            )
+        elif self._agent_variant == "qwen3":
+            self._agent = FaraQwen3Agent(
+                client_config=client_config, max_rounds=self._max_rounds
+            )
+        else:
+            raise ValueError(
+                f"Unknown web_surfer_variant: {self._agent_variant!r}. "
+                f"Expected 'qwen3' or 'qwen3_next'."
+            )
+
+        await self._agent.initialize()
+        self._saved_state = self._read_state_file()
+        self._restore_chat_history(self._saved_state)
+
+    async def _lazy_init(self) -> None:
+        """Initialize agent, browser, and environment on first use."""
+        if self._browser_started:
+            return
+
+        await self._init_agent_with_state()
+
+        # Start browser (required for web surfing)
+        if self._browser is None:
+            raise ValueError(
+                "FaraWebSurfer requires a browser instance. "
+                "Pass browser= to the constructor."
+            )
+
+        await self._browser.__aenter__()
+
+        # Discover ports from browser (quicksand path). Each attribute is a
+        # @property that raises RuntimeError before the slot is bound;
+        # AttributeError covers backends that don't expose them at all
+        # (e.g., LocalPlaywrightBrowser).
+        if self.novnc_port <= 0:
+            try:
+                self.novnc_port = self._browser.novnc_host_port
+            except (AttributeError, RuntimeError):
+                logger.warning("Browser started but noVNC port unavailable")
+        if self.playwright_port <= 0:
+            try:
+                self.playwright_port = self._browser.cdp_host_port
+            except (AttributeError, RuntimeError):
+                logger.warning("Browser started but CDP port unavailable")
+        try:
+            self.vnc_password = self._browser.vnc_password
+        except (AttributeError, RuntimeError):
+            logger.warning("Browser started but VNC password unavailable")
+
+        # Create page and controller
+        self._context = self._browser.browser_context
+        page = await self._context.new_page()
+
+        controller = PlaywrightController(
             animate_actions=False,
+            viewport_width=self._agent.config.viewport_width,
+            viewport_height=self._agent.config.viewport_height,
             downloads_folder=self.downloads_folder,
-            viewport_width=self.viewport_width,
-            viewport_height=self.viewport_height,
-            _download_handler=self._download_handler,
-            to_resize_viewport=self.to_resize_viewport,
-            single_tab_mode=True,
-            logger=self.logger,
+        )
+        await controller.on_new_page(page)
+
+        # Wrap in BrowserEnvironment
+        self._env = PlaywrightBrowserEnvironment(page, controller)
+
+        start_url = self._load_start_url(self._saved_state)
+        await self._env.goto(start_url)
+        await self._restore_scroll_position(self._saved_state)
+
+        self._browser_started = True
+
+    def _read_state_file(self) -> dict[str, Any]:
+        """Read the saved state JSON. Returns {} if absent or unreadable."""
+        if not self._state_path or not self._state_path.exists():
+            return {}
+        try:
+            return json.loads(self._state_path.read_text())
+        except Exception as e:
+            logger.warning(f"Failed to load fara state {self._state_path}: {e}")
+            return {}
+
+    def _load_start_url(self, saved_state: dict[str, Any]) -> str:
+        url = saved_state.get("last_url")
+        if url:
+            logger.info(f"Restoring last URL: {url}")
+            return url
+        return FaraQwen3Agent.DEFAULT_START_PAGE
+
+    async def _restore_scroll_position(self, saved_state: dict[str, Any]) -> None:
+        if self._env is None:
+            return
+        scroll = saved_state.get("scroll")
+        if not isinstance(scroll, list) or len(scroll) != 2:
+            return
+        x, y = int(scroll[0]), int(scroll[1])
+        if x == 0 and y == 0:
+            return
+        await self._env.scroll_to(x, y)
+        logger.info(f"Restored scroll position: ({x}, {y})")
+
+    def _restore_chat_history(self, saved_state: dict[str, Any]) -> None:
+        if self._agent is None or self._agent._state is None:
+            return
+        raw = saved_state.get("chat_history")
+        if not raw:
+            return
+        self._agent._state.chat_history = [message_from_dict(m) for m in raw]
+        self._agent._state.facts = list(saved_state.get("facts") or [])
+        logger.info(
+            f"Restored chat history: {len(self._agent._state.chat_history)} messages"
         )
 
-    @retry(
-        stop=stop_after_attempt(5),
-        wait=wait_exponential(multiplier=5.0, min=5.0, max=60),
-        before_sleep=before_sleep_log(logging.getLogger(__name__), logging.WARNING),
-        reraise=True,
-    )
-    async def _make_model_call(self, history, extra_create_args):
-        """Make a model call with automatic retry."""
-        return await asyncio.wait_for(
-            self._model_client.create(history, extra_create_args=extra_create_args),
-            timeout=self.model_call_timeout,
-        )
+    async def _save_state(self) -> None:
+        """Persist last URL, scroll, chat history, facts. Logs and returns on
+        any failure — persistence must never break the agent's action loop.
+        TODO: writes the full chat history (with retained image base64) on
+        every action; if max_n_images grows beyond ~3 this becomes a hot-path
+        IO cost worth rethinking."""
+        if not self._state_path or self._env is None or self._agent is None:
+            return
+        if self._agent._state is None:
+            return
+        try:
+            url = await self._env.get_url()
+            scroll = list(await self._env.get_scroll())
+            trimmed = self._agent.maybe_remove_old_screenshots(
+                self._agent._state.chat_history, includes_current=True
+            )
+            payload = {
+                "last_url": url,
+                "scroll": scroll,
+                "chat_history": [message_to_dict(m) for m in trimmed],
+                "facts": list(self._agent._state.facts),
+            }
+            self._state_path.parent.mkdir(parents=True, exist_ok=True)
+            self._state_path.write_text(json.dumps(payload))
+        except Exception as e:
+            logger.warning(f"Failed to save fara state {self._state_path}: {e}")
 
-    def remove_screenshot_from_message(self, msg: LLMMessage) -> LLMMessage | None:
-        """Remove the screenshot from the message content."""
-        if isinstance(msg.content, list):
-            new_content = []
-            for c in msg.content:
-                if not isinstance(c, AGImage):
-                    new_content.append(c)
-            msg.content = new_content
-        elif isinstance(msg.content, AGImage):
-            msg = None
-        return msg
+    # TODO: create separate config client, and clean this up
+    @staticmethod
+    def _parse_client_config(model_client_config: Any) -> dict[str, Any]:
+        """Extract client_config dict from various config formats."""
+        if model_client_config is None:
+            return {}
+        config = model_client_config
+        # Handle Pydantic model
+        if hasattr(config, "model_dump"):
+            config = config.model_dump()
+        if isinstance(config, dict) and "config" in config:
+            return config["config"]
+        if isinstance(config, dict):
+            return config
+        return {}
 
-    def maybe_remove_old_screenshots(
-        self, history: List[LLMMessage], includes_current=False
-    ) -> List[LLMMessage]:
-        """Remove old screenshots from the chat history. Assuming we have not yet added the current screenshot message.
+    async def close(self) -> None:
+        """Cleanup browser and agent resources.
 
-        Note: Original user messages (marked with is_original=True) have their TEXT preserved,
-        but their images may be removed if we exceed max_n_images. Boilerplate messages can be
-        completely removed.
+        Each step is independently guarded so the browser slot is always
+        released even if agent client close fails.
         """
-        if self.max_n_images <= 0:
-            return history
+        if self._agent is not None:
+            try:
+                await self._agent.close()
+            except Exception:
+                logger.exception("FaraWebSurfer: error closing inner agent")
+            self._agent = None
+        if self._browser is not None and self._browser_started:
+            try:
+                await self._browser.__aexit__(None, None, None)
+            except Exception:
+                logger.exception("FaraWebSurfer: error closing browser")
+            self._browser_started = False
+            self._context = None
+            self._env = None
 
-        max_n_images = self.max_n_images if includes_current else self.max_n_images - 1
-        new_history: List[LLMMessage] = []
-        n_images = 0
-        for i in range(len(history) - 1, -1, -1):
-            msg = history[i]
-            is_original_user_message = i in self.original_user_message_indices
+    def current_browser_address(self) -> dict[str, Any] | None:
+        """Return live noVNC connection info, or None if no slot is bound."""
+        if self.novnc_port <= 0 or not self.vnc_password:
+            return None
+        return browser_address_props(
+            self._name,
+            str(self.novnc_port),
+            str(self.playwright_port),
+            password=self.vnc_password,
+        )
 
-            if i == 0 and n_images >= max_n_images:
-                # First message is always the task so we keep it and remove the screenshot if necessary
-                msg = self.remove_screenshot_from_message(msg)
-                if msg is None:
+    # ------------------------------------------------------------------
+    # run_stream — main streaming interface
+    # ------------------------------------------------------------------
+
+    async def run_stream(
+        self,
+        task: str,
+        **kwargs: Any,
+    ) -> AsyncIterator[StreamUpdate | InputRequest]:
+        """Stream web browsing task execution.
+
+        Yields StreamUpdate for each step, or InputRequest when user input is needed.
+        """
+        if not task:
+            yield StreamUpdate(
+                text="Error: No task provided",
+                additional_properties=error_props(self._name),
+            )
+            return
+
+        await self._lazy_init()
+        assert self._agent is not None
+        assert self._env is not None
+
+        # Emit browser address for noVNC thumbnail
+        if self.novnc_port > 0:
+            yield StreamUpdate(
+                text=f"Browser ready at noVNC port {self.novnc_port}",
+                additional_properties=browser_address_props(
+                    self._name,
+                    str(self.novnc_port),
+                    str(self.playwright_port),
+                    password=self.vnc_password,
+                ),
+            )
+
+        restored_history = bool(self._agent._state.chat_history)
+        scaled_screenshot = None
+        if restored_history:
+            self._pending_user_response = task
+        else:
+            # Build initial user message with screenshot + task.
+            scaled_screenshot = await self._agent._get_scaled_screenshot(self._env)
+            await self._save_screenshot("screenshot_0_pre.png")
+            self._agent.add_user_message(
+                LLMMessage(
+                    role="user",
+                    content=[ImageObj.from_pil(scaled_screenshot), task],
+                    metadata={"is_original": True},
+                ),
+                is_original=True,
+            )
+            await self._save_state()
+
+        # Main action loop (harness drives, not agent.run())
+        step = 0
+        consecutive_errors = 0
+        max_consecutive_errors = 3
+        round_idx = 0
+        while True:
+            if round_idx >= self._agent.config.max_rounds:
+                should_continue = False
+                async for evt in self._handle_max_rounds_continuation(step):
+                    if isinstance(evt, bool):
+                        should_continue = evt
+                    else:
+                        yield evt
+                if not should_continue:
+                    return
+                round_idx = 0
+                continue
+            if self._pause_controller and self._pause_controller.is_cancelled:
+                logger.info("Run cancelled, exiting action loop")
+                break
+
+            step += 1
+            is_first_round = round_idx == 0 and not restored_history and step == 1
+            round_idx += 1
+            raw_response = ""
+
+            # Drain mid-run inbox. Fara takes one user_response per step,
+            # so messages are joined with newlines and appended after any
+            # existing pending response (which is chronologically older).
+            if self._pause_controller and self._pause_controller.has_queued_messages:
+                queued = self._pause_controller.drain_messages(reader=self._name)
+                joined = "\n".join(queued)
+                self._pending_user_response = (
+                    f"{self._pending_user_response}\n{joined}"
+                    if self._pending_user_response
+                    else joined
+                )
+
+            # Nudge the model to stop if it's been running too long
+            if step > 0 and step % 20 == 0 and not self._pending_user_response:
+                self._pending_user_response = (
+                    "REMINDER: You have been running for many steps. "
+                    "If you are done or repeating the same actions without progress, "
+                    "use the terminate action now with your best answer. "
+                    "Do not continue if you are stuck."
+                )
+
+            # Save pre-action screenshot (for eval)
+            await self._save_screenshot(f"screenshot_{step}_pre.png")
+
+            # --- Step 1: Generate model call + validate ---
+            try:
+                # Inject pending error into user_response so the model
+                # sees it in the next prompt alongside the screenshot
+                if self._pending_error_message:
+                    self._pending_user_response = (
+                        f"ERROR: {self._pending_error_message}\n\n"
+                        + self._pending_user_response
+                    )
+                    self._pending_error_message = None
+
+                action, raw_response = await self._agent._generate_model_call(
+                    self._env,
+                    is_first_round,
+                    scaled_screenshot,
+                    user_response=self._pending_user_response,
+                )
+                self._pending_user_response = ""
+                action_args = action.get("arguments", {})
+                action_type = action_args.get("action", "")
+
+                # Validate action structure
+                is_valid, error_msg = self._validate_action(action)
+                if not is_valid:
+                    raise ValueError(error_msg)
+
+            except Exception as e:
+                error_str = str(e) or f"{type(e).__name__} (empty message)"
+                logger.error(
+                    f"Tool call error: {error_str} | Raw: {repr(raw_response)}"
+                )
+                # Make connection failures explicit so users know the LLM
+                # endpoint is unreachable, not the magentic-ui itself.
+                user_error = (
+                    f"Model API connection error ({error_str})"
+                    if "connection error" in error_str.lower()
+                    else error_str
+                )
+                consecutive_errors += 1
+                if consecutive_errors >= max_consecutive_errors:
+                    final_text = (
+                        f"Giving up after {consecutive_errors} consecutive errors. "
+                        f"Last error: {user_error}"
+                    )
+                    info = await self._handoff_info(
+                        status=HandoffStatus.ERROR,
+                        reason=HandoffReason.CONSECUTIVE_ERRORS,
+                    )
+                    yield StreamUpdate(
+                        text=final_text,
+                        additional_properties=final_answer_props(
+                            self._name, handoff=info
+                        ),
+                    )
+                    return
+                if raw_response:
+                    self._pending_error_message = error_str
+                yield StreamUpdate(
+                    text=f"{user_error}. Retrying ({consecutive_errors}/{max_consecutive_errors})...",
+                    additional_properties=error_props(self._name),
+                )
+                continue
+
+            consecutive_errors = 0
+            thoughts = action_args.get("thoughts", "")
+
+            # --- Step 2: Check terminate ---
+            if action_type in ("terminate", "stop"):
+                # Critical point detection
+                if "critical point" in thoughts.lower():
+                    logger.info("Critical point detected — requesting user input")
+                    future: asyncio.Future[str] = (
+                        asyncio.get_running_loop().create_future()
+                    )
+                    yield InputRequest(prompt=thoughts, respond=future.set_result)
+                    resp = await future
+                    await self._inject_user_input(resp)
                     continue
 
-            if isinstance(msg.content, list):
-                # Check if the message contains an image. Assumes 1 image per message.
-                has_image = False
-                for c in msg.content:
-                    if isinstance(c, AGImage):
-                        has_image = True
-                        break
-                if has_image:
-                    if n_images < max_n_images:
-                        new_history.append(msg)
-                    elif is_original_user_message:
-                        # Keep original user messages but remove the image
-                        msg = self.remove_screenshot_from_message(msg)
-                        if msg is not None:
-                            new_history.append(msg)
-                    n_images += 1
-                else:
-                    new_history.append(msg)
-            elif isinstance(msg.content, AGImage) and n_images < max_n_images:
-                new_history.append(msg)
-                n_images += 1
-            else:
-                new_history.append(msg)
-
-        new_history = new_history[::-1]
-
-        return new_history
-
-    def _get_system_message(
-        self, screenshot: AGImage | Image.Image
-    ) -> Tuple[List[SystemMessage], Image.Image]:
-        system_prompt_info = get_computer_use_system_prompt(
-            screenshot,
-            self.MLM_PROCESSOR_IM_CFG,
-            include_input_text_key_args=True,
-            fn_call_template=self.fn_call_template,
-        )
-        self._mlm_width, self._mlm_height = system_prompt_info["im_size"]
-        scaled_screenshot = screenshot.resize((self._mlm_width, self._mlm_height))
-
-        system_message = []
-        for msg in system_prompt_info["conversation"]:
-            tmp_content = ""
-            for content in msg["content"]:
-                tmp_content += content["text"]
-
-            system_message.append(SystemMessage(content=tmp_content))
-
-        return system_message, scaled_screenshot
-
-    def _parse_thoughts_and_action(self, message: str) -> Tuple[str, Dict[str, Any]]:
-        try:
-            tmp = message.split("<tool_call>\n")
-            thoughts = tmp[0].strip()
-            action_text = tmp[1].split("\n</tool_call>")[0]
-            try:
-                action = json.loads(action_text)
-            except json.decoder.JSONDecodeError:
-                self.logger.error(f"Invalid action text: {action_text}")
-                action = ast.literal_eval(action_text)
-
-            return thoughts, action
-        except Exception as e:
-            self.logger.error(
-                f"Error parsing thoughts and action: {message}", exc_info=True
-            )
-            raise e
-
-    def convert_resized_coords_to_original(
-        self, coords: List[float], rsz_w: int, rsz_h: int, og_w: int, og_h: int
-    ) -> List[float]:
-        scale_x = og_w / rsz_w
-        scale_y = og_h / rsz_h
-        return [coords[0] * scale_x, coords[1] * scale_y]
-
-    def proc_coords(
-        self,
-        coords: List[float],
-        im_w: int,
-        im_h: int,
-        og_im_w: int = None,
-        og_im_h: int = None,
-    ) -> List[float]:
-        if not coords:
-            return coords
-
-        if og_im_w is None:
-            og_im_w = im_w
-        if og_im_h is None:
-            og_im_h = im_h
-
-        tgt_x, tgt_y = coords
-        return self.convert_resized_coords_to_original(
-            [tgt_x, tgt_y], im_w, im_h, og_im_w, og_im_h
-        )
-
-    async def on_messages_stream(
-        self, messages: Sequence[BaseChatMessage], cancellation_token: CancellationToken
-    ) -> AsyncGenerator[BaseChatMessage | Response, None]:
-        """Dummy implementation that returns a static response."""
-        # add the last message to the chat history
-        await self.lazy_init()
-
-        # Ensure page is ready after lazy initialization
-        assert self._page is not None, "Page should be initialized"
-
-        # Send browser address message if this is the first time the browser is being used
-        if (
-            self._browser_just_initialized
-            and isinstance(self._browser, VncDockerPlaywrightBrowser)
-            and self._browser.novnc_port > 0
-        ):
-            # Send browser address message after browser is initialized
-            yield TextMessage(
-                source="system",
-                content=f"Browser noVNC address can be found at http://localhost:{self._browser.novnc_port}/vnc.html",
-                metadata={
-                    "internal": "no",
-                    "type": "browser_address",
-                    "novnc_port": str(self._browser.novnc_port),
-                    "playwright_port": str(self._browser.playwright_port),
-                },
-            )
-            # Reset the flag so we don't send the message again
-            self._browser_just_initialized = False
-
-        assert messages and isinstance(messages[-1], TextMessage)
-        # add the message sent to the websurfer, excluding our own messages
-        screenshot = await self._playwright_controller.get_screenshot(self._page)
-        screenshot = Image.open(io.BytesIO(screenshot))
-        _, scaled_screenshot = self._get_system_message(screenshot)
-        if messages[-1].source != self.name:
-            if messages[-1].source == "user_proxy" or messages[-1].source == "user":
-                human_input = HumanInputFormat.from_str(messages[-1].content)
-                content_human = f"{human_input.content}"
-                self._chat_history.append(
-                    UserMessage(
-                        content=[content_human, AGImage.from_pil(scaled_screenshot)],
-                        source=messages[-1].source,
-                    )
+                # Normal terminate
+                final_text = self._agent._get_final_answer(
+                    thoughts, action_args.get("answer", thoughts)
                 )
-                self.original_user_message_indices.add((len(self._chat_history) - 1))
-            else:
-                assert isinstance(
-                    messages[-1].content,
-                    str,
-                    "Fara web surfer only supports text messages from non-user sources.",
+                info = await self._handoff_info(
+                    status=HandoffStatus.COMPLETED,
+                    reason=HandoffReason.TERMINATE,
                 )
-                self._chat_history.append(
-                    UserMessage(
-                        content=[
-                            messages[-1].content,
-                            AGImage.from_pil(scaled_screenshot),
-                        ],
-                        source=messages[-1].source,
-                    )
-                )
-                self.original_user_message_indices.add((len(self._chat_history) - 1))
-        assert len(self._chat_history) > 0, "Chat history should not be empty"
-        for i in range(self.max_rounds):
-            is_stop_action = False
-            is_first_round = i == 0
-            function_call, raw_response = await self.generate_model_call(
-                is_first_round, scaled_screenshot if is_first_round else None
-            )
-            assert isinstance(raw_response, str)
-            # Extract thoughts and action for formatted display
-            thoughts, action = self._parse_thoughts_and_action(raw_response)
-            action_args = action.get("arguments", {})
-            action_type = action_args.get("action", "")
-
-            # Check if this is a terminate action
-            if action_type in ["terminate", "stop"]:
-                # For terminate, only emit the thoughts without executing
-                yield Response(
-                    chat_message=TextMessage(
-                        content=thoughts,
-                        source=self.name,
-                    ),
+                yield StreamUpdate(
+                    text=final_text,
+                    additional_properties=final_answer_props(self._name, handoff=info),
                 )
                 break
 
-            # For pause_and_memorize_fact, show thoughts but continue to execute
-            # The action description will be shown after execution
-            if action_type == "pause_and_memorize_fact":
-                yield Response(
-                    chat_message=TextMessage(
-                        content=thoughts,
-                        source=self.name,
-                    ),
-                )
-            else:
-                formatted_content = f"{thoughts} (tool: {action_type})"
-                yield Response(
-                    chat_message=TextMessage(
-                        content=formatted_content,
-                        source=self.name,
-                    ),
-                )
-            if self.is_paused:
-                yield TextMessage(
-                    content="Web surfer is paused. Please type a message to continue.",
-                    source="system",
-                    metadata={
-                        "internal": "no",
-                        "type": "paused",
-                    },
-                )
-                break
+            # --- Step 3: Check ask_user_question ---
+            if action_type == "ask_user_question":
+                question = action_args.get("question", "")
+                future = asyncio.get_running_loop().create_future()
+                yield InputRequest(prompt=question, respond=future.set_result)
+                resp = await future
+                await self._inject_user_input(resp)
+                continue
+
+            # --- Step 4: Yield tool call ---
+            formatted_content = f"{thoughts} (tool: {action_type})"
+            yield StreamUpdate(
+                text=formatted_content,
+                additional_properties=tool_call_props(
+                    self._name, action_type, action_args
+                ),
+            )
+
+            # --- Step 5: Execute action ---
             try:
-                (
-                    is_stop_action,
-                    new_screenshot,
-                    action_description,
-                ) = await self.execute_action(
-                    function_call,
-                    {},
-                    tool_names=None,
-                    cancellation_token=cancellation_token,
+                is_stop, description = await self._agent._execute_action(
+                    self._env, action_args
                 )
 
-                yield Response(
-                    chat_message=MultiModalMessage(
-                        content=[
-                            AGImage.from_pil(Image.open(io.BytesIO(new_screenshot))),
-                            action_description,
-                        ],
-                        source=self.name,
-                        metadata={
-                            "internal": "no",
-                            "type": "browser_screenshot",
-                        },
+                # Take screenshot after action
+                screenshot_bytes = await self._env.get_screenshot()
+                screenshot_b64 = base64.b64encode(screenshot_bytes).decode("utf-8")
+                yield StreamUpdate(
+                    text=description,
+                    additional_properties=screenshot_props(
+                        self._name,
+                        f"data:image/png;base64,{screenshot_b64}",
                     ),
                 )
+
+                # Save post-action screenshot (for eval)
+                await self._save_screenshot(
+                    f"screenshot_{step}_post.png", screenshot_bytes
+                )
+
+                await self._save_state()
+
+                if is_stop:
+                    break
+
+                # --- Step 6: Pause check ---
+                if self._pause_controller and self._pause_controller.is_paused:
+                    future = asyncio.get_running_loop().create_future()
+                    yield InputRequest(
+                        prompt="Task paused. Please type a message to continue.",
+                        respond=future.set_result,
+                    )
+                    resp = await future
+                    await self._inject_user_input(resp)
+                    continue
+
+            except asyncio.TimeoutError:
+                raise  # Re-raise timeout (handled by connection layer)
             except Exception as e:
                 error_msg = f"Error executing action: {e}"
+                logger.error(f"Action execution failed | {error_msg}")
 
-                yield Response(
-                    chat_message=TextMessage(
-                        content=error_msg,
-                        source=self.name,
-                    ),
+                # Action-aware guidance
+                error_str = str(e).lower()
+                is_nav = action_type in (
+                    "visit_url",
+                    "web_search",
+                    "history_back",
                 )
+                if "timeout" in error_str:
+                    guidance = (
+                        "Page load timeout - URL may be invalid or unreachable."
+                        if is_nav
+                        else "Operation timeout - try a different action."
+                    )
+                elif is_nav:
+                    guidance = "Navigation failed - try a different URL."
+                else:
+                    guidance = "Action failed - try a different approach."
 
-            if self.is_paused:
-                yield TextMessage(
-                    content="Web surfer is paused. Please type a message to continue.",
-                    source="system",
-                    metadata={
-                        "internal": "no",
-                        "type": "paused",
-                    },
+                self._pending_error_message = f"{error_msg}. {guidance}"
+                yield StreamUpdate(
+                    text=f"{error_msg}. {guidance}",
+                    additional_properties=error_props(self._name),
                 )
-                break
-            if is_stop_action:
-                break
+                continue
 
-    async def generate_model_call(
-        self, is_first_round: bool, scaled_screenshot: Image.Image = None
-    ):
-        history = self.maybe_remove_old_screenshots(self._chat_history)
-        screenshot_for_system = scaled_screenshot if is_first_round else None
-        if not is_first_round:
-            screenshot = await self._playwright_controller.get_screenshot(self._page)
-            screenshot = Image.open(io.BytesIO(screenshot))
-            system_message, scaled_screenshot = self._get_system_message(screenshot)
-            screenshot_for_system = scaled_screenshot
-            text_prompt = self.USER_MESSAGE
-            curr_url = await self._playwright_controller.get_page_url(self._page)
-            # Trim URL to 100 characters
-            trimmed_url = curr_url.split("?", 1)[0]  # Strip query parameters
-            if len(trimmed_url) > 100:
-                trimmed_url = trimmed_url[:100] + " ..."
-            text_prompt = f"Current URL: {trimmed_url}\n" + text_prompt
+    # ------------------------------------------------------------------
+    # Harness-only methods
+    # ------------------------------------------------------------------
 
-            curr_message = UserMessage(
-                content=[AGImage.from_pil(scaled_screenshot), text_prompt],
-                source=self.name,
-            )
-            self._chat_history.append(curr_message)
-            history.append(curr_message)
-        else:
-            system_message, _ = self._get_system_message(screenshot_for_system)
-        history = system_message + history
-        response = await self._make_model_call(
-            history, extra_create_args={"temperature": 0}
-        )
-        message = response.content
-
-        self._chat_history.append(AssistantMessage(content=message, source=self.name))
-        thoughts, action = self._parse_thoughts_and_action(message)
-        action["arguments"]["thoughts"] = thoughts
-
-        function_call = [FunctionCall(id="dummy", **action)]
-        return function_call, message
-
-    async def execute_action(
+    async def _handoff_info(
         self,
-        function_call,
-        rects,
-        tool_names=None,
-        cancellation_token: CancellationToken = None,
-    ):
-        # name = function_call[0].name
-        args = function_call[0].arguments
-        action_description = ""
-        assert self._page is not None
+        *,
+        status: HandoffStatus,
+        reason: HandoffReason,
+    ) -> HandoffInfo:
+        """Gather the last URL and memorized facts into handoff info."""
+        last_url: str | None = None
+        if self._env is not None:
+            try:
+                last_url = await self._env.get_url()
+            except Exception as e:
+                logger.warning(f"Handoff: failed to capture last URL: {e}")
+                last_url = None
+        if not last_url:
+            saved = self._saved_state.get("last_url")
+            last_url = saved if isinstance(saved, str) and saved else None
+        facts: list[str] = []
+        if self._agent is not None and self._agent._state is not None:  # pyright: ignore[reportPrivateUsage]
+            facts = list(self._agent._state.facts)  # pyright: ignore[reportPrivateUsage]
+        return {
+            "status": status.value,
+            "reason": reason.value,
+            "last_url": last_url,
+            "facts": facts,
+        }
 
-        if "coordinate" in args:
-            args["coordinate"] = self.proc_coords(
-                args["coordinate"],
-                self._mlm_width,
-                self._mlm_height,
-                self.viewport_width,
-                self.viewport_height,
+    async def _recap_and_handoff(
+        self,
+        *,
+        status: HandoffStatus,
+        reason: HandoffReason,
+    ) -> tuple[str, HandoffInfo]:
+        """LLM recap of progress paired with structured handoff info."""
+        return (
+            await self._summarize_progress(),
+            await self._handoff_info(status=status, reason=reason),
+        )
+
+    async def summarize_progress(self) -> tuple[str, HandoffInfo]:
+        """Return a clean recap plus structured handoff info for resume."""
+        await self._init_agent_with_state()
+        orphan_info: HandoffInfo = {
+            "status": HandoffStatus.INCOMPLETE.value,
+            "reason": HandoffReason.ORPHAN_RECOVERY.value,
+            "last_url": None,
+            "facts": [],
+        }
+        if self._agent is None or self._agent._state is None:  # pyright: ignore[reportPrivateUsage]
+            return (
+                "Sub-agent state unavailable — no prior progress to report.",
+                orphan_info,
             )
-
-        is_stop_action = False
-
-        if args["action"] == "visit_url":
-            url = str(args["url"])
-            action_description = f"I typed '{url}' into the browser address bar."
-            # Check if the argument starts with a known protocol
-            if url.startswith(("https://", "http://", "file://", "about:")):
-                (
-                    reset_prior_metadata,
-                    reset_last_download,
-                ) = await self._playwright_controller.visit_page(self._page, url)
-            # If the argument contains a space, treat it as a search query
-            elif " " in url:
-                (
-                    reset_prior_metadata,
-                    reset_last_download,
-                ) = await self._playwright_controller.visit_page(
-                    self._page,
-                    f"https://www.bing.com/search?q={quote_plus(url)}&FORM=QBLH",
-                )
-            # Otherwise, prefix with https://
-            else:
-                (
-                    reset_prior_metadata,
-                    reset_last_download,
-                ) = await self._playwright_controller.visit_page(
-                    self._page, "https://" + url
-                )
-            if reset_last_download and self._last_download is not None:
-                self._last_download = None
-            if reset_prior_metadata and self._prior_metadata_hash is not None:
-                self._prior_metadata_hash = None
-        elif args["action"] == "history_back":
-            action_description = "I clicked the browser back button."
-            await self._playwright_controller.back(self._page)
-        elif args["action"] == "web_search":
-            query = args.get("query")
-            action_description = f"I typed '{query}' into the browser search bar."
-            encoded_query = encode_search_query(query)
-            (
-                reset_prior_metadata,
-                reset_last_download,
-            ) = await self._playwright_controller.visit_page(
-                self._page, f"https://www.bing.com/search?q={encoded_query}&FORM=QBLH"
+        if not self._agent._state.chat_history:  # pyright: ignore[reportPrivateUsage]
+            return (
+                "No prior browsing progress is available for this session.",
+                orphan_info,
             )
-            if reset_last_download and self._last_download is not None:
-                self._last_download = None
-            if reset_prior_metadata and self._prior_metadata_hash is not None:
-                self._prior_metadata_hash = None
-        elif args["action"] == "scroll":
-            pixels = int(args.get("pixels", 0))
-            if pixels > 0:
-                action_description = "I scrolled up one page in the browser."
-                await self._playwright_controller.page_up(self._page)
-            elif pixels < 0:
-                action_description = "I scrolled down one page in the browser."
-                await self._playwright_controller.page_down(self._page)
-        elif args["action"] == "keypress" or args["action"] == "key":
-            keys = args.get("keys", [])
-            action_description = f"I pressed the following keys: {keys}"
-            await self._playwright_controller.keypress(self._page, keys)
-        elif args["action"] == "hover" or args["action"] == "mouse_move":
-            if "coordinate" in args:
-                tgt_x, tgt_y = args["coordinate"]
-                await self._playwright_controller.hover_coords(self._page, tgt_x, tgt_y)
-            else:
-                target_id = str(args.get("target_id", args.get("id")))
-                target_name = self._target_name(target_id, rects)
-                if target_name:
-                    action_description = f"I moved the mouse over '{target_name}'."
-                else:
-                    action_description = "I moved the mouse over the control."
-                await self._playwright_controller.hover_id(self._page, target_id)
-        elif args["action"] == "sleep" or args["action"] == "wait":
-            duration = args.get("duration", 3.0)
-            duration = args.get("time", duration)
-            action_description = (
-                "I am waiting a short period of time before taking further action."
+        return await self._recap_and_handoff(
+            status=HandoffStatus.INCOMPLETE,
+            reason=HandoffReason.ORPHAN_RECOVERY,
+        )
+
+    async def _handle_max_rounds_continuation(
+        self, actions_so_far: int
+    ) -> AsyncIterator[StreamUpdate | ContinuationRequest | bool]:
+        """Yield a Continue/Stop card and react to the user's choice."""
+        prompt = (
+            f"Browser use has taken {actions_so_far} actions without "
+            "finishing the task. Continue?"
+        )
+        future: asyncio.Future[str] = asyncio.get_running_loop().create_future()
+        yield ContinuationRequest(prompt=prompt, respond=future.set_result)
+        resp = await future
+        if resp.strip().lower().rstrip(".!,") == "yes":
+            # Don't inject a synthetic user_response: the next
+            # _generate_model_call drains _pending_observation only when
+            # user_response is empty, and clobbering it here would drop a
+            # text observation (e.g. read_page_answer_question) that the
+            # last action produced.
+            yield True
+            return
+        logger.info("User chose to stop after max rounds reached")
+        final_text, info = await self._recap_and_handoff(
+            status=HandoffStatus.INCOMPLETE,
+            reason=HandoffReason.MAX_ROUNDS,
+        )
+        yield StreamUpdate(
+            text=final_text,
+            additional_properties=final_answer_props(
+                self._name, max_rounds_reached=True, handoff=info
+            ),
+        )
+        yield False
+
+    async def _summarize_progress(self) -> str:
+        """Best-effort final summary built from ``chat_history``.
+
+        Swaps the leading system message for a one-shot summary prompt and
+        clears the default ``stop=["</tool_call>"]`` so prose isn't truncated.
+        Any pending text observation (e.g. ``read_page_answer_question``)
+        that has not yet been flushed into ``chat_history`` is appended
+        as a final user message so the model can see the latest result.
+        """
+        fallback = "Stopped at the user's request before completion."
+        if self._agent is None or self._agent._state is None:  # pyright: ignore[reportPrivateUsage]
+            return fallback
+        try:
+            history = self._agent.maybe_remove_old_screenshots(
+                self._agent._state.chat_history,  # pyright: ignore[reportPrivateUsage]
+                includes_current=True,
             )
-            await self._playwright_controller.sleep(self._page, duration)
-        elif args["action"] == "click" or args["action"] == "left_click":
-            if "coordinate" in args:
-                tgt_x, tgt_y = args["coordinate"]
-                action_description = (
-                    f"I clicked at coordinates ({int(tgt_x)}, {int(tgt_y)})."
+            pending_obs = getattr(self._agent, "_pending_observation", "") or ""
+            summary_system = LLMMessage(
+                role="system",
+                content=(
+                    "You are a helpful assistant. The user has stopped the "
+                    "browsing task before it was complete. Based on the "
+                    "actions and observations in the conversation above, "
+                    "write a concise final answer covering: (1) what you "
+                    "were trying to do, (2) the most useful information or "
+                    "partial result you collected, and (3) what is still "
+                    "missing or unverified. Reply in 1-3 short paragraphs "
+                    "of plain text. Do not output any tool_call or XML tags."
+                ),
+            )
+            full_history: list[LLMMessage] = [summary_system, *history]
+            if pending_obs:
+                full_history.append(
+                    LLMMessage(
+                        role="user",
+                        content=f"Latest observation:\n{pending_obs}",
+                    )
                 )
-                new_page_tentative = await self._playwright_controller.click_coords(
-                    self._page, tgt_x, tgt_y
-                )
-            else:
-                target_id = str(args.get("target_id", args.get("id")))
-                target_name = self._target_name(target_id, rects)
-                if target_name:
-                    action_description = f"I clicked '{target_name}'."
-                else:
-                    action_description = "I clicked the control."
-                new_page_tentative = await self._playwright_controller.click_id(
-                    self._page, target_id
-                )
+            raw = await self._agent._make_model_call(  # pyright: ignore[reportPrivateUsage]
+                full_history,
+                extra_create_args={"temperature": 0, "stop": []},
+            )
+            text = (raw or "").strip()
+            if "<tool_call>" in text:
+                text = text.split("<tool_call>", 1)[0].strip()
+            return text or fallback
+        except Exception as e:
+            logger.warning(f"Failed to generate stop summary: {e}")
+            return fallback
 
-            if new_page_tentative is not None:
-                self._page = new_page_tentative
-                self._prior_metadata_hash = None
+    async def _inject_user_input(self, user_response: str) -> None:
+        """Store user response for next _generate_model_call.
 
-        elif args["action"] == "input_text" or args["action"] == "type":
-            text_value = str(args.get("text", args.get("text_value")))
-            action_description = f"I typed '{text_value}'."
-            press_enter = args.get("press_enter", True)
-            delete_existing_text = args.get("delete_existing_text", False)
+        Shared by pause handler, critical point handler, and ask_user_question.
+        The response is passed to _generate_model_call(user_response=...) which
+        includes it in the prompt text alongside the URL and screenshot.
+        This avoids duplicate user messages on resume.
+        """
+        logger.info(f"Received user input ({len(user_response)} chars)")
+        await self._recover_active_page()
+        self._pending_user_response = user_response
 
-            if "coordinate" in args:
-                tgt_x, tgt_y = args["coordinate"]
-                new_page_tentative = await self._playwright_controller.fill_coords(
-                    self._page,
-                    tgt_x,
-                    tgt_y,
-                    text_value,
-                    press_enter=press_enter,
-                    delete_existing_text=delete_existing_text,
-                )
-                if new_page_tentative is not None:
-                    self._page = new_page_tentative
-                    self._prior_metadata_hash = None
-        elif args["action"] == "pause_and_memorize_fact":
-            fact = str(args.get("fact"))
-            self._facts.append(fact)
-            action_description = f"I memorized the following fact: {fact}"
-        elif args["action"] == "stop" or args["action"] == "terminate":
-            action_description = args.get("thoughts")
-            is_stop_action = True
+    async def _recover_active_page(self) -> None:
+        """Ensure the browser environment points to a live page.
 
+        After browser takeover the user may have closed the tab.
+        """
+        assert self._context is not None
+        assert self._env is not None
+
+        page = self._env.page
+
+        # Quick liveness check
+        try:
+            if page is not None and not page.is_closed():
+                await page.evaluate("1", timeout=1000)
+                return
+        except Exception:
+            pass
+
+        logger.warning("Active page is closed — attempting recovery")
+
+        pages = self._context.pages
+        if pages:
+            self._env.page = pages[-1]
+            logger.info(f"Recovered to existing page: {self._env.page.url}")
         else:
-            raise ValueError(f"Unknown tool: {args['action']}")
+            new_page = await self._context.new_page()
+            await new_page.goto(FaraQwen3Agent.DEFAULT_START_PAGE, timeout=30000)
+            self._env.page = new_page
+            logger.info("No open pages — created a new tab")
 
-        await self._playwright_controller.wait_for_load_state(self._page)
-        await self._playwright_controller.sleep(
-            self._page, 1
-        )  # There's a 2s sleep below too
+        # Re-register controller on new page
+        await self._env._controller.on_new_page(self._env.page)
 
-        new_screenshot = await self._playwright_controller.get_screenshot(self._page)
+    async def _save_screenshot(self, filename: str, data: bytes | None = None) -> None:
+        """Save a screenshot to output_dir if configured.
 
-        return is_stop_action, new_screenshot, action_description
+        Args:
+            filename: e.g. "screenshot_1_pre.png"
+            data: Screenshot bytes. If None, takes a fresh screenshot from env.
+        """
+        if not self.output_dir or not self._env:
+            return
+        if data is None:
+            data = await self._env.get_screenshot()
+        out = Path(self.output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        (out / filename).write_bytes(data)
+
+    # ------------------------------------------------------------------
+    # Validation (harness concern — not in core agent)
+    # ------------------------------------------------------------------
+
+    def _validate_action(self, action: dict[str, Any]) -> tuple[bool, str]:
+        """Validate the structure and content of a parsed action.
+
+        Covers all supported Fara agent actions.
+        """
+        try:
+            if not isinstance(action, dict):
+                return (
+                    False,
+                    f"Action must be a dict, got {type(action).__name__}",
+                )
+            if "arguments" not in action:
+                return False, "Action missing 'arguments' field"
+
+            args = action["arguments"]
+            if not isinstance(args, dict):
+                return (
+                    False,
+                    f"Arguments must be a dict, got {type(args).__name__}",
+                )
+            if "action" not in args:
+                return False, "Arguments missing 'action' field"
+
+            action_type = args["action"]
+            if not isinstance(action_type, str):
+                return (
+                    False,
+                    f"Action type must be string, got {type(action_type).__name__}",
+                )
+
+            # Coordinate validation — these actions require coordinate
+            coord_required = (
+                "click",
+                "left_click",
+                "hover",
+                "mouse_move",
+                "double_click",
+                "right_click",
+                "triple_click",
+                "left_click_drag",
+            )
+            if action_type in coord_required:
+                if "coordinate" not in args:
+                    return (
+                        False,
+                        f"{action_type} requires 'coordinate' field",
+                    )
+                coord = args["coordinate"]
+                if not isinstance(coord, (list, tuple)) or len(coord) != 2:
+                    return (
+                        False,
+                        f"Coordinate must be [x, y], got: {coord}",
+                    )
+                if not all(isinstance(x, (int, float)) for x in coord):
+                    return (
+                        False,
+                        f"Coordinate elements must be numbers: {coord}",
+                    )
+
+            # type/input_text with coordinates also need coordinate validation
+            if action_type in ("type", "input_text") and "coordinate" in args:
+                coord = args["coordinate"]
+                if not isinstance(coord, (list, tuple)) or len(coord) != 2:
+                    return (
+                        False,
+                        f"Coordinate must be [x, y], got: {coord}",
+                    )
+
+            if action_type == "visit_url":
+                if "url" not in args:
+                    return False, "visit_url missing 'url' field"
+                if not isinstance(args["url"], str):
+                    return (
+                        False,
+                        f"URL must be string, got {type(args['url']).__name__}",
+                    )
+
+            if action_type in ("input_text", "type"):
+                # FaraQwen3Next type action doesn't require text (no-coord version)
+                # But if coordinate is present, text is required
+                if "coordinate" in args:
+                    if "text" not in args and "text_value" not in args:
+                        return (
+                            False,
+                            "type with coordinate missing 'text' field",
+                        )
+
+            if action_type == "web_search" and "query" not in args:
+                return False, "web_search missing 'query' field"
+
+            if action_type == "scroll" and "pixels" in args:
+                if not isinstance(args["pixels"], (int, float)):
+                    return (
+                        False,
+                        f"Scroll pixels must be number, got {type(args['pixels']).__name__}",
+                    )
+
+            if action_type == "hscroll" and "pixels" in args:
+                if not isinstance(args["pixels"], (int, float)):
+                    return (
+                        False,
+                        f"Hscroll pixels must be number, got {type(args['pixels']).__name__}",
+                    )
+
+            if action_type in ("keypress", "key") and "keys" in args:
+                if not isinstance(args["keys"], list):
+                    return (
+                        False,
+                        f"Keys must be a list, got {type(args['keys']).__name__}",
+                    )
+
+            if action_type == "read_page_answer_question":
+                if "question" not in args:
+                    return (
+                        False,
+                        "read_page_answer_question missing 'question' field",
+                    )
+
+            if action_type == "ask_user_question":
+                if "question" not in args:
+                    return (
+                        False,
+                        "ask_user_question missing 'question' field",
+                    )
+
+            if action_type == "terminate" and "answer" not in args:
+                # Backward compat: old models use "thoughts" instead of "answer"
+                if "thoughts" not in args:
+                    return (
+                        False,
+                        "terminate missing 'answer' field",
+                    )
+
+            return True, ""
+        except Exception as e:
+            return False, f"Validation exception: {e}"

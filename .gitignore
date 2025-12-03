@@ -1,4 +1,20 @@
-.vscode
+# VS Code - ignore user-specific settings but keep shared config
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# User config file — see config.yaml.example at repo root
+/config.yaml
+config/
+
+# AI assistant local docs
+.claude/
+CLAUDE.md
+.copilot/
+.github/copilot-instructions.md
+.github/frontend/
+.github/skills/
+.github/plans/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -17,6 +33,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!frontend/src/lib/
 lib64/
 parts/
 sdist/
@@ -173,6 +190,8 @@ runs
 
 node_modules
 
+# Frontend
+pnpm-debug.log*
 
 # Autogen Studio
 database.sqlite

@@ -1,15 +1,14 @@
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, List, Optional, Union, Dict
+from typing import Any, Optional, Dict
 
 from loguru import logger
 from sqlalchemy import exc, inspect, text, event
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, and_, create_engine, select
 
-from ..datamodel import DatabaseModel, Response, Team
-from ..teammanager import TeamManager
+from ..datamodel import DatabaseModel, Response
 from .schema_manager import SchemaManager
 
 
@@ -227,7 +226,7 @@ class DatabaseManager:
                     select(model_class).where(model_class.id == model.id)
                 ).first()
                 if existing_model:
-                    model.updated_at = datetime.now()
+                    model.updated_at = datetime.now(timezone.utc)
                     for key, value in model.model_dump().items():
                         setattr(existing_model, key, value)
                     model = existing_model  # Use the updated existing model
@@ -355,103 +354,6 @@ class DatabaseManager:
                 logger.error(status_message)
 
         return Response(message=status_message, status=status, data=None)
-
-    async def import_team(
-        self,
-        team_config: Union[str, Path, Dict[str, Any]],
-        user_id: str,
-        check_exists: bool = False,
-    ) -> Response:
-        try:
-            # Load config if path provided
-            if isinstance(team_config, (str, Path)):
-                config = await TeamManager.load_from_file(team_config)
-            else:
-                config = team_config
-
-            # Check existence if requested
-            if check_exists:
-                existing = await self._check_team_exists(config, user_id)
-                if existing:
-                    return Response(
-                        message="Identical team configuration already exists",
-                        status=True,
-                        data={"id": existing.id},
-                    )
-
-            # Store in database
-            team_db = Team(user_id=user_id, component=config, created_at=datetime.now())
-
-            result = self.upsert(team_db)
-            return result
-
-        except Exception as e:
-            logger.error(f"Failed to import team: {str(e)}")
-            return Response(message=str(e), status=False)
-
-    async def import_teams_from_directory(
-        self, directory: Union[str, Path], user_id: str, check_exists: bool = False
-    ) -> Response:
-        """
-        Import all team configurations from a directory.
-
-        Args:
-            directory (str | Path): Path to directory containing team configs
-            user_id (str): User ID to associate with imported teams
-            check_exists (bool, optional): Whether to check for existing teams. Default: False.
-
-        Returns:
-            Response: Contains import results for all files
-        """
-        try:
-            # Load all configs from directory
-            configs = await TeamManager.load_from_directory(directory)
-
-            results: List[Dict[str, Any]] = []
-            for config in configs:
-                try:
-                    result = await self.import_team(
-                        team_config=config, user_id=user_id, check_exists=check_exists
-                    )
-
-                    if not result.data:
-                        raise ValueError("No data returned from import")
-
-                    # Add result info
-                    results.append(
-                        {
-                            "status": result.status,
-                            "message": result.message,
-                            "id": result.data.get("id") if result.status else None,
-                        }
-                    )
-
-                except Exception as e:
-                    logger.error(f"Failed to import team config: {str(e)}")
-                    results.append({"status": False, "message": str(e), "id": None})
-
-            return Response(
-                message="Directory import complete", status=True, data=results
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to import directory: {str(e)}")
-            return Response(message=str(e), status=False)
-
-    async def _check_team_exists(
-        self, config: Dict[str, Any], user_id: str
-    ) -> Optional[Team]:
-        """Check if identical team config already exists"""
-        teams = self.get(Team, {"user_id": user_id}).data
-
-        if not teams:
-            return None
-
-        for team in teams:
-            if team.component == config:
-                return team
-
-        return None
 
     async def close(self) -> None:
         """Close database connections and cleanup resources"""

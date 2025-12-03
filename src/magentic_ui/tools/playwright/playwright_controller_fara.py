@@ -1,15 +1,17 @@
 import asyncio
 import base64
 import os
-import random
 import logging
 import functools
 from typing import Any, Callable, Optional, Tuple, Union, TypeVar, Awaitable
+from urllib.parse import urlsplit
 
 from playwright._impl._errors import Error as PlaywrightError
 from playwright._impl._errors import TimeoutError, TargetClosedError
 from playwright.async_api import Download, Page
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+
+from .utils.webpage_text_utils import WebpageTextUtilsPlaywright
 
 # Adapted from Magentic-UI
 # Some of the Code for clicking coordinates and keypresses adapted from https://github.com/openai/openai-cua-sample-app/blob/main/computers/base_playwright.py
@@ -43,6 +45,23 @@ CUA_KEY_TO_PLAYWRIGHT_KEY = {
 }
 
 F = TypeVar("F", bound=Callable[..., Awaitable[Any]])
+
+
+def _redact_url_for_log(url: str) -> str:
+    """Strip query and fragment from a URL for safe logging.
+
+    Query strings frequently carry tokens, session IDs, emails, or signed
+    URL parameters. Keeping only scheme+host+path preserves enough context
+    for diagnostics without leaking credentials into logs.
+    """
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return "<unparseable url>"
+    if not parts.scheme and not parts.netloc:
+        # Not a real URL (e.g. "about:blank" or a relative fragment); keep as-is.
+        return url
+    return f"{parts.scheme}://{parts.netloc}{parts.path}"
 
 
 def handle_target_closed(max_retries: int = 2, timeout_secs: int = 30):
@@ -284,6 +303,7 @@ class PlaywrightController:
 
         # Set up the download handler
         self.last_cursor_position: Tuple[float, float] = (0.0, 0.0)
+        self._text_utils = WebpageTextUtilsPlaywright()
 
     async def sleep(self, page: Page, duration: Union[int, float]) -> None:
         await asyncio.sleep(duration)
@@ -308,8 +328,20 @@ class PlaywrightController:
 
     @handle_target_closed()
     async def _ensure_page_ready(self, page: Page) -> None:
+        """Cheap pre-action check: confirm the page is loaded.
+
+        Must be idempotent and side-effect free — runs before every click,
+        type, screenshot, etc. Avoid bring_to_front()/sleep/listener-attach
+        here: those belong in on_new_page() and would dismiss open dropdowns
+        or accumulate listeners on every action.
+        """
         assert page is not None
-        await self.on_new_page(page)
+        try:
+            # Already-loaded pages return immediately; short timeout so we
+            # don't stall a click if a background request is hanging.
+            await page.wait_for_load_state(timeout=2000)
+        except PlaywrightTimeoutError:
+            pass
 
     @handle_target_closed()
     async def get_screenshot(self, page: Page, path: str | None = None) -> bytes:
@@ -333,18 +365,56 @@ class PlaywrightController:
     @handle_target_closed()
     async def back(self, page: Page) -> None:
         await self._ensure_page_ready(page)
-        await page.go_back()
+        try:
+            await page.go_back(timeout=5000)
+        except PlaywrightTimeoutError:
+            self.logger.warning(
+                "WARNING: Back navigation timed out; page history or navigation state may be inconsistent"
+            )
+            try:
+                # Stop any in-flight navigation so subsequent actions are not
+                # impacted by a page left mid-navigation after the timeout.
+                await page.evaluate("window.stop()")
+            except (PlaywrightError, TargetClosedError) as stop_error:
+                self.logger.debug(
+                    "Failed to stop page loading after back navigation timeout: %s",
+                    stop_error,
+                )
 
     @handle_target_closed()
     async def visit_page(self, page: Page, url: str) -> Tuple[bool, bool]:
         await self._ensure_page_ready(page)
-        reset_prior_metadata_hash = False
+        # Navigation always counts as a metadata-affecting event, even when
+        # goto times out — by the time we return, the page state has changed
+        # in some way the agent's prior fingerprint can no longer rely on.
+        reset_prior_metadata_hash = True
         reset_last_download = False
         try:
-            # Regular webpage
-            await page.goto(url)
-            await page.wait_for_load_state()
-            reset_prior_metadata_hash = True
+            # Regular webpage. Wait only for `commit` (HTTP response received,
+            # network is on the new URL) — not `load` or even `domcontentloaded`.
+            # The page is allowed to keep loading; we just need the navigation
+            # to commit so screenshots and clicks target the new URL. The
+            # post-action settle delay (3s) handled by FaraQwen3Agent then
+            # gives the DOM time to populate.
+            #
+            # `domcontentloaded` was tried but timed out frequently on Bing
+            # under load (10s was hit even on simple search pages).
+            # `commit` is the lowest level Playwright offers and is bounded
+            # by network round-trip time, not page complexity.
+            #
+            # Use a generous timeout (20s) as a safety net for actually
+            # unreachable URLs; this is hit only on real network failures.
+            try:
+                await page.goto(url, wait_until="commit", timeout=20000)
+            except PlaywrightTimeoutError:
+                # Navigation didn't commit within 20s — likely DNS failure,
+                # connection refused, or the server is genuinely down.
+                # Don't propagate: the agent loop will see whatever the
+                # page currently shows and decide what to do next.
+                self.logger.warning(
+                    f"playwright_controller.visit_page(): goto timed out for "
+                    f"{_redact_url_for_log(url)}; agent will see current page state"
+                )
         except Exception as e_outer:
             # Downloaded file
             if self.downloads_folder and "net::ERR_ABORTED" in str(e_outer):
@@ -483,6 +553,11 @@ class PlaywrightController:
 
         await page.mouse.move(x, y)
 
+    async def _clear_field(self, page: Page) -> None:
+        """Select all text in the focused field and delete it."""
+        await page.keyboard.press("ControlOrMeta+A")
+        await page.keyboard.press("Backspace")
+
     @handle_target_closed()
     async def fill_coords(
         self,
@@ -492,12 +567,11 @@ class PlaywrightController:
         value: str,
         press_enter: bool = True,
         delete_existing_text: bool = False,
-    ) -> None:
+    ) -> Page | None:
         await self._ensure_page_ready(page)
         new_page: Page | None = None
 
         if self.animate_actions:
-            # Move cursor to the box slowly
             start_x, start_y = self.last_cursor_position
             await self.gradual_cursor_animation(page, start_x, start_y, x, y)
             await asyncio.sleep(0.1)
@@ -506,68 +580,87 @@ class PlaywrightController:
         await asyncio.sleep(0.05)  # Give the field time to focus
 
         if delete_existing_text:
-            # Triple-click to select all text in the input field (more reliable than Ctrl+A)
-            await page.mouse.click(x, y, click_count=3)
-            await page.keyboard.press("Backspace")
+            await self._clear_field(page)
 
-        # fill char by char to mimic human speed for short text and type fast for long text
+        # Short strings (<100 chars) use 100ms delay per keystroke to avoid
+        # dropping characters on fields with JS input masks (phone, credit card,
+        # date). These masks have per-keystroke event handlers that need time to
+        # reformat the value and reposition the cursor.
+        # Long strings use 10ms since they are almost always plain text fields
+        # with no input masks, and 100ms would be too slow.
+        # See: https://github.com/microsoft/magentic-ui2.0/issues/279
         if len(value) < 100:
-            delay_typing_speed = 50 + 100 * random.random()
+            delay_typing_speed = 100
         else:
             delay_typing_speed = 10
 
-        if self.animate_actions:
-            try:
-                # Give it a chance to open a new page
-                async with page.expect_event("popup", timeout=1000) as page_info:  # type: ignore
-                    try:
-                        await page.keyboard.type(value)
-                    except PlaywrightError:
-                        await page.keyboard.type(value, delay=delay_typing_speed)
-                    if press_enter:
-                        await page.keyboard.press("Enter")
-                    new_page = await page_info.value  # type: ignore
-                    assert isinstance(new_page, Page)
-                    await self.on_new_page(new_page)
-            except TimeoutError:
-                pass
-        else:
-            try:
-                # Give it a chance to open a new page
-                async with page.expect_event("popup", timeout=1000) as page_info:  # type: ignore
-                    try:
-                        await page.keyboard.type(value)
-                    except PlaywrightError:
-                        await page.keyboard.type(value, delay=delay_typing_speed)
-                    if press_enter:
-                        await page.keyboard.press("Enter")
-                    new_page = await page_info.value  # type: ignore
-                    assert isinstance(new_page, Page)
-                    await self.on_new_page(new_page)
-            except TimeoutError:
-                pass
+        # If a PlaywrightError occurs mid-typing (e.g., element detach,
+        # navigation), clear the field before retrying to avoid corrupted input
+        # from a partial first attempt followed by a full retry.
+        try:
+            await page.keyboard.type(value, delay=delay_typing_speed)
+        except PlaywrightError:
+            await self._clear_field(page)
+            await page.keyboard.type(value, delay=delay_typing_speed)
+
+        if press_enter:
+            await page.keyboard.press("Enter")
+
+        # Wait briefly for a popup that may have opened during typing or Enter.
+        # Some websites open a new tab/popup on form submission (e.g., forms
+        # with target="_blank"). The listener starts after typing so the timeout
+        # window isn't consumed by keystroke delivery.
+        try:
+            new_page = await page.wait_for_event("popup", timeout=2000)
+            assert isinstance(new_page, Page)
+            await self.on_new_page(new_page)
+        except (TimeoutError, asyncio.TimeoutError):
+            pass
 
         return new_page
 
-    async def keypress(self, page: Page, keys: list[str]) -> None:
+    async def keypress(self, page: Page, keys: list[str], key_mapping=None) -> None:
         """
         Press specified keys in sequence.
 
         Args:
             page (Page): The Playwright page object
             keys (List[str]): List of keys to press
+            key_mapping: Optional mapping to override ``CUA_KEY_TO_PLAYWRIGHT_KEY``.
         """
         await self._ensure_page_ready(page)
-        mapped_keys = [CUA_KEY_TO_PLAYWRIGHT_KEY.get(key.lower(), key) for key in keys]
+        key_mapping = key_mapping or CUA_KEY_TO_PLAYWRIGHT_KEY
+        mapped_keys = [key_mapping.get(key.lower(), key) for key in keys]
+        pressed: list[str] = []
         try:
             for key in mapped_keys:
                 await page.keyboard.down(key)
-            for key in reversed(mapped_keys):
-                await page.keyboard.up(key)
+                pressed.append(key)
+                if self.animate_actions:
+                    await asyncio.sleep(0.05)
         except Exception as e:
+            msg = str(e)
+            if "Unknown key" in msg:
+                bad = next(
+                    (k for k in keys if key_mapping.get(k.lower(), k) not in pressed),
+                    keys[-1],
+                )
+                raise ValueError(
+                    f"Unknown key: {bad!r}. keypress only accepts single characters "
+                    f"or named keys (Enter, Tab, ArrowDown, Control, ...). "
+                    f"Use type() for text input."
+                ) from None
             raise RuntimeError(
                 f"I tried to keypress(keys={keys}), but I got an error: {e}"
             ) from None
+        finally:
+            for key in reversed(pressed):
+                try:
+                    await page.keyboard.up(key)
+                    if self.animate_actions:
+                        await asyncio.sleep(0.05)
+                except Exception:
+                    continue  # cleanup must not mask the primary failure
 
     @handle_target_closed()
     async def wait_for_load_state(
@@ -581,3 +674,43 @@ class PlaywrightController:
         """Get the current page URL."""
         await self._ensure_page_ready(page)
         return page.url
+
+    # ------------------------------------------------------------------
+    # Extended actions for FaraQwen3NextAgent
+    # ------------------------------------------------------------------
+
+    @handle_target_closed()
+    async def double_click_coords(self, page: Page, x: float, y: float) -> None:
+        """Double-click at coordinates."""
+        await self._ensure_page_ready(page)
+        await page.mouse.dblclick(x, y)
+
+    @handle_target_closed()
+    async def right_click_coords(self, page: Page, x: float, y: float) -> None:
+        """Right-click at coordinates."""
+        await self._ensure_page_ready(page)
+        await page.mouse.click(x, y, button="right")
+
+    @handle_target_closed()
+    async def triple_click_coords(self, page: Page, x: float, y: float) -> None:
+        """Triple-click at coordinates (e.g. to select a line of text)."""
+        await self._ensure_page_ready(page)
+        await page.mouse.click(x, y, click_count=3)
+
+    @handle_target_closed()
+    async def left_click_drag(self, page: Page, end_x: float, end_y: float) -> None:
+        """Drag from current cursor position to (end_x, end_y)."""
+        await self._ensure_page_ready(page)
+        await page.mouse.down()
+        await page.mouse.move(end_x, end_y)
+        await page.mouse.up()
+
+    @handle_target_closed()
+    async def hscroll(self, page: Page, pixels: int) -> None:
+        """Horizontal scroll. Positive = right, negative = left."""
+        await self._ensure_page_ready(page)
+        await page.mouse.wheel(pixels, 0)
+
+    async def get_page_markdown(self, page: Page, max_tokens: int = -1) -> str:
+        """Extract page content as markdown. Delegates to WebpageTextUtilsPlaywright."""
+        return await self._text_utils.get_page_markdown(page, max_tokens=max_tokens)

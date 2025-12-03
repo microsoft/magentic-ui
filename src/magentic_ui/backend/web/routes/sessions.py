@@ -1,20 +1,82 @@
 # api/routes/sessions.py
-from typing import Dict
+import asyncio
+from datetime import datetime, timezone
+from typing import Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
+from sqlalchemy import func
+from sqlmodel import Session as DBSession, select
 
 from ...datamodel import Message, Run, Session, RunStatus
-from ..deps import get_db
+from ..deps import get_db, get_websocket_manager
 
 router = APIRouter()
 
 
+def _to_iso_utc(dt: Optional[datetime]) -> Optional[str]:
+    """Serialize a datetime as an ISO-8601 UTC string.
+
+    SQLite drops tzinfo on `DateTime(timezone=True)` columns, so values written
+    via `func.now()` (which is UTC) come back as naive. All write paths in this
+    codebase produce UTC datetimes (either via `func.now()` or `_utc_now()`),
+    so naive values are safely treated as UTC here. Without this stamping,
+    browsers interpret naive ISO strings as local time, producing nonsensical
+    relative labels.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+    return dt.isoformat()
+
+
 @router.get("/")
 async def list_sessions(user_id: str, db=Depends(get_db)) -> Dict:
-    """List all sessions for a user"""
-    response = db.get(Session, filters={"user_id": user_id})
-    return {"status": True, "data": response.data}
+    """List all sessions with latest run status for a user (single query)"""
+    with DBSession(db.engine) as session:
+        # Subquery: get max run.id per session (latest run)
+        latest_run_subq = (
+            select(Run.session_id, func.max(Run.id).label("max_run_id"))
+            .group_by(Run.session_id)
+            .subquery()
+        )
+
+        # Main query: Session -> latest run subquery -> Run
+        # Order by latest activity (run.updated_at) so sessions with recent
+        # status changes float to the top. Falls back to session creation time
+        # for sessions that have no run yet.
+        statement = (
+            select(Session, Run)
+            .outerjoin(latest_run_subq, Session.id == latest_run_subq.c.session_id)
+            .outerjoin(Run, Run.id == latest_run_subq.c.max_run_id)
+            .where(Session.user_id == user_id)
+            .order_by(func.coalesce(Run.updated_at, Session.created_at).desc())
+        )
+
+        results = session.exec(statement).all()
+
+        data = []
+        for sess, run in results:
+            item = {
+                "session_id": sess.id,
+                "name": sess.name,
+                "created_at": _to_iso_utc(sess.created_at),
+            }
+            item["latest_run"] = (
+                {
+                    "run_id": run.id,
+                    "status": run.status.value if run.status else None,
+                    "updated_at": _to_iso_utc(run.updated_at),
+                }
+                if run
+                else None
+            )
+            data.append(item)
+
+        return {"status": True, "data": data}
 
 
 @router.get("/{session_id}")
@@ -78,8 +140,58 @@ async def update_session(
 
 
 @router.delete("/{session_id}")
-async def delete_session(session_id: int, user_id: str, db=Depends(get_db)) -> Dict:
+async def delete_session(
+    session_id: int,
+    user_id: str,
+    db=Depends(get_db),
+    ws_manager=Depends(get_websocket_manager),
+) -> Dict:
     """Delete a session and all its associated runs and messages"""
+    # Verify the session belongs to the user before performing any actions.
+    session_response = db.get(
+        Session, filters={"id": session_id, "user_id": user_id}, return_json=False
+    )
+    if not session_response.status:
+        raise HTTPException(
+            status_code=500, detail="Database error while fetching session"
+        )
+    if not session_response.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Stop any active runs before deleting DB records, otherwise the agent
+    # keeps running indefinitely with no way to cancel it.
+    runs_response = db.get(
+        Run,
+        filters={"session_id": session_id, "user_id": user_id},
+        return_json=False,
+    )
+    if not runs_response.status:
+        logger.warning(
+            f"Failed to fetch runs for session {session_id}, "
+            "active agents may not be stopped"
+        )
+    if runs_response.status and runs_response.data:
+        for run in runs_response.data:
+            if run.status in (
+                RunStatus.ACTIVE,
+                RunStatus.CREATED,
+                RunStatus.PAUSED,
+                RunStatus.AWAITING_INPUT,
+            ):
+                try:
+                    await asyncio.wait_for(
+                        ws_manager.stop_run(run.id, reason="Session deleted"),
+                        timeout=10,
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        f"Timed out stopping run {run.id}, proceeding with delete"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to stop run {run.id} during session delete: {e}"
+                    )
+
     # Delete the session
     db.delete(filters={"id": session_id, "user_id": user_id}, model_class=Session)
 
@@ -139,6 +251,7 @@ async def list_session_runs(session_id: int, user_id: str, db=Depends(get_db)) -
                             "team_result": run.team_result,
                             "messages": messages.data or [],
                             "input_request": getattr(run, "input_request", None),
+                            "agent_mode": getattr(run, "agent_mode", None),
                         }
                     )
                 except Exception as e:
@@ -154,6 +267,7 @@ async def list_session_runs(session_id: int, user_id: str, db=Depends(get_db)) -
                             "messages": [],
                             "error": f"Failed to process run: {str(e)}",
                             "input_request": getattr(run, "input_request", None),
+                            "agent_mode": getattr(run, "agent_mode", None),
                         }
                     )
 

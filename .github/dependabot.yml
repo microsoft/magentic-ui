@@ -1,7 +1,7 @@
 version: 2
 updates:
   - package-ecosystem: "pip"
-    directory: "/"  # project root (where pyproject.toml and uv.lock live)
+    directory: "/" # project root (where pyproject.toml and uv.lock live)
     schedule:
       interval: "weekly"
 
@@ -9,3 +9,71 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    # Suppress major-version PRs for packages that need to track an external baseline.
+    ignore:
+      # Keep @types/node on the current Node major (24) to match the runtime baseline
+      # declared in package.json (>=24); bump it manually when we intentionally raise
+      # that baseline to a new major.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # TypeScript majors often introduce stricter narrowing across the whole project.
+      # Bump manually when we're ready to handle the fallout.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # Vite 8 swaps the bundler/transform stack to Rolldown + Oxc. Wait for the
+      # ecosystem (vitest, @tailwindcss/vite, @vitejs/plugin-react) to stabilize
+      # — re-evaluate around vite 8.2 or when we hit a feature we need.
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      # @vitejs/plugin-react v6 drops Vite 7 support; bump in lockstep with vite.
+      - dependency-name: "@vitejs/plugin-react"
+        update-types: ["version-update:semver-major"]
+      # ESLint 10 majors can ripple through plugins (typescript-eslint,
+      # eslint-plugin-react, etc.); bump manually once peer deps are aligned.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
+      # Test/build tooling that we intentionally pin to its current major to
+      # avoid noisy PRs without real benefit:
+      # - jsdom: vitest's environment; follow vitest's recommended version
+      # - globals: ESLint plugin support; staying on 16.x is fine
+      # - rollup-plugin-visualizer: dev-only build analyzer
+      - dependency-name: "jsdom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "globals"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "rollup-plugin-visualizer"
+        update-types: ["version-update:semver-major"]
+      # Project doesn't use Redux — package will be removed from package.json
+      # in a separate PR. Suppress all updates in the meantime.
+      - dependency-name: "@redux-devtools/extension"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+    # Group routine version bumps so we don't drown in PRs.
+    # Security updates always open as standalone PRs regardless of grouping.
+    groups:
+      frontend-dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      frontend-prod-dependencies:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      # Quiet down dev-only major bumps (vite, jsdom, rollup plugins, etc.)
+      # into a single weekly PR. Prod majors stay standalone for individual review.
+      frontend-dev-majors:
+        dependency-type: "development"
+        update-types:
+          - "major"

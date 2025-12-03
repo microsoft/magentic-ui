@@ -138,6 +138,7 @@ class SchemaManager:
     def _create_minimal_env_py(self, env_path: Path) -> None:
         """Creates a minimal env.py file for Alembic."""
         content = """
+import sys
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
@@ -157,7 +158,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        compare_type=True
+        compare_type=True,
+        render_as_batch=True,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -172,7 +174,8 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            compare_type=True
+            compare_type=True,
+            render_as_batch=True,
         )
         with context.begin_transaction():
             context.run_migrations()
@@ -255,57 +258,10 @@ datefmt = %H:%M:%S
 
     def _update_env_py(self, env_path: Path) -> None:
         """
-        Updates the env.py file to use SQLModel metadata.
+        Updates the env.py file to use SQLModel metadata with batch mode.
+        Overwrites with our minimal template to avoid template mismatch issues.
         """
-        if not env_path.exists():
-            self._create_minimal_env_py(env_path)
-            return
-        try:
-            with open(env_path, "r") as f:
-                content = f.read()
-
-            # Add SQLModel import if not present
-            if "from sqlmodel import SQLModel" not in content:
-                content = "from sqlmodel import SQLModel\n" + content
-
-            # Replace target_metadata
-            content = content.replace(
-                "target_metadata = None", "target_metadata = SQLModel.metadata"
-            )
-
-            # Update both configure blocks properly
-            content = content.replace(
-                """context.configure(
-            url=url,
-            target_metadata=target_metadata,
-            literal_binds=True,
-            dialect_opts={"paramstyle": "named"},
-        )""",
-                """context.configure(
-            url=url,
-            target_metadata=target_metadata,
-            literal_binds=True,
-            dialect_opts={"paramstyle": "named"},
-            compare_type=True,
-        )""",
-            )
-
-            content = content.replace(
-                """        context.configure(
-                connection=connection, target_metadata=target_metadata
-            )""",
-                """        context.configure(
-                connection=connection,
-                target_metadata=target_metadata,
-                compare_type=True,
-            )""",
-            )
-
-            with open(env_path, "w") as f:
-                f.write(content)
-        except Exception as e:
-            logger.error(f"Failed to update env.py: {e}")
-            raise
+        self._create_minimal_env_py(env_path)
 
     # Fixed: use keyword-only argument
 
@@ -458,7 +414,7 @@ datefmt = %H:%M:%S
             else:
                 return (
                     False,
-                    "Automatic schema upgrade failed. You are seeing this message because there were differences in your current database schema and the most recent version of the Magentic-UI app database. You can ignore the error, or specifically, you can install Magentic-UI in a new path `magentic-ui --appdir <new path>`.",
+                    "Automatic schema upgrade failed. You are seeing this message because there were differences in your current database schema and the most recent version of the MagenticLite app database. You can ignore the error, or specifically, you can run MagenticLite with a new app directory `magentic-ui --appdir <new path>`.",
                 )
 
         return False, status

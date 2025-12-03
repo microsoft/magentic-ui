@@ -1,5 +1,6 @@
+import copy
 import math
-
+from datetime import datetime
 from typing import Union, Tuple
 
 from .qwen_helpers.base_tool import BaseTool
@@ -118,8 +119,11 @@ The action to perform. The available actions are:
     }
 
     def __init__(self, cfg=None):
+        cfg = dict(cfg)  # shallow copy — don't mutate caller's dict
         self.display_width_px = cfg["display_width_px"]
         self.display_height_px = cfg["display_height_px"]
+        # Always deepcopy so we never mutate the class-level parameters dict
+        self.parameters = copy.deepcopy(self.__class__.parameters)
         include_input_text_key_args = cfg.pop("include_input_text_key_args", False)
         if not include_input_text_key_args:
             self.parameters["properties"].pop("press_enter", None)
@@ -182,6 +186,132 @@ The action to perform. The available actions are:
         raise NotImplementedError()
 
 
+class FaraNextBrowserComputerUse(BaseTool):
+    """18-action tool schema for FaraQwen3NextAgent (browser mode).
+
+    Adds double_click, right_click, triple_click, left_click_drag, hscroll,
+    read_page_answer_question, ask_user_question over the base FaraComputerUse.
+    Uses ``answer`` (str) for terminate instead of ``status`` (enum).
+
+    Schema-only — ``call()`` raises NotImplementedError.
+    """
+
+    name = "computer_use"
+
+    @property
+    def description(self):
+        return f"""
+Use a mouse and keyboard to interact with a computer, and take screenshots.
+* This is an interface to a desktop GUI. You do not have access to a terminal or applications menu. You must click on desktop icons to start applications.
+* Some applications may take time to start or process actions, so you may need to wait and take successive screenshots to see the results of your actions. E.g. if you click on Firefox and a window doesn't open, try wait and taking another screenshot.
+* The screen's resolution is {self.display_width_px}x{self.display_height_px}.
+* Whenever you intend to move the cursor to click on an element like an icon, you should consult a screenshot to determine the coordinates of the element before moving the cursor.
+* If you tried clicking on a program or link but it failed to load, even after waiting, try adjusting your cursor position so that the tip of the cursor visually falls on the element that you want to click.
+* Make sure to click any buttons, links, icons, etc with the cursor tip in the center of the element. Don't click boxes on their edges.
+""".strip()
+
+    parameters = {
+        "properties": {
+            "action": {
+                "description": """
+The action to perform. The available actions are:
+* `key`: Performs key down presses on the arguments passed in order, then performs key releases in reverse order. Includes "Enter", "Alt", "Shift", "Tab", "Control", "Backspace", "Delete", "Escape", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageDown", "PageUp", "Shift", etc.
+* `type`: Type a string of text on the keyboard.
+* `mouse_move`: Move the cursor to a specified (x, y) pixel coordinate on the screen.
+* `left_click`: Click the left mouse button.
+* `double_click`: Double-click the left mouse button.
+* `right_click`: Click the right mouse button.
+* `triple_click`: Triple-click the left mouse button (e.g. to select a line of text).
+* `left_click_drag`: Click and drag the cursor to a specified (x, y) pixel coordinate on the screen.
+* `scroll`: Performs a scroll of the mouse scroll wheel.
+* `hscroll`: Performs a horizontal scroll (mapped to regular scroll).
+* `visit_url`: Visit a specified URL.
+* `history_back`: Go back to the previous page in the browser history.
+* `web_search`: Perform a web search with a specified query.
+* `read_page_answer_question`: Read the current page content and answer a question about it.
+* `pause_and_memorize_fact`: Pause and memorize a fact for future reference.
+* `ask_user_question`: Ask the user a clarifying question and wait for a response.
+* `wait`: Wait specified seconds for the change to happen.
+* `terminate`: Terminate the current task and provide the final answer.
+""".strip(),
+                "enum": [
+                    "key",
+                    "type",
+                    "mouse_move",
+                    "left_click",
+                    "left_click_drag",
+                    "right_click",
+                    "double_click",
+                    "triple_click",
+                    "scroll",
+                    "hscroll",
+                    "visit_url",
+                    "history_back",
+                    "web_search",
+                    "read_page_answer_question",
+                    "pause_and_memorize_fact",
+                    "ask_user_question",
+                    "wait",
+                    "terminate",
+                ],
+                "type": "string",
+            },
+            "keys": {
+                "description": "Required only by `action=key`.",
+                "type": "array",
+            },
+            "text": {
+                "description": "Required only by `action=type`.",
+                "type": "string",
+            },
+            "coordinate": {
+                "description": "(x, y): The x (pixels from the left edge) and y (pixels from the top edge) coordinates to move the mouse to. Required by `action=left_click`, `action=double_click`, `action=right_click`, `action=triple_click`, `action=left_click_drag`, and `action=mouse_move`.",
+                "type": "array",
+            },
+            "pixels": {
+                "description": "The amount of scrolling to perform. Positive values scroll up, negative values scroll down. Required only by `action=scroll` and `action=hscroll`.",
+                "type": "number",
+            },
+            "url": {
+                "description": "The URL to visit. Required only by `action=visit_url`.",
+                "type": "string",
+            },
+            "query": {
+                "description": "The query to search for. Required only by `action=web_search`.",
+                "type": "string",
+            },
+            "fact": {
+                "description": "The fact to remember for the future. Required only by `action=pause_and_memorize_fact`.",
+                "type": "string",
+            },
+            "question": {
+                "description": "The question to ask. Required by `action=read_page_answer_question` and `action=ask_user_question`.",
+                "type": "string",
+            },
+            "time": {
+                "description": "The seconds to wait. Required only by `action=wait`.",
+                "type": "number",
+            },
+            "answer": {
+                "description": "The final answer for the task. Required only by `action=terminate`.",
+                "type": "string",
+            },
+        },
+        "required": ["action"],
+        "type": "object",
+    }
+
+    def __init__(self, cfg=None):
+        cfg = dict(cfg)  # shallow copy — don't mutate caller's dict
+        self.display_width_px = cfg["display_width_px"]
+        self.display_height_px = cfg["display_height_px"]
+        cfg.pop("include_input_text_key_args", None)
+        super().__init__(cfg)
+
+    def call(self, params: Union[str, dict], **kwargs):
+        raise NotImplementedError("FaraNextBrowserComputerUse is schema-only.")
+
+
 def round_by_factor(number: int, factor: int) -> int:
     """Returns the closest integer to 'number' that is divisible by 'factor'."""
     return round(number / factor) * factor
@@ -233,9 +363,28 @@ def smart_resize(
 def get_computer_use_system_prompt(
     image,
     processor_im_cfg,
+    mode="fara_browser",
     include_input_text_key_args=False,
     fn_call_template="default",
+    display_size=None,
 ):
+    """Build the system prompt with tool definitions for the fara agent.
+
+    Args:
+        image: PIL Image of the current screenshot.
+        processor_im_cfg: Dict with min_pixels, max_pixels, patch_size, merge_size.
+        mode: Which ComputerUse class to use:
+            - ``"fara_browser"`` → FaraComputerUse (11 actions)
+            - ``"fara_next_browser"`` → FaraNextBrowserComputerUse (18 actions)
+        include_input_text_key_args: Include press_enter/delete_existing_text params.
+        fn_call_template: Template name for NousFnCallPrompt.
+        display_size: If set, use fixed coordinate space (e.g. 1000) instead of
+            actual resized image dimensions.
+
+    Returns:
+        Dict with ``"conversation"`` (list of message dicts) and
+        ``"im_size"`` (resized_width, resized_height).
+    """
     patch_size = processor_im_cfg["patch_size"]
     merge_size = processor_im_cfg["merge_size"]
     min_pixels = processor_im_cfg["min_pixels"]
@@ -249,23 +398,44 @@ def get_computer_use_system_prompt(
         max_pixels=max_pixels,
     )
 
-    computer_use = FaraComputerUse(
-        cfg={
-            "display_width_px": resized_width,
-            "display_height_px": resized_height,
-            "include_input_text_key_args": include_input_text_key_args,
-        }
-    )
+    # Use fixed coordinate space if display_size is set
+    disp_w = display_size if display_size is not None else resized_width
+    disp_h = display_size if display_size is not None else resized_height
+
+    # Select ComputerUse class based on mode
+    cfg = {
+        "display_width_px": disp_w,
+        "display_height_px": disp_h,
+        "include_input_text_key_args": include_input_text_key_args,
+    }
+    if mode == "fara_next_browser":
+        computer_use = FaraNextBrowserComputerUse(cfg=cfg)
+    elif mode == "fara_browser":
+        computer_use = FaraComputerUse(cfg=cfg)
+    else:
+        raise ValueError(
+            f"Unknown mode: {mode!r}. Use 'fara_browser' or 'fara_next_browser'."
+        )
+
+    # For fara-* templates, identity + critical points are baked into the
+    # template itself, so we pass an empty message list.
+    # For fara-* templates, identity + critical points are baked in.
+    if fn_call_template.startswith("fara"):
+        messages = []
+    else:
+        today = datetime.now().strftime("%B %d, %Y")
+        system_message = f"You are a helpful assistant. Today's date is {today}."
+        messages = [
+            Message(
+                role="system",
+                content=[ContentItem(text=system_message)],
+            ),
+        ]
 
     conversation = NousFnCallPrompt(
         template_name=fn_call_template
     ).preprocess_fncall_messages(
-        messages=[
-            Message(
-                role="system",
-                content=[ContentItem(text="You are a helpful assistant.")],
-            ),
-        ],
+        messages=messages,
         functions=[computer_use.function],
         lang=None,
     )

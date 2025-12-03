@@ -8,7 +8,6 @@ class Settings(BaseSettings):
     API_DOCS: bool = False
     CLEANUP_INTERVAL: int = 300  # 5 minutes
     SESSION_TIMEOUT: int = 3600 * 100  # 24 hour
-    CONFIG_DIR: str = "configs"  # Default config directory relative to app_root
     DEFAULT_USER_ID: str = "guestuser@gmail.com"
     UPGRADE_DATABASE: bool = False
 

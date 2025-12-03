@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Optional, Any, Dict
 from pathlib import Path
 
-from autogen_core import Component
 from playwright.async_api import BrowserContext, Browser
 from pydantic import BaseModel
 
@@ -28,9 +27,7 @@ class LocalPlaywrightBrowserConfig(BaseModel):
         return self.persistent_context and self.browser_data_dir is not None
 
 
-class LocalPlaywrightBrowser(
-    PlaywrightBrowser, Component[LocalPlaywrightBrowserConfig]
-):
+class LocalPlaywrightBrowser(PlaywrightBrowser):
     """
     A local Playwright browser implementation that provides flexible browser automation capabilities.
     Supports both persistent and non-persistent browser contexts, with configurable options for
@@ -63,9 +60,6 @@ class LocalPlaywrightBrowser(
         await browser.close()
         ```
     """
-
-    component_config_schema = LocalPlaywrightBrowserConfig
-    component_type = "other"
 
     def __init__(
         self,
@@ -141,27 +135,3 @@ class LocalPlaywrightBrowser(
                 "Browser context is not initialized. Start the browser first."
             )
         return self._context
-
-    def _to_config(self) -> LocalPlaywrightBrowserConfig:
-        """
-        Convert the resource to its configuration.
-        """
-        return LocalPlaywrightBrowserConfig(
-            headless=self._headless,
-            browser_channel=self._browser_channel,
-            enable_downloads=self._enable_downloads,
-            persistent_context=self._persistent_context,
-            browser_data_dir=self._browser_data_dir,
-        )
-
-    @classmethod
-    def _from_config(
-        cls, config: LocalPlaywrightBrowserConfig
-    ) -> LocalPlaywrightBrowser:
-        return cls(
-            headless=config.headless,
-            browser_channel=config.browser_channel,
-            enable_downloads=config.enable_downloads,
-            persistent_context=config.persistent_context,
-            browser_data_dir=config.browser_data_dir,
-        )
