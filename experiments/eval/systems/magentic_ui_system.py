@@ -265,6 +265,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
                     # Convert list of logevent objects to list of dicts
                     messages_json = [msg.model_dump() for msg in messages_so_far]
                     await f.write(json.dumps(messages_json, indent=2))
+                    await f.flush()  # Flush to disk immediately
                 # how the final answer is formatted:  "Final Answer: FINAL ANSWER: Actual final answer"
 
                 if message_str.startswith("Final Answer:"):
@@ -301,8 +302,8 @@ class MagenticUIAutonomousSystem(BaseSystem):
                     if key != "user_proxy"
                 ),
             }
-            with open(f"{output_dir}/model_tokens_usage.json", "w") as f:
-                json.dump(usage_json, f)
+            async with aiofiles.open(f"{output_dir}/model_tokens_usage.json", "w") as f:
+                await f.write(json.dumps(usage_json, indent=2))
 
             await team.close()
             # Step 5: Prepare the screenshots
