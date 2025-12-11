@@ -95,7 +95,7 @@ class PlaywrightController:
         viewport_height: int = 1440,
         _download_handler: Optional[Callable[[Download], None]] = None,
         to_resize_viewport: bool = True,
-        timeout_load: Union[int, float] = 1,
+        timeout_load: Union[int, float] = 30,
         sleep_after_action: Union[int, float] = 0.1,
         single_tab_mode: bool = False,
         url_status_manager: UrlStatusManager | None = None,

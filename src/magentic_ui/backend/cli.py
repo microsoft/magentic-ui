@@ -15,6 +15,10 @@ from .._docker import (
     pull_browser_image,
     pull_python_image,
 )
+from .._patches import apply_all_patches
+
+# Apply compatibility patches for third-party libraries
+apply_all_patches()
 
 # Configure basic logging to show only errors
 logging.basicConfig(level=logging.ERROR)

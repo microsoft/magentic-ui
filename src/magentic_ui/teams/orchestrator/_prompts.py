@@ -474,10 +474,16 @@ def validate_plan_json(
     """Validate plan JSON response, with different requirements based on sentinel tasks mode."""
     if not isinstance(json_response, dict):
         return False
-    required_keys = ["task", "steps", "needs_plan", "response", "plan_summary"]
+    # Base required keys (response is conditionally required)
+    required_keys = ["task", "steps", "needs_plan", "plan_summary"]
     for key in required_keys:
         if key not in json_response:
             return False
+    # "response" is only required when needs_plan is False (Case 1: direct answer)
+    # When needs_plan is True (Case 2: plan execution), response can be omitted
+    needs_plan = json_response.get("needs_plan", True)
+    if not needs_plan and "response" not in json_response:
+        return False
     plan = json_response["steps"]
     for item in plan:
         if not isinstance(item, dict):
