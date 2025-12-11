@@ -188,6 +188,7 @@ class MagenticOneSystem(BaseSystem):
                     # Convert list of logevent objects to list of dicts
                     messages_json = [msg.model_dump() for msg in messages_so_far]
                     await f.write(json.dumps(messages_json, indent=2))
+                    await f.flush()  # Flush to disk immediately
                 # how the final answer is formatted:  "Final Answer: FINAL ANSWER: Actual final answer"
 
             # get last message with source MagenticOneOrchestrator, might not be the last message
@@ -215,8 +216,8 @@ class MagenticOneSystem(BaseSystem):
             usage_json = {
                 "client": get_usage(model_client),
             }
-            with open(f"{output_dir}/model_tokens_usage.json", "w") as f:
-                json.dump(usage_json, f)
+            async with aiofiles.open(f"{output_dir}/model_tokens_usage.json", "w") as f:
+                await f.write(json.dumps(usage_json, indent=2))
 
             # Step 5: Prepare the screenshots
             screenshots_paths = []

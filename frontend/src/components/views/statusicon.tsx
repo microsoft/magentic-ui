@@ -9,6 +9,7 @@ import {
   CheckCircle,
   Clock,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Run, InputRequest } from "../types/datamodel";
 
 export const getStatusIcon = (
@@ -18,6 +19,7 @@ export const getStatusIcon = (
   inputRequest?: InputRequest,
   isSentinelSleeping?: boolean
 ) => {
+  const { t } = useTranslation();
   switch (status) {
     case "active":
       // Check if we're in a sentinel sleeping state
@@ -38,7 +40,7 @@ export const getStatusIcon = (
             size={20}
             className="inline-block mr-1 text-accent animate-spin"
           />
-          <span className="inline-block mr-2 ml-1 ">Processing</span>
+          <span className="inline-block mr-2 ml-1 ">{t("statusIcon.processing")}</span>
         </div>
       );
     case "awaiting_input":
@@ -50,8 +52,8 @@ export const getStatusIcon = (
             <div>
               <div className="flex items-center">
                 <span>
-                  <span className="font-semibold">Approval Request:</span>{" "}
-                  {inputRequest.prompt || "Waiting for approval"}
+                  <span className="font-semibold">{t("statusIcon.approvalRequest")}:</span>{" "}
+                  {inputRequest.prompt || t("statusIcon.waitingForApproval")}
                 </span>
               </div>
             </div>
@@ -61,7 +63,7 @@ export const getStatusIcon = (
                 size={20}
                 className="flex-shrink-0 mr-2 text-accent"
               />
-              <span className="flex-1">Waiting for your input</span>
+              <span className="flex-1">{t("statusIcon.waitingForInput")}</span>
             </>
           )}
         </div>
@@ -70,21 +72,21 @@ export const getStatusIcon = (
       return (
         <div className="text-sm mb-2">
           <AlertTriangle size={20} className="inline-block mr-2 text-red-500" />
-          {errorMessage || "An error occurred"}
+          {errorMessage || t("statusIcon.errorOccurred")}
         </div>
       );
     case "error":
       return (
         <div className="text-sm mb-2">
           <AlertTriangle size={20} className="inline-block mr-2 text-red-500" />
-          {errorMessage || "An error occurred"}
+          {errorMessage || t("statusIcon.errorOccurred")}
         </div>
       );
     case "stopped":
       return (
         <div className="text-sm mb-2 mt-4">
           <StopCircle size={20} className="inline-block mr-2 text-red-500" />
-          Task was stopped: {stopReason}
+          {t("statusIcon.taskStopped")}: {stopReason}
         </div>
       );
     case "pausing":
@@ -94,14 +96,14 @@ export const getStatusIcon = (
             size={20}
             className="inline-block mr-2 text-accent animate-spin"
           />
-          <span className="inline-block mr-2 ml-1">Pausing</span>
+          <span className="inline-block mr-2 ml-1">{t("statusIcon.pausing")}</span>
         </div>
       );
     case "paused":
       return (
         <div className="text-sm mb-2">
           <PauseCircle size={20} className="inline-block mr-2 text-accent" />
-          <span className="inline-block mr-2 ml-1">Paused</span>
+          <span className="inline-block mr-2 ml-1">{t("statusIcon.paused")}</span>
         </div>
       );
     case "resuming":
@@ -111,7 +113,7 @@ export const getStatusIcon = (
             size={20}
             className="inline-block mr-2 text-accent animate-spin"
           />
-          <span className="inline-block mr-2 ml-1">Resuming</span>
+          <span className="inline-block mr-2 ml-1">{t("statusIcon.resuming")}</span>
         </div>
       );
     default:

@@ -1,5 +1,6 @@
 import React, { useCallback } from "react";
 import { Input, message } from "antd";
+import { useTranslation } from "react-i18next";
 
 const { TextArea } = Input;
 
@@ -9,16 +10,17 @@ interface JsonFormProps {
 }
 
 const JsonForm: React.FC<JsonFormProps> = ({ value, onValueChanged }) => {
+  const { t } = useTranslation();
   const validateAndParseJson = (content: string) => {
     try {
       const parsed = JSON.parse(content);
       if (!parsed.server_name) {
-        throw new Error("Missing required field: server_name");
+        throw new Error(t("mcpConfig.missingServerName"));
       }
 
       return parsed;
     } catch (error) {
-      throw new Error(`Invalid JSON configuration: ${error instanceof Error ? error.message : 'Invalid JSON format'}`);
+      throw new Error(t("mcpConfig.invalidJsonConfig", { error: error instanceof Error ? error.message : t("common.error") }));
     }
   };
 
@@ -32,10 +34,10 @@ const JsonForm: React.FC<JsonFormProps> = ({ value, onValueChanged }) => {
         const formattedJson = JSON.stringify(parsed, null, 2);
         // Update the value through the controlled state
         onValueChanged(formattedJson);
-        message.success("JSON file loaded successfully!");
+        message.success(t("mcpConfig.jsonLoaded"));
       } catch (error) {
         console.error("File read error:", error);
-        message.error(error instanceof Error ? error.message : "Failed to parse JSON file");
+        message.error(error instanceof Error ? error.message : t("mcpConfig.jsonParseFailed"));
       }
     };
     reader.readAsText(file);
@@ -51,7 +53,7 @@ const JsonForm: React.FC<JsonFormProps> = ({ value, onValueChanged }) => {
       if (file.type === 'application/json' || file.name.endsWith('.json')) {
         handleFileRead(file);
       } else {
-        message.error('Please upload a valid JSON file');
+        message.error(t("mcpConfig.invalidJsonFile"));
       }
     }
   }, [handleFileRead]);
@@ -66,7 +68,7 @@ const JsonForm: React.FC<JsonFormProps> = ({ value, onValueChanged }) => {
       {/* JSON Editor */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          JSON Configuration
+          {t("mcpConfig.jsonConfiguration")}
         </label>
         <TextArea
           rows={6}
@@ -86,7 +88,7 @@ const JsonForm: React.FC<JsonFormProps> = ({ value, onValueChanged }) => {
           className="cursor-text"
         />
         <p className="text-sm text-gray-500 mt-1">
-          Drag and drop a JSON file directly onto the textarea, or paste JSON content.
+          {t("mcpConfig.jsonDragDropHint")}
         </p>
       </div>
     </div>

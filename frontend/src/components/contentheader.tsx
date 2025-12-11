@@ -6,8 +6,8 @@ import { useConfigStore } from "../hooks/store";
 import { Settings } from "lucide-react";
 import SignInModal from "./signin";
 import SettingsModal from "./settings/SettingsModal";
-import logo from "../assets/logo.svg";
 import { Button } from "./common/Button";
+import { useTranslation } from "react-i18next";
 
 type ContentHeaderProps = {
   onMobileMenuToggle: () => void;
@@ -26,14 +26,15 @@ const ContentHeader = ({
   useConfigStore();
   const [isEmailModalOpen, setIsEmailModalOpen] = React.useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+  const { t } = useTranslation();
 
   return (
-    <div className="sticky top-0 bg-primary">
+    <div className="sticky top-0">
       <div className="flex h-16 items-center justify-between">
         {/* Left side: Text and Sidebar Controls */}
         <div className="flex items-center">
           {/* Sidebar Toggle */}
-          <Tooltip title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}>
+          <Tooltip title={isSidebarOpen ? t('header.closeSidebar') : t('header.openSidebar')}>
             <Button
               variant="tertiary"
               size="sm"
@@ -52,7 +53,7 @@ const ContentHeader = ({
           {/* New Session Button */}
           <div className="w-[40px]">
             {!isSidebarOpen && (
-              <Tooltip title="Create new session">
+              <Tooltip title={t('header.createNewSession')}>
                 <Button
                   variant="tertiary"
                   size="sm"
@@ -64,8 +65,7 @@ const ContentHeader = ({
             )}
           </div>
           <div className="flex items-center space-x-2">
-            <img src={logo} alt="Magentic-UI Logo" className="h-10 w-10" />
-            <div className="text-primary text-2xl font-bold">Magentic-UI</div>
+            <div className="text-primary text-2xl font-bold">{t('header.title')}</div>
           </div>
         </div>
 
@@ -73,7 +73,7 @@ const ContentHeader = ({
         <div className="flex items-center space-x-4">
           {/* User Profile */}
           {user && (
-            <Tooltip title="View or update your profile">
+            <Tooltip title={t('header.viewProfile')}>
               <div
                 className="flex items-center space-x-2 cursor-pointer"
                 onClick={() => setIsEmailModalOpen(true)}
@@ -95,14 +95,14 @@ const ContentHeader = ({
 
           {/* Settings Button */}
           <div className="text-primary">
-            <Tooltip title="Settings">
+            <Tooltip title={t('header.settings')}>
               <Button
                 variant="tertiary"
                 size="sm"
                 icon={<Settings className="h-8 w-8" />}
                 onClick={() => setIsSettingsOpen(true)}
                 className="!px-0 transition-colors hover:text-accent"
-                aria-label="Settings"
+                aria-label={t('header.settings')}
               />
             </Tooltip>
           </div>

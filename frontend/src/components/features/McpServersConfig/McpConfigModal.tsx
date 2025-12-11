@@ -35,6 +35,7 @@ import { mcpAPI } from "../../views/api";
 import { useDefaultModel } from "../../settings/hooks/useDefaultModel";
 import { ModelConfig } from "../../settings/tabs/agentSettings/modelSelector/modelConfigForms/types";
 import { DEFAULT_OPENAI } from "../../settings/tabs/agentSettings/modelSelector/modelConfigForms/OpenAIModelConfigForm";
+import { useTranslation } from "react-i18next";
 
 const { TextArea } = Input;
 
@@ -55,6 +56,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
   onUpdateConnectionStatus,
   existingServerNames = [],
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("sse");
   const [form] = Form.useForm();
   const [isSaving, setIsSaving] = useState(false);
@@ -140,7 +142,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
       // Parse JSON config when switching from JSON to other tabs
       try {
         if (jsonConfig) {
-          const parsed = validateJsonConfig(jsonConfig, NamedMCPServerConfigSchema, "Invalid server configuration");
+          const parsed = validateJsonConfig(jsonConfig, NamedMCPServerConfigSchema, t("mcpConfig.invalidServerConfig"));
           setServerName(parsed.server_name);
           setServerParams(parsed.server_params);
         }
@@ -168,7 +170,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
     let localServerParams;
 
     if (activeTab === "json") {
-      const parsed = validateJsonConfig(jsonConfig, NamedMCPServerConfigSchema, "Invalid server configuration");
+      const parsed = validateJsonConfig(jsonConfig, NamedMCPServerConfigSchema, t("mcpConfig.invalidServerConfig"));
       localServerName = parsed.server_name;
       localServerParams = parsed.server_params;
     } else {
@@ -185,7 +187,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
 
     // Check for duplicate server name (only when adding new server, not when editing)
     if (!server && existingServerNames.includes(serverName)) {
-      throw new Error("Server name already exists");
+      throw new Error(t("mcpConfig.serverNameExists"));
     }
 
     return serverConfig;
@@ -243,11 +245,11 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
         }
       }
 
-      message.success(server ? "Server configuration updated successfully!" : "Server configuration saved successfully!");
+      message.success(server ? t("mcpConfig.updateSuccess") : t("mcpConfig.saveSuccess"));
       onClose();
     } catch (error) {
       console.error("Save failed:", error);
-      message.error(error instanceof Error ? error.message : "Failed to save configuration");
+      message.error(error instanceof Error ? error.message : t("mcpConfig.saveFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -270,13 +272,13 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
       };
 
       if (result.success) {
-        message.success(`${result.message} (${result.details?.tools_found || 0} tools found)`);
+        message.success(t("mcpConfig.testSuccess", { count: result.details?.tools_found || 0 }));
       } else {
-        message.error(`${result.message}: ${result.error}`);
+        message.error(t("mcpConfig.testError", { error: result.error || result.message }));
       }
     } catch (error) {
       console.error("Test failed:", error);
-      message.error(`Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      message.error(t("mcpConfig.testFailed", { error: error instanceof Error ? error.message : t("common.error") }));
 
       // Save error status
       connectionStatus = {
@@ -304,7 +306,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
 
   return (
     <Modal
-      title={server ? "Edit MCP Server" : "Add MCP Server"}
+      title={server ? t("mcpConfig.editTitle") : t("mcpConfig.addTitle")}
       open={isOpen}
       onCancel={onClose}
       footer={[
@@ -312,14 +314,14 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
           {connectionStatus && (
             <div className={`text-sm ${connectionStatus.isConnected ? 'text-green-600' : 'text-red-600'}`}>
               {connectionStatus.isConnected
-                ? `✓ Test found ${connectionStatus.toolsFound || 0} tools`
-                : '✗ Test failed'
+                ? t("mcpConfig.testStatusSuccess", { count: connectionStatus.toolsFound || 0 })
+                : t("mcpConfig.testStatusFailed")
               }
             </div>
           )}
         </div>,
         <Button key="test" onClick={handleTestConnection} loading={isTesting}>
-          Test Connection
+          {t("mcpConfig.testConnection")}
         </Button>,
         <Button
           key="save"
@@ -328,7 +330,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
           loading={isSaving}
           disabled={serverNameError || serverNameDuplicateError || agentNameError}
         >
-          {server ? "Update Server" : "Add Server"}
+          {server ? t("mcpConfig.updateServer") : t("mcpConfig.addServer")}
         </Button>,
       ]}
       width={600}
@@ -343,15 +345,15 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
               items={[
                 {
                   key: "sse",
-                  label: "SSE",
+                  label: t("mcpConfig.tabs.sse"),
                 },
                 {
                   key: "stdio",
-                  label: "Stdio",
+                  label: t("mcpConfig.tabs.stdio"),
                 },
                 {
                   key: "json",
-                  label: "JSON Config",
+                  label: t("mcpConfig.tabs.json"),
                 },
               ]}
             />
@@ -360,17 +362,17 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
           {activeTab !== "json" && (
             <div className="space-y-4">
               <Form.Item
-                label="Server Name"
+                label={t("mcpConfig.serverName")}
                 required
                 validateStatus={serverNameError || serverNameDuplicateError ? 'error' : undefined}
                 help={
-                  serverNameError ? 'Server Name is required and can only contain letters and numbers.' :
-                  serverNameDuplicateError ? 'Server name already exists.' : undefined
+                  serverNameError ? t("mcpConfig.serverNameRequired") :
+                  serverNameDuplicateError ? t("mcpConfig.serverNameExists") : undefined
                 }
               >
                 <Input
                   value={serverName}
-                  placeholder="Server Name"
+                  placeholder={t("mcpConfig.serverNamePlaceholder")}
                   status={serverNameError || serverNameDuplicateError ? 'error' : undefined}
                   onChange={e => {
                     setServerName(e.target.value);
@@ -403,17 +405,17 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
 
           <div className="space-y-4">
             <Divider />
-            <h3 className="text-lg font-medium">Agent Configuration</h3>
+            <h3 className="text-lg font-medium">{t("mcpConfig.agentConfiguration")}</h3>
 
             <Form.Item
-              label="Agent Name"
+              label={t("mcpConfig.agentName")}
               validateStatus={agentNameError ? 'error' : undefined}
-              help={agentNameError ? 'Agent name must be a valid Python identifier (letters, numbers, underscores only, must start with letter or underscore)' : undefined}
+              help={agentNameError ? t("mcpConfig.agentNameHelp") : undefined}
             >
               <Input
                 value={formAgentName}
                 onChange={e => setFormAgentName(e.target.value)}
-                placeholder="Auto-generated from server name"
+                placeholder={t("mcpConfig.agentNamePlaceholder")}
                 maxLength={100}
                 showCount
                 status={agentNameError ? 'error' : undefined}
@@ -421,20 +423,20 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
             </Form.Item>
 
             <Form.Item
-              label="Agent Description"
-              rules={[{ required: true, message: "Agent description is required" }]}
+              label={t("mcpConfig.agentDescription")}
+              rules={[{ required: true, message: t("mcpConfig.agentDescriptionRequired") }]}
             >
               <TextArea
                 value={formAgentDescription}
                 onChange={e => setFormAgentDescription(e.target.value)}
                 rows={4}
-                placeholder="This agent can help you with... Use this server when the user needs to..."
+                placeholder={t("mcpConfig.agentDescriptionPlaceholder")}
                 maxLength={500}
                 showCount
               />
             </Form.Item>
             <p className="text-sm text-gray-500">
-              Describe how and when this server should be used. This helps the orchestrator decide when to call this agent.
+              {t("mcpConfig.agentDescriptionHelp")}
             </p>
           </div>
         </div>

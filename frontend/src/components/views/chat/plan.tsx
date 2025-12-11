@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { ChevronDownIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { ClipboardList, Clock } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   DragDropContext,
   Droppable,
@@ -106,6 +107,7 @@ const PlanView: React.FC<PlanProps> = ({
   isCollapsed: initialIsCollapsed = false,
   forceCollapsed = false,
 }) => {
+  const { t } = useTranslation();
   const [localPlan, setLocalPlan] = useState<IPlanStep[]>([]);
   const [isCollapsed, setIsCollapsed] = useState(
     viewOnly && (initialIsCollapsed || forceCollapsed)
@@ -200,25 +202,22 @@ const PlanView: React.FC<PlanProps> = ({
 
   const getAgentIcon = (agentName: string | undefined): JSX.Element | null => {
     const lowerCaseName = (agentName || "").toLowerCase();
-    if (lowerCaseName === "coder_agent") return <CoderIcon tooltip="Coder" />;
-    if (lowerCaseName === "web_surfer")
-      return <WebSurferIcon tooltip="WebSurfer" />;
-    if (lowerCaseName === "file_surfer")
-      return <FileSurferIcon tooltip="FileSurfer" />;
-    if (lowerCaseName === "user_proxy") return <UserIcon tooltip="User" />;
-    if (lowerCaseName === "no_action_agent")
-      return <AgentIcon tooltip="Self-Reflection" />;
-    return <AgentIcon tooltip="Agent" />;
+    if (lowerCaseName === "coder_agent") return <CoderIcon tooltip={t("agents.coder")} />;
+    if (lowerCaseName === "web_surfer") return <WebSurferIcon tooltip={t("agents.webSurfer")} />;
+    if (lowerCaseName === "file_surfer") return <FileSurferIcon tooltip={t("agents.fileSurfer")} />;
+    if (lowerCaseName === "user_proxy") return <UserIcon tooltip={t("agents.user")} />;
+    if (lowerCaseName === "no_action_agent") return <AgentIcon tooltip={t("agents.selfReflection")} />;
+    return <AgentIcon tooltip={t("agents.agent")} />;
   };
 
   const getAgentName = (agentName: string | undefined): string => {
     const lowerCaseName = (agentName || "").toLowerCase();
-    if (lowerCaseName === "coder_agent") return "Coder";
-    if (lowerCaseName === "web_surfer") return "WebSurfer";
-    if (lowerCaseName === "file_surfer") return "FileSurfer";
-    if (lowerCaseName === "user_proxy") return "User";
-    if (lowerCaseName === "no_action_agent") return "Self-Reflection";
-    return agentName || "Agent";
+    if (lowerCaseName === "coder_agent") return t("agents.coder");
+    if (lowerCaseName === "web_surfer") return t("agents.webSurfer");
+    if (lowerCaseName === "file_surfer") return t("agents.fileSurfer");
+    if (lowerCaseName === "user_proxy") return t("agents.user");
+    if (lowerCaseName === "no_action_agent") return t("agents.selfReflection");
+    return agentName || t("agents.agent");
   };
 
   const noop = () => { };
@@ -237,7 +236,7 @@ const PlanView: React.FC<PlanProps> = ({
             {...(!viewOnly ? provided.dragHandleProps : {})}
             className={`flex items-center justify-center font-semibold p-1.5 ${!viewOnly ? "cursor-grab" : ""}`}
           >
-            Step {index + 1}
+            {t("planView.step")} {index + 1}
           </span>
           <div className="flex items-center ml-2">
             <div className="text-gray-600 dark:text-gray-300">
@@ -258,7 +257,7 @@ const PlanView: React.FC<PlanProps> = ({
               autoFocus
               className={`flex-1 p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded ${!item.details.trim() ? "border border-orange-300" : ""} ${viewOnly ? "cursor-default focus:outline-none" : ""}`}
               readOnly={viewOnly}
-              placeholder="Enter step details"
+              placeholder={t("planView.enterStepDetails")}
             />
             {!viewOnly && (
               <div className={`flex items-center transition-opacity ${hoveredIndex === index ? "opacity-100" : "opacity-0"}`}>
@@ -293,7 +292,7 @@ const PlanView: React.FC<PlanProps> = ({
               {...(!viewOnly ? provided.dragHandleProps : {})}
               className={`flex items-center justify-center font-semibold p-1.5 ${!viewOnly ? "cursor-grab" : ""}`}
             >
-              Step {index + 1}
+              {t("planView.step")} {index + 1}
             </span>
             <div className="flex items-center ml-2">
               <div className="text-gray-600 dark:text-gray-300">
@@ -320,16 +319,17 @@ const PlanView: React.FC<PlanProps> = ({
                 <div className=" text-[var(--color-text-primary)]">
                   <AutoResizeTextarea
                     key={`sentinel-textarea-${index}`}
-                    value={item.details + ' EVERY ' + formatDuration(item.sleep_duration || 0) + ' ' +
-                      (typeof item.condition === 'number'
-                        ? `FOR ${item.condition} time${item.condition !== 1 ? 's' : ''}`
-                        : `UNTIL ${item.condition || 'condition is met'}`)}
+                    value={`${item.details} ${t("planView.sentinelEvery")} ${formatDuration(item.sleep_duration || 0)} ${
+                      typeof item.condition === 'number'
+                        ? `${t("planView.sentinelFor")} ${item.condition} ${t("planView.sentinelTimes")}`
+                        : `${t("planView.sentinelUntil")} ${item.condition || t("planView.sentinelConditionMet")}`
+                    }`}
                     onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateDetails(index, e.target.value)}
                     onBlur={() => setFocusedIndex(null)}
                     autoFocus
                     className={`w-full p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded border ${!item.details.trim() ? "border-orange-300" : "border-[var(--color-border-primary)]"} ${viewOnly ? "cursor-default focus:outline-none" : ""}`}
                     readOnly={true}
-                    placeholder="Enter sentinel step description"
+                    placeholder={t("planView.enterSentinelStepDescription")}
                   />
                 </div>
 
@@ -344,13 +344,13 @@ const PlanView: React.FC<PlanProps> = ({
                     autoFocus
                     className={`w-full p-2 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded border ${!item.details.trim() ? "border-orange-300" : "border-[var(--color-border-primary)]"} ${viewOnly ? "cursor-default focus:outline-none" : ""}`}
                     readOnly={viewOnly}
-                    placeholder="Enter sentinel step description"
+                    placeholder={t("planView.enterSentinelStepDescription")}
                   />
 
 
                   {/* Line 1: Every */}
                   <div className="flex items-center gap-1">
-                    <span>Every</span> <Clock className="h-5 w-5 ml-1 mr-1" />
+                    <span>{t("planView.sentinelEvery")}</span> <Clock className="h-5 w-5 ml-1 mr-1" />
 
                     {focusedDurationIndex === index ? (
                       <>
@@ -365,7 +365,7 @@ const PlanView: React.FC<PlanProps> = ({
                           min="0"
                           autoFocus
                         />
-                        <span className="text-[var(--color-text-secondary)]">seconds</span>
+                        <span className="text-[var(--color-text-secondary)]">{t("planView.sentinelSeconds")}</span>
                       </>
                     ) : (
                       <span
@@ -380,12 +380,12 @@ const PlanView: React.FC<PlanProps> = ({
 
                   {/* Line 2: Until/For */}
                   <div className="flex items-start gap-1">
-                    <span className="mr-9">{typeof item.condition === 'number' ? 'For' : 'Until'}</span>
+                    <span className="mr-9">{typeof item.condition === 'number' ? t("planView.sentinelFor") : t("planView.sentinelUntil")}</span>
                     <AutoResizeTextarea
                       value={String(item.condition || '')}
                       onChange={(e) => updateSentinelField(index, 'condition', e.target.value)}
                       className="flex-1 px-1 py-0.5 rounded bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] font-medium border border-[var(--color-border-primary)]"
-                      placeholder={typeof item.condition === 'number' ? 'enter number of iterations' : 'enter condition'}
+                      placeholder={typeof item.condition === 'number' ? t("planView.sentinelIterationsPlaceholder") : t("planView.sentinelConditionPlaceholder")}
                     />
                   </div>
                 </div>
@@ -413,9 +413,9 @@ const PlanView: React.FC<PlanProps> = ({
         <div className="flex items-center mb-2">
           <ClipboardList className="h-5 w-5 mr-2 flex-shrink-0" />
           {fromMemory
-            ? "Potentially relevant plan retrieved from memory. "
-            : "Here's a plan. "}
-          <span> You can edit it directly or through the chat.</span>
+            ? t("planView.potentiallyRelevantPlanFromMemory")
+            : t("planView.heresAPlan")}
+          <span> {t("planView.youCanEditDirectlyOrThroughChat")}</span>
         </div>
       )}
       <div className="rounded-none border-[var(--color-border-primary)]">
@@ -425,7 +425,9 @@ const PlanView: React.FC<PlanProps> = ({
             onClick={() => setIsCollapsed(false)}
           >
             <ClipboardList className="h-5 w-5 mr-2 flex-shrink-0" />
-            <h2 className="mb-3">Plan for: {task}</h2>
+            <h2 className="mb-3">
+              {t("planView.planFor")} {task === "Untitled" ? t("planCard.untitledPlan") : task}
+            </h2>
           </div>
         ) : (
           <>
@@ -443,7 +445,9 @@ const PlanView: React.FC<PlanProps> = ({
                   {viewOnly && (
                     <ClipboardList className="h-5 w-5 mr-2 flex-shrink-0" />
                   )}
-                  <h2 className="mb-3">Plan for: {task}</h2>
+                  <h2 className="mb-3">
+                    {t("planView.planFor")} {task === "Untitled" ? t("planCard.untitledPlan") : task}
+                  </h2>
                 </div>
               </div>
             )}
@@ -458,11 +462,11 @@ const PlanView: React.FC<PlanProps> = ({
                         index={index}
                         isDragDisabled={viewOnly}
                       >
-                        {(provided) => (
+                        {(provided) =>
                           isSentinelStep(item)
                             ? renderSentinelStep(item, index, provided)
                             : renderRegularStep(item, index, provided)
-                        )}
+                        }
                       </Draggable>
                     ))}
                     {provided.placeholder}
@@ -474,16 +478,16 @@ const PlanView: React.FC<PlanProps> = ({
               <div className="mt-2 p-0 flex justify-end">
                 <div className="flex gap-4 items-center">
                   <span className="mt-1 text-[var(--color-text-secondary)] px-2">
-                    {saveStatus === "saving" && "Saving..."}
+                    {saveStatus === "saving" && t("planView.saving")}
                     {saveStatus === "saved" && ""}
-                    {saveStatus === "error" && "Error saving changes"}
+                    {saveStatus === "error" && t("planView.errorSavingChanges")}
                   </span>
                   <div
                     onClick={addLocalPlan}
                     className="mt-2 flex items-center text-[var(--color-text-secondary)] px-4 rounded hover:text-[var(--color-text-primary)] cursor-pointer"
                   >
                     <PlusIcon className="h-5 w-5 mr-2" />
-                    Add Step
+                    {t("planView.addStep")}
                   </div>
                 </div>
               </div>

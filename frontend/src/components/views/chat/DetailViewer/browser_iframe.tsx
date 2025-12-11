@@ -107,6 +107,7 @@ const BrowserIframe: React.FC<BrowserIframeProps> = ({
         }}
         title="Browser View"
         className="rounded"
+        allow="fullscreen"
         onLoad={(e) => {
           const iframe = e.target as HTMLIFrameElement;
           setIframeDimensions({

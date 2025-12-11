@@ -7,6 +7,9 @@ import { DEFAULT_OPENAI } from "./modelSelector/modelConfigForms/OpenAIModelConf
 import { SettingsTabProps } from "../../types";
 import { ModelConfig } from "./modelSelector/modelConfigForms/types";
 import { SwitchChangeEventHandler } from "antd/es/switch";
+import { useTranslation } from "react-i18next";
+import MCPAgentsSettings from "./mcpAgentsSettings/MCPAgentsSettings";
+
 import { settingsAPI } from "../../../views/api";
 import { Prism, SyntaxHighlighterProps } from "react-syntax-highlighter";
 import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -21,6 +24,7 @@ const AgentSettingsTab: React.FC<SettingsTabProps> = ({
   config,
   handleUpdateConfig,
 }) => {
+  const { t } = useTranslation();
   const [advanced, setAdvanced] = useState<boolean>(
     (config as any).advanced_agent_settings ?? false
   );
@@ -81,9 +85,11 @@ const AgentSettingsTab: React.FC<SettingsTabProps> = ({
     });
   };
 
-  const header = advanced
-    ? "Set the LLM for each agent."
-    : "Set the LLM for all agents.";
+  const header = (
+    advanced
+      ? t('agentSettings.setLlmForEachAgent')
+      : t('agentSettings.setLlmForAllAgents')
+  );
 
   return (
     <Flex vertical gap="small" justify="start">
@@ -93,7 +99,7 @@ const AgentSettingsTab: React.FC<SettingsTabProps> = ({
           description={
             <div>
               <Typography.Text>
-                Magentic-UI was started with an LLM config file ({configFilePath}).
+                AI AutoOper Platform was started with an LLM config file ({configFilePath}).
                 LLM configurations set here will be ignored as they are overridden by the config file.
               </Typography.Text>
               {configContent && (
@@ -132,9 +138,9 @@ const AgentSettingsTab: React.FC<SettingsTabProps> = ({
         <Flex gap="small" justify="start" align="center">
           <Typography.Text>{header}</Typography.Text>
         </Flex>
-        <Tooltip title="Toggle between Basic and Advanced settings.">
+        <Tooltip title={t('agentSettings.toggleBasicAdvancedTooltip')}>
           <Flex gap="small">
-            <Typography.Text>Advanced</Typography.Text>
+            <Typography.Text>{t('agentSettings.advanced')}</Typography.Text>
             <Switch value={advanced} onChange={handleAdvancedToggle} />
           </Flex>
         </Tooltip>
@@ -171,6 +177,18 @@ const AgentSettingsTab: React.FC<SettingsTabProps> = ({
           )}
         </>
       )}
+
+      <Collapse>
+        <Collapse.Panel key={1} header={t('agentSettings.customAgents')}>
+          <MCPAgentsSettings
+            config={config}
+            defaultModel={defaultModel}
+            advanced={advanced}
+            handleUpdateConfig={handleUpdateConfig}
+          />
+        </Collapse.Panel>
+      </Collapse>
+>>>>>>> pr-322-i18n
     </Flex>
   );
 };

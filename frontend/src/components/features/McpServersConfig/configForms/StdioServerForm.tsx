@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Input, Form, Collapse, Flex } from "antd";
 import { StdioServerParams } from "../types";
+import { useTranslation } from "react-i18next";
 
 const StdioServerForm: React.FC<{
   value: StdioServerParams;
   onValueChanged: (updated: StdioServerParams) => void;
   resetFlag?: number;
 }> = ({ value, onValueChanged, resetFlag }) => {
+  const { t } = useTranslation();
   const [hasInteracted, setHasInteracted] = useState(false);
   const stdioCommandError = hasInteracted && (!value.command || value.command.trim() === '');
 
@@ -50,10 +52,10 @@ const StdioServerForm: React.FC<{
   return (
     <Flex vertical gap="small" style={{width: "100%"}}>
         <Form.Item
-          label="Command (including args)"
+          label={t("mcpConfig.commandWithArgs")}
           required
           validateStatus={stdioCommandError ? 'error' : undefined}
-          help={stdioCommandError ? 'Command is required' : undefined}
+          help={stdioCommandError ? t("mcpConfig.commandRequired") : undefined}
         >
           <Input
             placeholder="npx -y mcp-server-fetch"
@@ -63,8 +65,8 @@ const StdioServerForm: React.FC<{
           />
         </Form.Item>
       <Collapse>
-        <Collapse.Panel key="1" header={<h1>Optional Properties</h1>}>
-          <Form.Item label="Read Timeout (seconds)">
+        <Collapse.Panel key="1" header={<h1>{t("mcpConfig.optionalProperties")}</h1>}>
+          <Form.Item label={t("mcpConfig.readTimeoutSeconds")}>
             <Input
               type="number"
               value={value.read_timeout_seconds}
@@ -76,7 +78,7 @@ const StdioServerForm: React.FC<{
               }
             />
           </Form.Item>
-          <Form.Item label="Working Directory (cwd)">
+          <Form.Item label={t("mcpConfig.workingDirectory")}>
             <Input
               value={value.cwd || ''}
               onChange={e =>
@@ -87,7 +89,7 @@ const StdioServerForm: React.FC<{
               }
             />
           </Form.Item>
-          <Form.Item label="Encoding">
+          <Form.Item label={t("mcpConfig.encoding")}>
             <Input
               value={value.encoding || 'utf-8'}
               onChange={e =>
@@ -98,7 +100,7 @@ const StdioServerForm: React.FC<{
               }
             />
           </Form.Item>
-          <Form.Item label="Encoding Error Handler">
+          <Form.Item label={t("mcpConfig.encodingErrorHandler")}>
             <Input
               value={value.encoding_error_handler || 'strict'}
               onChange={e =>
@@ -109,7 +111,7 @@ const StdioServerForm: React.FC<{
               }
             />
           </Form.Item>
-          <Form.Item label="Environment Variables (env)">
+          <Form.Item label={t("mcpConfig.environmentVariables")}>
             <Input.TextArea
               placeholder="KEY1=VALUE1"
               value={envText}

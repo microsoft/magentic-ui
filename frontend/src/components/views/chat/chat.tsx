@@ -28,6 +28,13 @@ import {
 } from "../../types/plan";
 import SampleTasks from "./sampletasks";
 import ProgressBar from "./progressbar";
+import { useTranslation } from "react-i18next";
+import {
+  PaperAirplaneIcon,
+  ExclamationTriangleIcon,
+  PauseCircleIcon,
+  CommandLineIcon, // 添加 Terminal 图标
+} from "@heroicons/react/24/outline";
 
 // Extend RunStatus for sidebar status reporting
 type SidebarRunStatus = BaseRunStatus | "final_answer_awaiting_input";
@@ -78,6 +85,7 @@ export default function ChatView({
   onRunStatusChange,
   onSubMenuChange,
 }: ChatViewProps) {
+  const { t } = useTranslation();
   const serverUrl = getServerUrl();
   const [error, setError] = React.useState<IStatus | null>({
     status: true,
@@ -128,7 +136,7 @@ export default function ChatView({
 
   // Replace stepTitles state with currentPlan state
   const [currentPlan, setCurrentPlan] = React.useState<StepProgress["plan"]>();
-
+  
   // Create a Message object from AgentMessageConfig
   const createMessage = (
     config: AgentMessageConfig,
@@ -152,7 +160,7 @@ export default function ChatView({
       return latestRun;
     } catch (error) {
       console.error("Error loading session runs:", error);
-      messageApi.error("Failed to load chat history");
+      messageApi.error(t("chat.failedToLoadHistory"));
       return null;
     }
   };
@@ -183,18 +191,18 @@ export default function ChatView({
 
         // Only load data if component is visible
         const latestRun = await loadSessionRun();
-
+        console.log("latestRun", latestRun);
         if (latestRun) {
           setCurrentRun(latestRun);
           setNoMessagesYet(latestRun.messages.length === 0);
 
           if (latestRun.id) {
-            setupWebSocket(latestRun.id, false, true);
+            setupWebSocket(latestRun.id, true, true);
           }
         } else {
           setError({
             status: false,
-            message: "No run found",
+            message: t("chat.noRunFound"),
           });
         }
       } else {
@@ -321,7 +329,9 @@ export default function ChatView({
             // Update the run status even when not visible
             onRunStatusChange(session.id, message.status as BaseRunStatus);
           }
-        } catch (error) {}
+        } catch (error) {
+          console.error(t("chat.websocketMessageParsingError"), error);
+        }
       };
 
       activeSocket.addEventListener("message", messageHandler);
@@ -445,12 +455,12 @@ export default function ChatView({
 
   const handleError = (error: any) => {
     console.error("Error:", error);
-    message.error("Error during request processing");
+    message.error(t("chat.errorDuringProcessing"));
 
     setError({
       status: false,
       message:
-        error instanceof Error ? error.message : "Unknown error occurred",
+        error instanceof Error ? error.message : t("chat.unknownError"),
     });
   };
 
@@ -536,7 +546,6 @@ export default function ChatView({
 
     return processedFiles;
   };
-
   const handleInputResponse = async (
     response: string,
     files: RcFile[] = [],
@@ -544,12 +553,12 @@ export default function ChatView({
     plan?: IPlan
   ) => {
     if (!currentRun || !activeSocketRef.current) {
-      handleError(new Error("WebSocket connection not available"));
+      handleError(new Error(t("chat.websocketNotAvailable")));
       return;
     }
 
     if (activeSocketRef.current.readyState !== WebSocket.OPEN) {
-      handleError(new Error("WebSocket connection not available"));
+      handleError(new Error(t("chat.websocketNotAvailable")));
       return;
     }
 
@@ -578,7 +587,7 @@ export default function ChatView({
       const uploadedFilesList = processedFiles.filter((f) => f.uploaded);
       if (uploadedFilesList.length > 0) {
         const filesList = uploadedFilesList.map((f) => f.name).join(", ");
-        enhancedResponse = `Uploaded files: ${filesList}\n\n${response}`;
+        enhancedResponse = `${t('chatInput.uploadedFiles')}: ${filesList}\n\n${response}`;
       }
 
       const responseJson = {
@@ -611,12 +620,12 @@ export default function ChatView({
 
   const handleRegeneratePlan = async () => {
     if (!currentRun || !activeSocketRef.current) {
-      handleError(new Error("WebSocket connection not available"));
+      handleError(new Error(t("chat.websocketNotAvailable")));
       return;
     }
 
     if (activeSocketRef.current.readyState !== WebSocket.OPEN) {
-      handleError(new Error("WebSocket connection not available"));
+      handleError(new Error(t("chat.websocketNotAvailable")));
       return;
     }
 
@@ -632,7 +641,7 @@ export default function ChatView({
       }
 
       const responseJson = {
-        content: "Regenerate a plan that improves on the current plan",
+        content: t("chat.regeneratePlanMessage"),
         ...(planString !== "" && { plan: planString }),
       };
       const responseString = JSON.stringify(responseJson);
@@ -660,7 +669,7 @@ export default function ChatView({
       activeSocketRef.current.send(
         JSON.stringify({
           type: "stop",
-          reason: "Cancelled by user",
+          reason: t("chat.cancelledByUser"),
         })
       );
 
@@ -683,7 +692,7 @@ export default function ChatView({
 
     try {
       if (activeSocketRef.current.readyState !== WebSocket.OPEN) {
-        throw new Error("WebSocket connection not available");
+        throw new Error(t("chat.websocketNotAvailable"));
       }
 
       if (
@@ -728,7 +737,7 @@ export default function ChatView({
         if (run) {
           setCurrentRun(run);
         } else {
-          throw new Error("Could not setup run");
+          throw new Error(t("chat.couldNotSetupRun"));
         }
       }
 
@@ -820,7 +829,7 @@ export default function ChatView({
       // Setup websocket connection
       const socket = setupWebSocket(run.id, fresh_socket, false);
       if (!socket) {
-        throw new Error("WebSocket connection not available");
+        throw new Error(t("chat.websocketNotAvailable"));
       }
 
       // Wait for socket to be ready
@@ -832,7 +841,7 @@ export default function ChatView({
             socket.readyState === WebSocket.CLOSED ||
             socket.readyState === WebSocket.CLOSING
           ) {
-            reject(new Error("Socket failed to connect"));
+            reject(new Error(t("chat.socketFailedToConnect")));
           } else {
             setTimeout(checkState, 100);
           }
@@ -849,9 +858,8 @@ export default function ChatView({
       const uploadedFilesList = processedFiles.filter((f) => f.uploaded);
       if (uploadedFilesList.length > 0) {
         const filesList = uploadedFilesList.map((f) => f.name).join(", ");
-        enhancedQuery = `Uploaded files: ${filesList}\n\n${query}`;
+        enhancedQuery = `${t('chatInput.uploadedFiles')}: ${filesList}\n\n${query}`;
       }
-
       var planString = plan ? convertPlanStepsToJsonString(plan.steps) : "";
 
       const taskJson = {
@@ -878,7 +886,7 @@ export default function ChatView({
       setError({
         status: false,
         message:
-          error instanceof Error ? error.message : "Failed to start task",
+          error instanceof Error ? error.message : t("chat.failedToStartTask"),
       });
     }
   };
@@ -962,6 +970,7 @@ export default function ChatView({
           : setupWebSocket(currentRun.id, true, false);
 
       if (!socket || socket.readyState !== WebSocket.OPEN) {
+        console.error(t("chat.websocketNotAvailableOrNotOpen"));
         return;
       }
 
@@ -971,7 +980,7 @@ export default function ChatView({
         plan: {
           task: newPlan.task,
           steps: newPlan.steps,
-          plan_summary: "Saved plan for task: " + newPlan.task,
+          plan_summary: t("chat.savedPlanForTask") + ": " + newPlan.task,
         },
       };
 
@@ -998,7 +1007,7 @@ export default function ChatView({
         processedPlanIds.add(newPlan.messageId);
       }
     } catch (err) {
-      console.error("Error processing plan for session:", session.id, err);
+      console.error(t("chat.errorProcessingPlanForSession"), session.id, err);
     }
   };
 
@@ -1149,7 +1158,7 @@ export default function ChatView({
 
   const handleAcceptPlan = (text: string) => {
     if (currentRun?.status === "awaiting_input") {
-      const query = text || "Plan Accepted";
+      const query = text || t("chat.planAccepted");
       handleInputResponse(query, [], true);
     }
   };
@@ -1163,7 +1172,7 @@ export default function ChatView({
       {contextHolder}
       <div className="flex flex-col h-full w-full">
         {/* Progress Bar - Sticky at top */}
-        <div className="progress-container" style={{ height: "3.5rem" }}>
+        <div className="progress-container" style={{ height: "1.5rem" }}>
           <div
             className="transition-opacity duration-300"
             style={{
@@ -1244,7 +1253,7 @@ export default function ChatView({
               } mx-auto px-4 sm:px-6 md:px-8`}
             >
               <div className="text-secondary text-lg mb-6">
-                Enter a message to get started
+                {t("chat.enterMessageToGetStarted")}
               </div>
 
               <div className="w-full">

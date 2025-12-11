@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { settingsAPI } from "../../views/api";
 import { appContext } from "../../../hooks/provider";
-import { Typography, Spin, Alert, Empty, Card, Button } from "antd";
+import { Typography, Spin, Alert, Card } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import McpServerCard from "./McpServerCard";
 import McpConfigModal from "./McpConfigModal";
 import { MCPAgentConfig, MCPServerInfo, NamedMCPServerConfig, NamedMCPServerConfigSchema, MCPAgentConfigSchema } from "./types";
+import { useTranslation } from "react-i18next";
 
 const { Title, Text } = Typography;
 
 // Add MCP Server Card Component
-const AddMcpServerCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+const AddMcpServerCard: React.FC<{ onClick: () => void; title: string; description: string }> = ({ onClick, title, description }) => (
   <Card
     className="h-full border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-gray-400 transition-colors cursor-pointer bg-gray-50"
     onClick={onClick}
@@ -18,10 +19,10 @@ const AddMcpServerCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
     <div className="flex flex-col items-center justify-center h-full py-8">
       <PlusOutlined className="text-4xl text-gray-400 dark:text-gray-500 mb-4" />
       <div className="text-lg font-semibold text-gray-900 mb-2">
-        Add MCP Server
+        {title}
       </div>
       <Text className="text-gray-500 dark:text-gray-500 text-center">
-        Connect new capabilities to your agent
+        {description}
       </Text>
     </div>
   </Card>
@@ -52,6 +53,7 @@ export const extractMcpServers = (agents: MCPAgentConfig[]): MCPServerInfo[] => 
 };
 
 const McpServersList: React.FC = () => {
+  const { t } = useTranslation();
   const { user } = React.useContext(appContext);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +65,7 @@ const McpServersList: React.FC = () => {
   useEffect(() => {
     const fetchMCPServers = async () => {
       if (!user?.email) {
-        setError("User not authenticated");
+        setError(t("mcpServers.errorUnauthenticated"));
         setIsLoading(false);
         return;
       }
@@ -83,14 +85,14 @@ const McpServersList: React.FC = () => {
         setMcpServers(servers);
       } catch (err) {
         console.error("Failed to fetch MCP servers:", err);
-        setError(err instanceof Error ? err.message : "Failed to fetch MCP servers");
+        setError(err instanceof Error ? err.message : t("mcpServers.fetchError"));
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchMCPServers();
-  }, [user?.email]);
+  }, [user?.email, t]);
 
   const handleDeleteServer = async (serverToDelete: MCPServerInfo) => {
     if (!user?.email || !settings) {
@@ -136,7 +138,7 @@ const McpServersList: React.FC = () => {
       setMcpServers(updatedServers);
     } catch (error) {
       console.error("Failed to delete MCP server:", error);
-      setError(error instanceof Error ? error.message : "Failed to delete MCP server");
+      setError(error instanceof Error ? error.message : t("mcpServers.deleteError"));
     }
   };
 
@@ -204,7 +206,7 @@ const McpServersList: React.FC = () => {
       handleCloseConfigModal();
     } catch (error) {
       console.error("Failed to save MCP server:", error);
-      setError(error instanceof Error ? error.message : "Failed to save MCP server");
+      setError(error instanceof Error ? error.message : t("mcpServers.saveError"));
     }
   };
 
@@ -244,14 +246,14 @@ const McpServersList: React.FC = () => {
       setMcpServers(serversList);
     } catch (error) {
       console.error("Failed to update connection status:", error);
-      setError(error instanceof Error ? error.message : "Failed to update connection status");
+      setError(error instanceof Error ? error.message : t("mcpServers.connectionStatusError"));
     }
   };
 
   if (isLoading) {
     return (
       <div className="p-4">
-        <Title level={2}>MCP Servers</Title>
+        <Title level={2}>{t("mcpServers.title")}</Title>
         <div className="flex justify-center items-center h-64">
           <Spin size="large" />
         </div>
@@ -262,9 +264,9 @@ const McpServersList: React.FC = () => {
   if (error) {
     return (
       <div className="p-4">
-        <Title level={2}>MCP Servers</Title>
+        <Title level={2}>{t("mcpServers.title")}</Title>
         <Alert
-          message="Error"
+          message={t("common.error")}
           description={error}
           type="error"
           showIcon
@@ -275,14 +277,18 @@ const McpServersList: React.FC = () => {
 
   return (
     <div className="p-4">
-      <Title level={2}>MCP Servers</Title>
+      <Title level={2}>{t("mcpServers.title")}</Title>
       <Text className="text-gray-600 dark:text-gray-300 mb-4 block">
-        Manage Model Context Protocol servers to extend your agent's capabilities
+        {t("mcpServers.subtitle")}
       </Text>
 
       {mcpServers.length === 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <AddMcpServerCard onClick={handleAddServer} />
+          <AddMcpServerCard
+            onClick={handleAddServer}
+            title={t("mcpServers.addServer")}
+            description={t("mcpServers.addServerDescription")}
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -296,7 +302,11 @@ const McpServersList: React.FC = () => {
               onDelete={handleDeleteServer}
             />
           )})}
-          <AddMcpServerCard onClick={handleAddServer} />
+          <AddMcpServerCard
+            onClick={handleAddServer}
+            title={t("mcpServers.addServer")}
+            description={t("mcpServers.addServerDescription")}
+          />
         </div>
       )}
 
