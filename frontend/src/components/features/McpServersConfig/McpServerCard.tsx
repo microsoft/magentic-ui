@@ -2,6 +2,7 @@ import React from "react";
 import { Card, Typography, Button, Tag, Tooltip } from "antd";
 import { CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined } from "@ant-design/icons";
 import { MCPServerInfo } from "./types";
+import { useTranslation } from "react-i18next";
 
 const { Title, Text } = Typography;
 
@@ -13,6 +14,7 @@ interface McpServerCardProps {
 }
 
 const McpServerCard: React.FC<McpServerCardProps> = ({ server, index, onEdit, onDelete }) => {
+  const { t } = useTranslation();
   const DESCRIPTION_CHAR_LIMIT = 100;
 
   const truncateText = (text: string, limit: number) => {
@@ -23,11 +25,11 @@ const McpServerCard: React.FC<McpServerCardProps> = ({ server, index, onEdit, on
   const getServerTypeLabel = (serverType: string) => {
     switch (serverType) {
       case "StdioServerParams":
-        return "Stdio";
+        return t("mcpServers.serverType.stdio");
       case "SseServerParams":
-        return "SSE";
+        return t("mcpServers.serverType.sse");
       default:
-        return "Unknown";
+        return t("mcpServers.serverType.unknown");
     }
   };
 
@@ -45,13 +47,13 @@ const McpServerCard: React.FC<McpServerCardProps> = ({ server, index, onEdit, on
 
   const getConnectionStatusText = () => {
     if (!server.connectionStatus) {
-      return "Not tested";
+      return t("mcpServers.notTested");
     }
 
     if (server.connectionStatus.isConnected) {
-      return `Test found ${server.connectionStatus.toolsFound || 0} tools`;
+      return t("mcpServers.testFoundTools", { count: server.connectionStatus.toolsFound || 0 });
     } else {
-      return "Test failed";
+      return t("mcpServers.testFailed");
     }
   };
 
@@ -82,7 +84,7 @@ const McpServerCard: React.FC<McpServerCardProps> = ({ server, index, onEdit, on
             </Text>
           ) : (
             <Text className="text-gray-500 dark:text-gray-400 text-sm italic leading-6">
-              No description available
+              {t("mcpServers.noDescription")}
             </Text>
           )}
         </div>
@@ -94,7 +96,7 @@ const McpServerCard: React.FC<McpServerCardProps> = ({ server, index, onEdit, on
             className="rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
             onClick={() => onEdit?.(server)}
           >
-            Edit
+            {t("common.edit")}
           </Button>
           <Button
             type="text"
@@ -103,7 +105,7 @@ const McpServerCard: React.FC<McpServerCardProps> = ({ server, index, onEdit, on
             className="rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             onClick={() => onDelete?.(server)}
           >
-            Remove
+            {t("common.delete")}
           </Button>
         </div>
       </div>

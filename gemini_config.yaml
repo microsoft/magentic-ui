@@ -1,0 +1,22 @@
+# Gemini Flash 配置文件
+gemini_client: &gemini_client
+  provider: OpenAIChatCompletionClient
+  config:
+    model: gemini-2.5-flash
+    api_key: AIzaSyBLytXM5rtyFwkQNBq2sTaANuobEA-4ZgU
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+    max_retries: 5
+    model_info:
+      vision: true
+      function_calling: true
+      json_output: true
+      family: unknown
+      structured_output: true
+
+orchestrator_client: *gemini_client
+coder_client: *gemini_client
+web_surfer_client: *gemini_client
+file_surfer_client: *gemini_client
+action_guard_client: *gemini_client
+plan_learning_client: *gemini_client
+model_client: *gemini_client
