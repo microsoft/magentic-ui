@@ -98,16 +98,21 @@ def run_system_evaluation(
     """
     benchmark_constructor: Optional[Callable[..., Benchmark]] = None
     if args.dataset == "WebVoyager":
-        # Download the dataset (only needed once)
-        client = ChatCompletionClient.load_component(
-            {
-                "provider": "OpenAIChatCompletionClient",
-                "config": {
-                    "model": "gpt-4o-2024-08-06",
-                },
-                "max_retries": 10,
-            }
-        )
+        # Use eval_client from config if available, otherwise fall back to OpenAI
+        eval_client_config = config.get("eval_client") if config else None
+
+        if eval_client_config:
+            client = ChatCompletionClient.load_component(eval_client_config)
+        else:
+            client = ChatCompletionClient.load_component(
+                {
+                    "provider": "OpenAIChatCompletionClient",
+                    "config": {
+                        "model": "gpt-4o-2024-08-06",
+                    },
+                    "max_retries": 10,
+                }
+            )
 
         def create_benchmark(data_dir="WebVoyager", name="WebVoyager"):
             benchmark = WebVoyagerBenchmark(

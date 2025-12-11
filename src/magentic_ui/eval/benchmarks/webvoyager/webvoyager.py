@@ -52,8 +52,10 @@ class WebVoyagerBenchmark(Benchmark):
     and evaluates predictions using the GAIA evaluator.
     """
 
-    DATA_URL = "https://raw.githubusercontent.com/MinorJerry/WebVoyager/main/data/WebVoyager_data.jsonl"
-    REFERENCE_URL = "https://raw.githubusercontent.com/MinorJerry/WebVoyager/main/data/reference_answer.json"
+    # DATA_URL = "https://raw.githubusercontent.com/MinorJerry/WebVoyager/main/data/WebVoyager_data.jsonl"
+    # REFERENCE_URL = "https://raw.githubusercontent.com/MinorJerry/WebVoyager/main/data/reference_answer.json"
+    DATA_URL = "https://raw.githubusercontent.com/microsoft/fara/main/webeval/data/webvoyager/WebVoyager_data_08312025.jsonl"
+    REFERENCE_URL = "https://raw.githubusercontent.com/microsoft/fara/main/webeval/data/webvoyager/reference_answer.json"
     GAIA_DATA_URL = "https://raw.githubusercontent.com/MinorJerry/WebVoyager/main/data/GAIA_web.jsonl"
 
     def __init__(
