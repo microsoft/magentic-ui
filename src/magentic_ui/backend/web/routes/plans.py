@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from autogen_agentchat.messages import TextMessage, MultiModalMessage
 from autogen_core.models import ChatCompletionClient
 
-from ....learning import learn_plan_from_messages
+from ....learning import learn_plan_from_messages, learn_script_from_messages
 from ....learning.memory_provider import MemoryControllerProvider
 
 from ...datamodel import Plan
@@ -238,5 +238,132 @@ async def learn_plan(
         return {
             "status": False,
             "message": "Failed to create plan",
+            "error": "INTERNAL_ERROR",
+        }
+
+
+class ExportScriptRequest(BaseModel):
+    session_id: int
+    user_id: str
+
+
+@router.post("/export_script")
+async def export_script(
+    request: ExportScriptRequest,
+    db=Depends(get_db),
+):
+    """Export a Playwright script from chat messages in a session"""
+    session_id = request.session_id
+    user_id = request.user_id
+
+    if not session_id or not user_id:
+        return {
+            "status": False,
+            "message": "Missing required parameters",
+            "error": "MISSING_PARAMETERS",
+        }
+
+    try:
+        # Read the config file, if present
+        config: dict[str, Any] = {}
+        config_file = os.environ.get("_CONFIG")
+        if config_file:
+            with open(config_file, "r") as f:
+                config = yaml.safe_load(f)
+
+        # Load the client from the config
+        script_learning_config = config.get("plan_learning_client", None)
+        if not script_learning_config:
+            script_learning_config = config.get("orchestrator_client", None)
+
+        if script_learning_config:
+            model_client = ChatCompletionClient.load_component(script_learning_config)
+        else:
+            # If nothing was provided, use a safe default
+            gpt4o_config = {
+                "provider": "OpenAIChatCompletionClient",
+                "config": {
+                    "model": "gpt-4o-2024-08-06",
+                    "api_key": os.environ.get("OPENAI_API_KEY"),
+                },
+                "max_retries": 5,
+            }
+            if os.environ.get("OPENAI_BASE_URL"):
+                gpt4o_config["config"]["base_url"] = os.environ.get("OPENAI_BASE_URL")
+            model_client = ChatCompletionClient.load_component(gpt4o_config)
+
+        # 1. Retrieve messages from database
+        runs_result = await list_session_runs(
+            session_id=session_id, user_id=user_id, db=db
+        )
+
+        runs = runs_result.get("data", {}).get("runs", [])
+        messages = []
+        if len(runs) > 0:
+            messages = runs[0].get("messages", [])
+
+        if not messages:
+            return {
+                "status": False,
+                "message": "No messages found in this session",
+                "error": "NO_MESSAGES",
+            }
+
+        # 2. Format messages for script learning
+        messages_for_learning = []
+        for msg in messages:
+            # Include messages from web_surfer and user
+            if msg.config.get("source", "") not in [
+                "user",
+                "user_proxy",
+                "web_surfer",
+            ]:
+                continue
+            if msg.config.get("type") == "TextMessage":
+                messages_for_learning.append(
+                    TextMessage(
+                        source=msg.config.get("source", ""),
+                        content=msg.config.get("content", ""),
+                    )
+                )
+            elif msg.config.get("type") == "MultiModalMessage":
+                messages_for_learning.append(
+                    MultiModalMessage(
+                        source=msg.config.get("source", ""),
+                        content=msg.config.get("content", []),
+                    )
+                )
+
+        if not messages_for_learning:
+            return {
+                "status": False,
+                "message": "No web_surfer messages found in this session",
+                "error": "NO_WEB_MESSAGES",
+            }
+
+        # 3. Generate Playwright script
+        script = await learn_script_from_messages(model_client, messages_for_learning)
+
+        # 4. Convert to Python script
+        python_script = script.to_python_script()
+
+        return {
+            "status": True,
+            "data": {
+                "script": python_script,
+                "script_data": script.model_dump(),
+                "task": script.task,
+            },
+            "message": "Script generated successfully",
+        }
+
+    except Exception:
+        import traceback
+
+        logger.error(traceback.format_exc())
+
+        return {
+            "status": False,
+            "message": "Failed to generate script",
             "error": "INTERNAL_ERROR",
         }

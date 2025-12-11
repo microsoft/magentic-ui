@@ -12,6 +12,7 @@ import {
   MoreVertical,
   StopCircle,
   Server,
+  Code,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Session, RunStatus } from "../types/datamodel";
@@ -224,6 +225,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 id: "saved_plan",
                 label: t('sidebar.savedPlans'),
                 icon: <Archive className="w-4 h-4" />,
+              },
+              {
+                id: "saved_script",
+                label: t('sidebar.savedScripts'),
+                icon: <Code className="w-4 h-4" />,
               },
             ]}
             activeItem={activeSubMenuItem}

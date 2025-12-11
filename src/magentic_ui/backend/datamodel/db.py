@@ -231,4 +231,32 @@ class Plan(SQLModel, table=True):
             return value.isoformat()
 
 
-DatabaseModel = Team | Message | Session | Run | Gallery | Settings | Plan
+class Script(SQLModel, table=True):
+    """Playwright script for replay automation"""
+    __table_args__ = {"sqlite_autoincrement": True}
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), server_default=func.now()),
+    )
+    updated_at: datetime = Field(
+        default_factory=datetime.now,
+        sa_column=Column(DateTime(timezone=True), onupdate=func.now()),
+    )
+    user_id: Optional[str] = None
+    task: Optional[str] = None  # Description of what this script does
+    start_url: Optional[str] = None  # Initial URL
+    actions: Optional[List[dict[str, Any]]] = Field(
+        default_factory=list, sa_column=Column(JSON)
+    )  # List of PlaywrightAction dicts
+    viewport_width: int = 1280
+    viewport_height: int = 720
+    session_id: Optional[int] = None  # Source session ID
+    run_count: int = 0  # Number of times executed
+
+    @field_serializer("created_at", "updated_at")
+    def serialize_datetime(cls, value: datetime) -> str:
+        if isinstance(value, datetime):
+            return value.isoformat()
+
+
+DatabaseModel = Team | Message | Session | Run | Gallery | Settings | Plan | Script

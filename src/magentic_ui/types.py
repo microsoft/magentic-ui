@@ -195,3 +195,142 @@ class CheckpointEvent(BaseAgentEvent):
 
     def to_text(self) -> str:
         return "Checkpoint"
+
+
+# ============================================================================
+# Playwright Script Generation Types
+# ============================================================================
+
+
+class PlaywrightAction(BaseModel):
+    """
+    A class representing a single Playwright action.
+
+    Attributes:
+        action_type (str): The type of action (e.g., 'goto', 'click', 'fill', 'press', 'wait', 'scroll').
+        selector (str, optional): CSS selector, XPath, or Playwright locator for the target element.
+        value (str, optional): Value for fill/type actions, or URL for goto.
+        description (str): Human-readable description of what this action does.
+        wait_after (int, optional): Milliseconds to wait after this action. Default: 0
+    """
+
+    action_type: str
+    selector: Optional[str] = None
+    value: Optional[str] = None
+    description: str
+    wait_after: int = 0
+
+
+class PlaywrightScript(BaseModel):
+    """
+    A class representing a complete Playwright script.
+
+    Attributes:
+        task (str): Description of what this script accomplishes.
+        start_url (str): The initial URL to navigate to.
+        actions (List[PlaywrightAction]): Sequence of actions to perform.
+        viewport_width (int): Browser viewport width. Default: 1280
+        viewport_height (int): Browser viewport height. Default: 720
+    """
+
+    task: str
+    start_url: str
+    actions: List[PlaywrightAction]
+    viewport_width: int = 1280
+    viewport_height: int = 720
+
+    def to_python_script(self) -> str:
+        """Generate a standalone Python Playwright script."""
+        lines = [
+            '"""',
+            f"Playwright Script: {self.task}",
+            "",
+            "Auto-generated from Magentic-UI session.",
+            "Run with: python script.py",
+            '"""',
+            "",
+            "import asyncio",
+            "from playwright.async_api import async_playwright",
+            "",
+            "",
+            "async def main():",
+            "    async with async_playwright() as p:",
+            f"        browser = await p.chromium.launch(headless=False)",
+            "        context = await browser.new_context(",
+            f"            viewport={{'width': {self.viewport_width}, 'height': {self.viewport_height}}}",
+            "        )",
+            "        page = await context.new_page()",
+            "",
+            f'        # Navigate to start URL',
+            f'        await page.goto("{self._escape_string(self.start_url)}")',
+            "        await page.wait_for_load_state('networkidle')",
+            "",
+        ]
+
+        for i, action in enumerate(self.actions):
+            lines.append(f"        # Step {i + 1}: {action.description}")
+            lines.extend(self._action_to_code(action))
+            if action.wait_after > 0:
+                lines.append(f"        await asyncio.sleep({action.wait_after / 1000})")
+            lines.append("")
+
+        lines.extend([
+            '        print("Script completed successfully!")',
+            "        await browser.close()",
+            "",
+            "",
+            'if __name__ == "__main__":',
+            "    asyncio.run(main())",
+            "",
+        ])
+
+        return "\n".join(lines)
+
+    def _escape_string(self, s: str) -> str:
+        """Escape special characters for Python string literals."""
+        return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+    def _action_to_code(self, action: PlaywrightAction) -> List[str]:
+        """Convert a single action to Python code lines."""
+        code = []
+        at = action.action_type.lower()
+        selector = self._escape_string(action.selector) if action.selector else ""
+        value = self._escape_string(action.value) if action.value else ""
+
+        if at == "goto":
+            code.append(f'        await page.goto("{value}")')
+            code.append("        await page.wait_for_load_state('networkidle')")
+        elif at == "click":
+            code.append(f'        await page.locator("{selector}").click()')
+        elif at == "fill":
+            code.append(f'        await page.locator("{selector}").fill("{value}")')
+        elif at == "type":
+            code.append(f'        await page.locator("{selector}").type("{value}")')
+        elif at == "press":
+            code.append(f'        await page.keyboard.press("{value}")')
+        elif at == "select":
+            code.append(f'        await page.locator("{selector}").select_option("{value}")')
+        elif at == "hover":
+            code.append(f'        await page.locator("{selector}").hover()')
+        elif at == "scroll":
+            if value:
+                code.append(f'        await page.evaluate("window.scrollBy(0, {value})")')
+            else:
+                code.append(f'        await page.locator("{selector}").scroll_into_view_if_needed()')
+        elif at == "wait":
+            if selector:
+                code.append(f'        await page.locator("{selector}").wait_for()')
+            else:
+                # Safely parse wait time, defaulting to 1000ms if invalid
+                try:
+                    wait_time = int(float(value)) if value else 1000
+                except (ValueError, TypeError):
+                    wait_time = 1000
+                code.append(f"        await asyncio.sleep({wait_time / 1000})")
+        elif at == "screenshot":
+            filename = value if value else "screenshot.png"
+            code.append(f'        await page.screenshot(path="{filename}")')
+        else:
+            code.append(f"        # Unknown action type: {at}")
+
+        return code

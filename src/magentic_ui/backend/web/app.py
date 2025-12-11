@@ -17,6 +17,7 @@ from .initialization import AppInitializer
 from .routes import (
     plans,
     runs,
+    scripts,
     sessions,
     settingsroute,
     teams,
@@ -121,6 +122,13 @@ api.include_router(
     plans.router,
     prefix="/plans",
     tags=["plans"],
+    responses={404: {"description": "Not found"}},
+)
+
+api.include_router(
+    scripts.router,
+    prefix="/scripts",
+    tags=["scripts"],
     responses={404: {"description": "Not found"}},
 )
 

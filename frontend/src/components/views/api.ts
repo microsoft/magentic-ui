@@ -401,6 +401,37 @@ export class PlanAPI {
       throw error;
     }
   }
+
+  async exportScript(sessionId: number, userId: string): Promise<any> {
+    try {
+      const response = await fetch(`${this.getBaseUrl()}/plans/export_script`, {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          session_id: sessionId,
+          user_id: userId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Full error response:", errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.detail || response.statusText);
+        } catch (e) {
+          throw new Error(
+            `${response.status} ${response.statusText}: ${errorText}`
+          );
+        }
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error exporting script:", error);
+      throw error;
+    }
+  }
 }
 
 export class SettingsAPI {
@@ -481,8 +512,121 @@ export class McpAPI {
   }
 }
 
+export interface ScriptAction {
+  action_type: string;
+  selector?: string;
+  value?: string;
+  description: string;
+  wait_after?: number;
+}
+
+export interface Script {
+  id?: number;
+  user_id?: string;
+  task?: string;
+  start_url?: string;
+  actions?: ScriptAction[];
+  viewport_width?: number;
+  viewport_height?: number;
+  session_id?: number;
+  run_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export class ScriptAPI {
+  private getBaseUrl(): string {
+    return getServerUrl();
+  }
+
+  private getHeaders(): HeadersInit {
+    return {
+      "Content-Type": "application/json",
+    };
+  }
+
+  async listScripts(userId: string): Promise<Script[]> {
+    const response = await fetch(
+      `${this.getBaseUrl()}/scripts/?user_id=${userId}`,
+      {
+        headers: this.getHeaders(),
+      }
+    );
+    const data = await response.json();
+    if (!data.status) throw new Error(data.message || "Failed to fetch scripts");
+    return data.data;
+  }
+
+  async getScript(scriptId: number, userId: string): Promise<Script> {
+    const response = await fetch(
+      `${this.getBaseUrl()}/scripts/${scriptId}?user_id=${userId}`,
+      {
+        headers: this.getHeaders(),
+      }
+    );
+    const data = await response.json();
+    if (!data.status) throw new Error(data.message || "Failed to fetch script");
+    return data.data;
+  }
+
+  async createScript(scriptData: Partial<Script>, userId: string): Promise<Script> {
+    const script = {
+      ...scriptData,
+      user_id: userId,
+    };
+
+    const response = await fetch(`${this.getBaseUrl()}/scripts/`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify(script),
+    });
+    const data = await response.json();
+    if (!data.status) throw new Error(data.message || "Failed to create script");
+    return data.data;
+  }
+
+  async deleteScript(scriptId: number, userId: string): Promise<void> {
+    const response = await fetch(
+      `${this.getBaseUrl()}/scripts/${scriptId}?user_id=${userId}`,
+      {
+        method: "DELETE",
+        headers: this.getHeaders(),
+      }
+    );
+    const data = await response.json();
+    if (!data.status) throw new Error(data.message || "Failed to delete script");
+  }
+
+  async runScript(scriptId: number, userId: string): Promise<any> {
+    const response = await fetch(
+      `${this.getBaseUrl()}/scripts/${scriptId}/run`,
+      {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify({ user_id: userId }),
+      }
+    );
+    const data = await response.json();
+    if (!data.status) throw new Error(data.message || "Failed to run script");
+    return data.data;
+  }
+
+  async getScriptAsPython(scriptId: number, userId: string): Promise<{ python_code: string; filename: string }> {
+    const response = await fetch(
+      `${this.getBaseUrl()}/scripts/${scriptId}/python?user_id=${userId}`,
+      {
+        headers: this.getHeaders(),
+      }
+    );
+    const data = await response.json();
+    if (!data.status) throw new Error(data.message || "Failed to get script as Python");
+    return data.data;
+  }
+}
+
 export const teamAPI = new TeamAPI();
 export const sessionAPI = new SessionAPI();
 export const planAPI = new PlanAPI();
 export const settingsAPI = new SettingsAPI();
 export const mcpAPI = new McpAPI();
+export const scriptAPI = new ScriptAPI();

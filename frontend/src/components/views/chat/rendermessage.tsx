@@ -22,6 +22,7 @@ import PlanView from "./plan";
 import { IPlanStep, convertToIPlanSteps } from "../../types/plan";
 import RenderFile from "../../common/filerenderer";
 import LearnPlanButton from "../../features/Plans/LearnPlanButton";
+import ExportScriptButton from "../../features/Plans/ExportScriptButton";
 import RenderSentinelStep from "./rendersentinelstep";
 
 // Types
@@ -476,12 +477,20 @@ const RenderFinalAnswer: React.FC<RenderFinalAnswerProps> = memo(
       <div className="border-2 border-secondary rounded-lg p-4">
         <div className="flex justify-between items-center">
           <div className="font-semibold text-primary">Final Answer</div>
-          <LearnPlanButton
-            sessionId={sessionId}
-            messageId={messageIdx}
-            onSuccess={(planId: string) => {
-            }}
-          />
+          <div className="flex gap-2">
+            <LearnPlanButton
+              sessionId={sessionId}
+              messageId={messageIdx}
+              onSuccess={(planId: string) => {
+              }}
+            />
+            <ExportScriptButton
+              sessionId={sessionId}
+              messageId={messageIdx}
+              onSuccess={(script: string) => {
+              }}
+            />
+          </div>
         </div>
         <div className="break-words">
           <MarkdownRenderer content={content} />

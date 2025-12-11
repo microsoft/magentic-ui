@@ -4,6 +4,7 @@ from .db import (
     Plan,
     Run,
     RunStatus,
+    Script,
     Session,
     Settings,
     Team,
@@ -45,5 +46,6 @@ __all__ = [
     "EnvironmentVariable",
     "Gallery",
     "Plan",
+    "Script",
     "DatabaseModel",
 ]

@@ -211,3 +211,9 @@ venv.bak/
 # Task centric memory related db and logs
 **/memory_bank/
 **/pagelogs/
+
+# claude code worktree context
+CLAUDE.md
+WORKTREE_COORDINATION.md
+OVERSEER.md
+.wt-base

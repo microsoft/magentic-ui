@@ -96,6 +96,11 @@ export default function ChatView({
   const [planProcessed, setPlanProcessed] = React.useState(false);
   const processedPlanIds = React.useRef(new Set<string>()).current;
 
+  // Script state (similar to plan state)
+  const [localScript, setLocalScript] = React.useState<any>(null);
+  const [scriptProcessed, setScriptProcessed] = React.useState(false);
+  const processedScriptIds = React.useRef(new Set<string>()).current;
+
   const settingsConfig = useSettingsStore((state) => state.config);
   const { user } = React.useContext(appContext);
 
@@ -244,6 +249,42 @@ export default function ChatView({
         window.removeEventListener(
           "planReady",
           handlePlanReady as EventListener
+        );
+      };
+    }
+  }, [session?.id]);
+
+  // Keep the scriptReady event handler in a separate effect (similar to planReady)
+  React.useEffect(() => {
+    if (session?.id) {
+      const handleScriptReady = (event: CustomEvent) => {
+        // Check if this event belongs to current session
+        if (event.detail.sessionId !== session.id) {
+          return;
+        }
+
+        // Add a unique ID for deduplication if not present
+        const scriptId = event.detail.messageId || `script_${Date.now()}`;
+
+        // Only set if we haven't processed this script already
+        if (!processedScriptIds.has(scriptId)) {
+          const scriptData = {
+            ...event.detail.scriptData,
+            sessionId: session.id,
+            messageId: scriptId,
+          };
+
+          setLocalScript(scriptData);
+          setScriptProcessed(false);
+        }
+      };
+
+      window.addEventListener("scriptReady", handleScriptReady as EventListener);
+
+      return () => {
+        window.removeEventListener(
+          "scriptReady",
+          handleScriptReady as EventListener
         );
       };
     }
@@ -1008,6 +1049,78 @@ export default function ChatView({
       }
     } catch (err) {
       console.error(t("chat.errorProcessingPlanForSession"), session.id, err);
+    }
+  };
+
+  // Script processing effect (similar to plan processing)
+  React.useEffect(() => {
+    if (localScript && !scriptProcessed && visible && session?.id && currentRun) {
+      // Only process if the script belongs to current session
+      if (localScript.sessionId === session.id) {
+        processScript(localScript);
+      } else {
+        setLocalScript(null);
+      }
+    }
+  }, [localScript, scriptProcessed, visible, session?.id, currentRun]);
+
+  const processScript = async (script: any) => {
+    if (!currentRun || !session?.id) return;
+
+    // Verify the script belongs to current session
+    if (script.sessionId !== session.id) {
+      return;
+    }
+
+    try {
+      // Always get a fresh socket connection
+      const socket =
+        activeSocketRef.current?.readyState === WebSocket.OPEN
+          ? activeSocketRef.current
+          : setupWebSocket(currentRun.id, true, false);
+
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        console.error(t("chat.websocketNotAvailableOrNotOpen"));
+        return;
+      }
+
+      // Create session settings with script data
+      // The script will be executed as a task, with the script actions in settings
+      const sessionSettingsConfig = {
+        ...settingsConfig,
+        script: {
+          task: script.task,
+          start_url: script.start_url,
+          actions: script.actions,
+          viewport_width: script.viewport_width,
+          viewport_height: script.viewport_height,
+        },
+      };
+
+      // Use the current session's team config
+      const currentTeamConfig = teamConfig || defaultTeamConfig;
+
+      const message = {
+        type: "start",
+        id: `script_${Date.now()}`,
+        task: script.task || "Execute Playwright Script",
+        team_config: currentTeamConfig,
+        settings_config: sessionSettingsConfig,
+        sessionId: session.id,
+      };
+
+      socket.send(JSON.stringify(message));
+
+      // Mark as no longer first message
+      setNoMessagesYet(false);
+
+      // Mark script as processed
+      setScriptProcessed(true);
+      if (script.messageId) {
+        processedScriptIds.add(script.messageId);
+      }
+    } catch (err) {
+      console.error("Error processing script for session:", session.id, err);
     }
   };
 

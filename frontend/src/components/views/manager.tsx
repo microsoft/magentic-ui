@@ -18,6 +18,7 @@ import { getServerUrl } from "../utils";
 import { RunStatus } from "../types/datamodel";
 import ContentHeader from "../contentheader";
 import PlanList from "../features/Plans/PlanList";
+import ScriptList from "../features/Scripts/ScriptList";
 import McpServersList from "../features/McpServersConfig/McpServersList";
 
 interface SessionWebSocket {
@@ -459,6 +460,28 @@ export const SessionManager: React.FC = () => {
     }, 2000); // Give time for session selection to complete
   };
 
+  const handleCreateSessionFromScript = (
+    sessionId: number,
+    sessionName: string,
+    scriptData: any
+  ) => {
+    // First select the session
+    handleSelectSession({ id: sessionId } as Session);
+
+    // Then dispatch the script data to the chat component
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("scriptReady", {
+          detail: {
+            scriptData: scriptData,
+            sessionId: sessionId,
+            messageId: `script_${Date.now()}`,
+          },
+        })
+      );
+    }, 2000); // Give time for session selection to complete
+  };
+
   return (
     <div className="relative flex flex-col h-full w-full">
       {contextHolder}
@@ -527,6 +550,14 @@ export const SessionManager: React.FC = () => {
                 onTabChange={setActiveSubMenuItem}
                 onSelectSession={handleSelectSession}
                 onCreateSessionFromPlan={handleCreateSessionFromPlan}
+              />
+            </div>
+          ) : activeSubMenuItem === "saved_script" ? (
+            <div className="h-full overflow-hidden pl-4">
+              <ScriptList
+                onTabChange={setActiveSubMenuItem}
+                onSelectSession={handleSelectSession}
+                onCreateSessionFromScript={handleCreateSessionFromScript}
               />
             </div>
           ) : session && sessions.length > 0 ? (
