@@ -99,7 +99,7 @@ const AgentSettingsTab: React.FC<SettingsTabProps> = ({
           description={
             <div>
               <Typography.Text>
-                Magentic-UI was started with an LLM config file ({configFilePath}).
+                AI AutoOper Platform was started with an LLM config file ({configFilePath}).
                 LLM configurations set here will be ignored as they are overridden by the config file.
               </Typography.Text>
               {configContent && (

@@ -40,8 +40,8 @@
     "language": "Language"
   },
   "header": {
-    "title": "Magentic UI",
-    "logo": "Magentic UI Logo",
+    "title": "AI AutoOper Platform",
+    "logo": "AI AutoOper Platform Logo",
     "closeSidebar": "Close Sidebar",
     "openSidebar": "Open Sidebar",
     "createNewSession": "Create new session",
@@ -97,7 +97,7 @@
     "about": "About"
   },
   "chat": {
-    "inputPlaceholder": "Type your response here and let Magentic-UI know of any changes in the browser.",
+    "inputPlaceholder": "Type your response here and let AI AutoOper Platform know of any changes in the browser.",
     "send": "Send",
     "clear": "Clear",
     "newChat": "New Chat",
@@ -147,7 +147,7 @@
     "theme": "Theme",
     "language": "Language",
     "allowedWebsites": "Allowed Websites List",
-    "allowedWebsitesTooltip": "When enabled, Magentic-UI will only be able to visit websites you add to the list below.",
+    "allowedWebsitesTooltip": "When enabled, AI AutoOper Platform will only be able to visit websites you add to the list below.",
     "maxActionsPerStep": "Max Actions Per Step",
     "multipleToolsPerCall": "Multiple Tools Per Call",
     "maxTurns": "Max Turns",
@@ -158,11 +158,11 @@
     "approvalPolicyAutoPermissive": "Auto Permissive",
     "approvalPolicyTooltip": "Controls when approval is required before taking actions",
     "allowReplans": "Allow Replans",
-    "allowReplansTooltip": "When enabled, Magentic-UI will automatically replan if the current plan is not working or you change the original request",
+    "allowReplansTooltip": "When enabled, AI AutoOper Platform will automatically replan if the current plan is not working or you change the original request",
     "doBingSearch": "Use Bing Search for Planning",
-    "doBingSearchTooltip": "When enabled, Magentic-UI will use Bing Search when coming up with a plan. Note this adds 10 seconds to the planning time.",
+    "doBingSearchTooltip": "When enabled, AI AutoOper Platform will use Bing Search when coming up with a plan. Note this adds 10 seconds to the planning time.",
     "retrieveRelevantPlans": "Retrieve Relevant Plans",
-    "retrieveRelevantPlansTooltip": "Controls how Magentic-UI retrieves and uses relevant plans from previous sessions",
+    "retrieveRelevantPlansTooltip": "Controls how AI AutoOper Platform retrieves and uses relevant plans from previous sessions",
     "retrieveRelevantPlansNever": "Never",
     "retrieveRelevantPlansHint": "Hint",
     "retrieveRelevantPlansReuse": "Reuse",
@@ -176,7 +176,7 @@
     "title": "Agent Settings",
     "modelSelector": "Model Selector",
     "mcpAgents": "MCP Agents",
-    "mcpAgentsDescription": "Extend Magentic-UI's capabilities by adding custom agents that connect to local or remote Model Context Protocol (MCP) Servers!",
+    "mcpAgentsDescription": "Extend AI AutoOper Platform's capabilities by adding custom agents that connect to local or remote Model Context Protocol (MCP) Servers!",
     "mcpAgentsRequirement": "Any number of agents are supported, and each agent requires at least one MCP Server.",
     "noMcpAgents": "No MCP Agents. Click \"Add MCP Agent\" to create one.",
     "addMcpAgent": "+ Add MCP Agent",
@@ -214,9 +214,9 @@
   },
   "security": {
     "securityNote": "Security Note:",
-    "securityNoteText": "Magentic-UI cannot see what you do when you take control. Be cautious about entering passwords or sensitive information.",
-    "cantSee": "Magentic-UI can't see what you do when you take control.",
-    "giveControlBack": "Give control back to Magentic-UI"
+    "securityNoteText": "AI AutoOper Platform cannot see what you do when you take control. Be cautious about entering passwords or sensitive information.",
+    "cantSee": "AI AutoOper Platform can't see what you do when you take control.",
+    "giveControlBack": "Give control back to AI AutoOper Platform"
   },
   "feedback": {
     "title": "Feedback",
@@ -227,13 +227,13 @@
   },
   "errors": {
     "pageNotFound": "Page Not Found",
-    "pageNotFoundTitle": "Page Not Found | Magentic-UI",
+    "pageNotFoundTitle": "Page Not Found | AI AutoOper Platform",
     "connectionError": "Connection Error",
     "serverError": "Server Error",
     "validationError": "Validation Error"
   },
   "messages": {
-    "mistakes": "Magentic-UI can make mistakes. Please monitor its work and intervene if necessary."
+    "mistakes": "AI AutoOper Platform can make mistakes. Please monitor its work and intervene if necessary."
   },
   "sampleTasks": {
     "orTrySampleTask": "or try a sample task from below",

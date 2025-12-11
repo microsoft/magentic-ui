@@ -31,7 +31,7 @@
   "theme": {
     "light": "浅色模式",
     "dark": "深色模式",
-    "spirits": "Magentic-UI模式",
+    "spirits": "AI自动化操作平台模式",
     "theme": "主题"
   },
   "language": {
@@ -40,8 +40,8 @@
     "language": "语言"
   },
   "header": {
-    "title": "Magentic UI",
-    "logo": "Magentic UI Logo",
+    "title": "AI自动化操作平台",
+    "logo": "AI自动化操作平台 Logo",
     "closeSidebar": "关闭侧边栏",
     "openSidebar": "打开侧边栏",
     "createNewSession": "创建新会话",
@@ -97,7 +97,7 @@
     "about": "关于"
   },
   "chat": {
-    "inputPlaceholder": "在此输入您的回复，让Magentic-UI了解浏览器中的任何变化。",
+    "inputPlaceholder": "在此输入您的回复，让AI自动化操作平台了解浏览器中的任何变化。",
     "send": "发送",
     "clear": "清空",
     "newChat": "新对话",
@@ -147,7 +147,7 @@
     "theme": "主题",
     "language": "语言",
     "allowedWebsites": "允许的网站列表",
-    "allowedWebsitesTooltip": "启用后，Magentic-UI只能访问您添加到下面列表中的网站。",
+    "allowedWebsitesTooltip": "启用后，AI自动化操作平台只能访问您添加到下面列表中的网站。",
     "maxActionsPerStep": "每步最大操作数",
     "multipleToolsPerCall": "每次调用允许多个工具",
     "maxTurns": "最大轮次",
@@ -158,11 +158,11 @@
     "approvalPolicyAutoPermissive": "自动宽松",
     "approvalPolicyTooltip": "控制在执行操作前何时需要审批",
     "allowReplans": "允许重新规划",
-    "allowReplansTooltip": "启用后，如果当前计划不起作用或您更改原始请求，Magentic-UI将自动重新规划",
+    "allowReplansTooltip": "启用后，如果当前计划不起作用或您更改原始请求，AI自动化操作平台将自动重新规划",
     "doBingSearch": "使用必应搜索进行规划",
-    "doBingSearchTooltip": "启用后，Magentic-UI在制定计划时将使用必应搜索。注意这会增加10秒的规划时间。",
+    "doBingSearchTooltip": "启用后，AI自动化操作平台在制定计划时将使用必应搜索。注意这会增加10秒的规划时间。",
     "retrieveRelevantPlans": "检索相关计划",
-    "retrieveRelevantPlansTooltip": "控制Magentic-UI如何从之前的会话中检索和使用相关计划",
+    "retrieveRelevantPlansTooltip": "控制AI自动化操作平台如何从之前的会话中检索和使用相关计划",
     "retrieveRelevantPlansNever": "从不",
     "retrieveRelevantPlansHint": "提示",
     "retrieveRelevantPlansReuse": "重用",
@@ -176,7 +176,7 @@
     "title": "代理设置",
     "modelSelector": "模型选择器",
     "mcpAgents": "MCP代理",
-    "mcpAgentsDescription": "通过添加连接到本地或远程模型上下文协议(MCP)服务器的自定义代理来扩展Magentic-UI的功能！",
+    "mcpAgentsDescription": "通过添加连接到本地或远程模型上下文协议(MCP)服务器的自定义代理来扩展AI自动化操作平台的功能！",
     "mcpAgentsRequirement": "支持任意数量的代理，每个代理至少需要一个MCP服务器。",
     "noMcpAgents": "暂无MCP代理。点击“添加MCP代理”进行创建。",
     "addMcpAgent": "+ 添加MCP代理",
@@ -214,9 +214,9 @@
   },
   "security": {
     "securityNote": "安全提示：",
-    "securityNoteText": "Magentic-UI无法看到您控制时所做的操作。在输入密码或敏感信息时要小心。",
-    "cantSee": "Magentic-UI无法看到您控制时所做的操作。",
-    "giveControlBack": "将控制权交还给Magentic-UI"
+    "securityNoteText": "AI自动化操作平台无法看到您控制时所做的操作。在输入密码或敏感信息时要小心。",
+    "cantSee": "AI自动化操作平台无法看到您控制时所做的操作。",
+    "giveControlBack": "将控制权交还给AI自动化操作平台"
   },
   "feedback": {
     "title": "反馈",
@@ -227,13 +227,13 @@
   },
   "errors": {
     "pageNotFound": "页面未找到",
-    "pageNotFoundTitle": "页面未找到 | Magentic-UI",
+    "pageNotFoundTitle": "页面未找到 | AI自动化操作平台",
     "connectionError": "连接错误",
     "serverError": "服务器错误",
     "validationError": "验证错误"
   },
   "messages": {
-    "mistakes": "Magentic-UI可能会犯错。请监控其工作并在必要时进行干预。"
+    "mistakes": "AI自动化操作平台可能会犯错。请监控其工作并在必要时进行干预。"
   },
   "sampleTasks": {
     "orTrySampleTask": "或尝试下面的示例任务",

@@ -6,7 +6,6 @@ import { useConfigStore } from "../hooks/store";
 import { Settings } from "lucide-react";
 import SignInModal from "./signin";
 import SettingsModal from "./settings/SettingsModal";
-import logo from "../assets/logo.svg";
 import { Button } from "./common/Button";
 import { useTranslation } from "react-i18next";
 
@@ -66,7 +65,6 @@ const ContentHeader = ({
             )}
           </div>
           <div className="flex items-center space-x-2">
-            <img src={logo} alt={t('header.logo')} className="h-10 w-10" />
             <div className="text-primary text-2xl font-bold">{t('header.title')}</div>
           </div>
         </div>
