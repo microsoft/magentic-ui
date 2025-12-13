@@ -26,7 +26,8 @@
     "redo": "Redo",
     "retry": "Retry",
     "on": "ON",
-    "off": "OFF"
+    "off": "OFF",
+    "stop": "Stop"
   },
   "theme": {
     "light": "Light Mode",
@@ -356,7 +357,27 @@
     "startUrl": "Start URL",
     "actionsCount": "{{count}} actions",
     "runningScript": "Running script...",
-    "scriptStarted": "Script execution started"
+    "scriptStarted": "Script execution started",
+    "connectingToBrowser": "Connecting to browser...",
+    "executionStarted": "Execution started",
+    "connectionError": "Connection error",
+    "connectionClosed": "Connection closed unexpectedly",
+    "executingScript": "Executing: {{task}}",
+    "executingAction": "Step {{current}}/{{total}}: {{description}}",
+    "executionCompleted": "Execution completed successfully",
+    "scriptExecutedSuccessfully": "Script executed successfully!",
+    "executionFailed": "Execution failed: {{error}}",
+    "scriptExecutionFailed": "Script execution failed: {{error}}",
+    "executionError": "Execution error: {{error}}",
+    "actionsCompleted": "actions completed",
+    "waitingForActions": "Waiting for actions to start...",
+    "finalResult": "Final Result",
+    "openLiveView": "Open Live View",
+    "executeScript": "Execute Script",
+    "actionList": "Action List",
+    "browserView": "Browser View",
+    "waitingForBrowser": "Waiting for browser to start...",
+    "executionStopped": "Execution stopped"
   },
   "fileRenderer": {
     "loadingFileContent": "Loading file content...",

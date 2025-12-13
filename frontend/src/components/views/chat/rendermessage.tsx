@@ -9,6 +9,9 @@ import {
   CheckCircle,
   RefreshCw,
   Clock,
+  Play,
+  XCircle,
+  ExternalLink,
 } from "lucide-react";
 import {
   AgentMessageConfig,
@@ -502,6 +505,168 @@ const RenderFinalAnswer: React.FC<RenderFinalAnswerProps> = memo(
 
 RenderFinalAnswer.displayName = "RenderFinalAnswer";
 
+// Script Execution Result component - matches ScriptExecutionView style
+interface ScriptExecutionResultData {
+  task: string;
+  start_url: string;
+  success: boolean;
+  total_actions: number;
+  completed_actions: number;
+  error?: string;
+  actions: Array<{
+    action_type: string;
+    description: string;
+    selector?: string;
+  }>;
+  final_screenshot?: string;
+}
+
+const RenderScriptExecutionResult: React.FC<{ content: string }> = memo(
+  ({ content }) => {
+    let data: ScriptExecutionResultData;
+    try {
+      data = JSON.parse(content);
+    } catch {
+      return <div className="text-sm text-secondary">{content}</div>;
+    }
+
+    const progressPercent =
+      data.total_actions > 0
+        ? Math.round((data.completed_actions / data.total_actions) * 100)
+        : 0;
+
+    return (
+      <div className="border border-secondary rounded-lg overflow-hidden bg-primary">
+        {/* Header - matches ScriptExecutionView */}
+        <div className="flex items-center justify-between p-3 border-b bg-secondary">
+          <div className="flex items-center gap-2">
+            <Play className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-primary">{data.task}</span>
+          </div>
+          {data.start_url && (
+            <a
+              href={data.start_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-secondary hover:underline flex items-center gap-1"
+            >
+              <ExternalLink className="h-3 w-3" />
+              {data.start_url}
+            </a>
+          )}
+        </div>
+
+        {/* Progress bar - matches ScriptExecutionView */}
+        <div className="px-3 py-2 bg-tertiary border-b">
+          <div className="text-xs text-secondary mb-1">
+            {data.success ? "Execution completed successfully" : `Execution failed: ${data.error || "Unknown error"}`}
+          </div>
+          <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div
+              className={`h-full transition-all ${data.success ? "bg-green-500" : "bg-red-500"}`}
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+          <div className="text-xs text-secondary mt-1">
+            {data.completed_actions} / {data.total_actions} actions completed
+          </div>
+        </div>
+
+        {/* Main content - two column layout like ScriptExecutionView */}
+        <div className="flex" style={{ minHeight: "200px", maxHeight: "400px" }}>
+          {/* Left panel - Action list */}
+          <div className="w-[45%] border-r flex flex-col">
+            <div className="p-2 bg-secondary border-b">
+              <h3 className="text-xs font-medium text-primary">Action List</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {data.actions?.map((action, idx) => {
+                const isCompleted = idx < data.completed_actions;
+                const isFailed = idx === data.completed_actions && !data.success;
+
+                return (
+                  <div
+                    key={idx}
+                    className={`flex items-start gap-2 p-2 rounded-md transition-colors ${
+                      isCompleted
+                        ? "bg-green-50 dark:bg-green-900/10"
+                        : isFailed
+                        ? "bg-red-50 dark:bg-red-900/10"
+                        : "bg-tertiary"
+                    }`}
+                  >
+                    {/* Status icon */}
+                    <div className="flex-shrink-0 mt-0.5">
+                      {isCompleted && (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      )}
+                      {isFailed && (
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      )}
+                      {!isCompleted && !isFailed && (
+                        <div className="h-4 w-4 border-2 border-gray-300 rounded-full" />
+                      )}
+                    </div>
+
+                    {/* Action content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-secondary font-mono">
+                          #{idx + 1}
+                        </span>
+                        <span className="text-xs font-medium text-primary">
+                          {action.action_type}
+                        </span>
+                      </div>
+                      <p className="text-xs text-primary truncate">
+                        {action.description}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Error message */}
+              {data.error && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-2 text-red-700 dark:text-red-400 text-xs">
+                  {data.error}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right panel - Screenshot/Browser view */}
+          <div className="flex-1 flex flex-col bg-tertiary">
+            <div className="p-2 bg-secondary border-b">
+              <h3 className="text-xs font-medium text-primary">Browser View</h3>
+            </div>
+            <div className="flex-1 p-2 overflow-auto">
+              {data.final_screenshot ? (
+                <div className="h-full">
+                  <img
+                    src={`data:image/png;base64,${data.final_screenshot}`}
+                    alt="Final screenshot"
+                    className="w-full h-auto rounded border border-secondary"
+                  />
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center text-secondary">
+                  <div className="text-center">
+                    <Play className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-xs">No screenshot available</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+);
+
+RenderScriptExecutionResult.displayName = "RenderScriptExecutionResult";
+
 // Message type checking utilities
 export const messageUtils = {
   isToolCallContent(content: unknown): content is FunctionCall[] {
@@ -570,6 +735,10 @@ export const messageUtils = {
 
   isSentinelSleeping(metadata?: Record<string, any>): boolean {
     return metadata?.type === "sentinel_sleeping";
+  },
+
+  isScriptExecutionResult(metadata?: Record<string, any>): boolean {
+    return metadata?.type === "script_execution_result";
   },
 
   findUserPlan(content: unknown): IPlanStep[] {
@@ -762,6 +931,15 @@ export const RenderMessage: React.FC<MessageProps> = memo(
           </div>
         );
       }
+    }
+
+    // Handle script execution result message
+    if (messageUtils.isScriptExecutionResult(message.metadata)) {
+      return (
+        <div className="mb-3 w-full">
+          <RenderScriptExecutionResult content={message.content as string} />
+        </div>
+      );
     }
 
     const isUser = messageUtils.isUser(message.source);

@@ -60,6 +60,7 @@ class PlaywrightReplayEngine:
         playwright_controller: Optional[PlaywrightController] = None,
         on_action_start: Optional[Callable[[int, str], None]] = None,
         on_action_complete: Optional[Callable[[ActionResult], None]] = None,
+        should_stop: Optional[Callable[[], bool]] = None,
     ):
         """
         Initialize the replay engine.
@@ -68,10 +69,12 @@ class PlaywrightReplayEngine:
             playwright_controller: Optional controller to use. If None, creates a new one.
             on_action_start: Callback when an action starts (action_index, description)
             on_action_complete: Callback when an action completes (ActionResult)
+            should_stop: Optional callback to check if execution should stop
         """
         self._controller = playwright_controller or PlaywrightController()
         self._on_action_start = on_action_start
         self._on_action_complete = on_action_complete
+        self._should_stop_callback = should_stop
         self._is_running = False
         self._should_stop = False
 
@@ -111,7 +114,8 @@ class PlaywrightReplayEngine:
 
             # Execute each action
             for idx, action in enumerate(actions):
-                if self._should_stop:
+                # Check both internal flag and external callback
+                if self._should_stop or (self._should_stop_callback and self._should_stop_callback()):
                     logger.info("Replay stopped by user request")
                     break
 
@@ -182,7 +186,8 @@ class PlaywrightReplayEngine:
                 await page.wait_for_load_state("networkidle")
 
             for idx, action in enumerate(actions):
-                if self._should_stop:
+                # Check both internal flag and external callback
+                if self._should_stop or (self._should_stop_callback and self._should_stop_callback()):
                     break
 
                 result = await self._execute_action(page, idx, action)

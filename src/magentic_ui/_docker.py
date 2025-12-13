@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 
 import docker
 from docker.errors import DockerException, ImageNotFound
@@ -16,13 +17,53 @@ PYTHON_IMAGE = os.getenv(
 )
 
 
-def check_docker_running() -> bool:
+def _get_docker_socket_paths() -> list[str]:
+    """Get list of common Docker socket paths to try."""
+    home = Path.home()
+    return [
+        # Docker Desktop on macOS (newer versions)
+        f"unix://{home}/.docker/run/docker.sock",
+        # Docker Desktop on macOS (alternative location)
+        "unix:///var/run/docker.sock",
+        # Colima on macOS
+        f"unix://{home}/.colima/default/docker.sock",
+        # Podman on macOS
+        f"unix://{home}/.local/share/containers/podman/machine/podman.sock",
+        # Rancher Desktop
+        f"unix://{home}/.rd/docker.sock",
+    ]
+
+
+def _try_docker_connection(docker_host: str | None = None) -> docker.DockerClient | None:
+    """Try to connect to Docker with given host, return client if successful."""
     try:
-        client = docker.from_env()
+        if docker_host:
+            client = docker.DockerClient(base_url=docker_host)
+        else:
+            client = docker.from_env()
         client.ping()  # type: ignore
-        return True
+        return client
     except (DockerException, ConnectionError):
-        return False
+        return None
+
+
+def check_docker_running() -> bool:
+    """Check if Docker is running, trying multiple socket paths if needed."""
+    # First try the default (respects DOCKER_HOST env var)
+    if _try_docker_connection() is not None:
+        return True
+
+    # If default fails and DOCKER_HOST is not set, try common socket paths
+    if not os.environ.get("DOCKER_HOST"):
+        for socket_path in _get_docker_socket_paths():
+            client = _try_docker_connection(socket_path)
+            if client is not None:
+                # Set DOCKER_HOST so subsequent docker.from_env() calls work
+                os.environ["DOCKER_HOST"] = socket_path
+                logging.info(f"Docker found at {socket_path}")
+                return True
+
+    return False
 
 
 def check_docker_image(image_name: str, client: docker.DockerClient) -> bool:

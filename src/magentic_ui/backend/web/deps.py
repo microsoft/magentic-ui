@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 _db_manager: Optional[DatabaseManager] = None
 _websocket_manager: Optional[WebSocketManager] = None
 
+# Global config storage
+_workspace_config: Dict[str, Any] = {}
+
 # Context manager for database sessions
 
 
@@ -59,6 +62,11 @@ async def get_websocket_manager() -> WebSocketManager:
     return _websocket_manager
 
 
+def get_workspace_config() -> Dict[str, Any]:
+    """Get workspace configuration for script executor"""
+    return _workspace_config
+
+
 # Manager initialization and cleanup
 
 
@@ -73,9 +81,17 @@ async def init_managers(
     run_without_docker: bool,
 ) -> None:
     """Initialize all manager instances"""
-    global _db_manager, _websocket_manager, _team_manager
+    global _db_manager, _websocket_manager, _team_manager, _workspace_config
 
     logger.info("Initializing managers...")
+
+    # Store workspace config for script executor
+    _workspace_config = {
+        "internal_workspace_root": Path(internal_workspace_root),
+        "external_workspace_root": Path(external_workspace_root),
+        "inside_docker": inside_docker,
+        "run_without_docker": run_without_docker,
+    }
 
     try:
         # Initialize database manager

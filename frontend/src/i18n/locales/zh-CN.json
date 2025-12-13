@@ -26,7 +26,8 @@
     "redo": "重做",
     "retry": "重试",
     "on": "开启",
-    "off": "关闭"
+    "off": "关闭",
+    "stop": "停止"
   },
   "theme": {
     "light": "浅色模式",
@@ -356,7 +357,27 @@
     "startUrl": "起始 URL",
     "actionsCount": "{{count}} 个操作",
     "runningScript": "正在运行脚本...",
-    "scriptStarted": "脚本执行已开始"
+    "scriptStarted": "脚本执行已开始",
+    "connectingToBrowser": "正在连接浏览器...",
+    "executionStarted": "执行已开始",
+    "connectionError": "连接错误",
+    "connectionClosed": "连接意外关闭",
+    "executingScript": "正在执行：{{task}}",
+    "executingAction": "步骤 {{current}}/{{total}}：{{description}}",
+    "executionCompleted": "执行成功完成",
+    "scriptExecutedSuccessfully": "脚本执行成功！",
+    "executionFailed": "执行失败：{{error}}",
+    "scriptExecutionFailed": "脚本执行失败：{{error}}",
+    "executionError": "执行错误：{{error}}",
+    "actionsCompleted": "个操作已完成",
+    "waitingForActions": "等待操作开始...",
+    "finalResult": "最终结果",
+    "openLiveView": "打开实时预览",
+    "executeScript": "执行脚本",
+    "actionList": "操作列表",
+    "browserView": "浏览器视图",
+    "waitingForBrowser": "等待浏览器启动...",
+    "executionStopped": "执行已停止"
   },
   "fileRenderer": {
     "loadingFileContent": "正在加载文件内容...",

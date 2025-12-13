@@ -69,12 +69,8 @@ export const getStatusIcon = (
         </div>
       );
     case "complete":
-      return (
-        <div className="text-sm mb-2">
-          <AlertTriangle size={20} className="inline-block mr-2 text-red-500" />
-          {errorMessage || t("statusIcon.errorOccurred")}
-        </div>
-      );
+      // Complete status - no status indicator needed
+      return null;
     case "error":
       return (
         <div className="text-sm mb-2">

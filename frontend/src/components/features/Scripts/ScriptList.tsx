@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { appContext } from "../../../hooks/provider";
 import { ScriptAPI, SessionAPI } from "../../views/api";
 import ScriptCard, { IScript } from "./ScriptCard";
+import ScriptExecutionView from "./ScriptExecutionView";
 import { Session } from "../../types/datamodel";
 
 interface ScriptListProps {
@@ -30,6 +31,10 @@ const ScriptList: React.FC<ScriptListProps> = ({
   const sessionAPI = new SessionAPI();
   const [searchTerm, setSearchTerm] = useState<string>("");
   const { t } = useTranslation();
+
+  // State for direct script execution
+  const [executingScript, setExecutingScript] = useState<IScript | null>(null);
+  const [executionSessionId, setExecutionSessionId] = useState<number | null>(null);
 
   const userId = user?.email || "";
 
@@ -62,7 +67,49 @@ const ScriptList: React.FC<ScriptListProps> = ({
     message.success(t("scripts.scriptDeletedSuccessfully"));
   };
 
+  // Direct script execution - creates session and executes via WebSocket without LLM
   const handleRunScript = async (script: IScript) => {
+    try {
+      message.loading({
+        content: t("scripts.creatingNewSession"),
+        key: "sessionCreation",
+      });
+
+      // Create a new session for this script execution
+      const sessionResponse = await sessionAPI.createSession(
+        {
+          name: `${t("scripts.scriptPrefix")}: ${script.task}`,
+          team_id: undefined,
+        },
+        userId
+      );
+
+      message.success({
+        content: t("scripts.scriptStarted"),
+        key: "sessionCreation",
+      });
+
+      // Update URL to reflect new session
+      if (sessionResponse.id) {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set("sessionId", sessionResponse.id.toString());
+        window.history.pushState({}, "", newUrl.toString());
+      }
+
+      // Set execution state with session info
+      setExecutionSessionId(sessionResponse.id || null);
+      setExecutingScript(script);
+    } catch (error) {
+      console.error("Error creating session for script:", error);
+      message.error({
+        content: t("scripts.errorCreatingSession"),
+        key: "sessionCreation",
+      });
+    }
+  };
+
+  // LLM-based script execution - creates session and passes to orchestrator
+  const handleRunScriptWithLLM = async (script: IScript) => {
     try {
       message.loading({
         content: t("scripts.creatingNewSession"),
@@ -98,11 +145,34 @@ const ScriptList: React.FC<ScriptListProps> = ({
     }
   };
 
+  const handleCloseExecutionView = () => {
+    // If we have a session, navigate to it
+    if (executionSessionId && onSelectSession) {
+      onSelectSession({ id: executionSessionId } as Session);
+      onTabChange?.(""); // Clear the tab to show session view
+    }
+    setExecutingScript(null);
+    setExecutionSessionId(null);
+  };
+
   // Filter scripts based on search term
   const filteredScripts = scripts.filter((script) =>
     (script.task || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
     (script.start_url || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // If a script is being executed, show the full-page execution view
+  if (executingScript) {
+    return (
+      <div className="h-[calc(100vh-100px)]">
+        <ScriptExecutionView
+          script={executingScript}
+          sessionId={executionSessionId}
+          onBack={handleCloseExecutionView}
+        />
+      </div>
+    );
+  }
 
   if (loading) {
     return (

@@ -622,6 +622,20 @@ export class ScriptAPI {
     if (!data.status) throw new Error(data.message || "Failed to get script as Python");
     return data.data;
   }
+
+  /**
+   * Get WebSocket URL for direct script execution (without LLM)
+   */
+  getExecuteWebSocketUrl(scriptId: number, userId: string, sessionId?: number): string {
+    const baseUrl = this.getBaseUrl();
+    // Convert HTTP to WS
+    const wsUrl = baseUrl.replace(/^http/, "ws");
+    let url = `${wsUrl}/scripts/${scriptId}/execute?user_id=${userId}`;
+    if (sessionId) {
+      url += `&session_id=${sessionId}`;
+    }
+    return url;
+  }
 }
 
 export const teamAPI = new TeamAPI();
