@@ -162,12 +162,17 @@ class ScriptExecutor:
             response = db.get(Run, filters={"id": run_id})
             if response.status and response.data:
                 run_data = response.data[0]
-                # Create updated run object
+                # Preserve all existing fields including timestamps
+                created_at = run_data.get("created_at") if isinstance(run_data, dict) else getattr(run_data, "created_at", None)
+                user_id = run_data.get("user_id") if isinstance(run_data, dict) else getattr(run_data, "user_id", None)
+                # Create updated run object preserving original fields
                 run = Run(
                     id=run_id,
                     session_id=run_data.get("session_id") if isinstance(run_data, dict) else run_data.session_id,
                     status=status,
                     task=run_data.get("task") if isinstance(run_data, dict) else run_data.task,
+                    created_at=created_at,
+                    user_id=user_id,
                 )
                 db.upsert(run)
         except Exception as e:
@@ -186,7 +191,7 @@ class ScriptExecutor:
     ) -> None:
         """Save a message to the session."""
         try:
-            config = {
+            config: Dict[str, Any] = {
                 "source": source,
                 "content": content,
                 "message_type": message_type,
@@ -282,7 +287,7 @@ class ScriptExecutor:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
-            browser, page, vnc_port = await self._start_browser(
+            _, page, vnc_port = await self._start_browser(
                 headless=False,
                 viewport_width=viewport_width,
                 viewport_height=viewport_height,

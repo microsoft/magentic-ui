@@ -12,7 +12,6 @@ import { appContext } from "../../../hooks/provider";
 import { ScriptAPI } from "../../views/api";
 import { IScript } from "./ScriptCard";
 import BrowserIframe from "../../views/chat/DetailViewer/browser_iframe";
-import { useSettingsStore } from "../../store";
 
 interface ActionResult {
   action_index: number;
@@ -38,7 +37,6 @@ const ScriptExecutionView: React.FC<ScriptExecutionViewProps> = ({
   const { user } = useContext(appContext);
   const userId = user?.email || "default";
   const scriptAPI = new ScriptAPI();
-  const config = useSettingsStore((state) => state.config);
 
   const [status, setStatus] = useState<
     "idle" | "connecting" | "running" | "completed" | "stopped" | "error"
@@ -47,6 +45,7 @@ const ScriptExecutionView: React.FC<ScriptExecutionViewProps> = ({
   const [totalActions, setTotalActions] = useState<number>(0);
   const [actionResults, setActionResults] = useState<ActionResult[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [vncUrl, setVncUrl] = useState<string | null>(null);
   const [vncPort, setVncPort] = useState<string | null>(null);
   const [finalScreenshot, setFinalScreenshot] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>("");
@@ -93,6 +92,7 @@ const ScriptExecutionView: React.FC<ScriptExecutionViewProps> = ({
     setTotalActions(script.actions?.length || 0);
     setActionResults([]);
     setError(null);
+    setVncUrl(null);
     setVncPort(null);
     setFinalScreenshot(null);
     setStatusMessage(t("scripts.connectingToBrowser"));
@@ -145,7 +145,18 @@ const ScriptExecutionView: React.FC<ScriptExecutionViewProps> = ({
         break;
 
       case "vnc_info":
-        setVncPort(data.data.vnc_port?.toString());
+        // Store port for BrowserIframe component
+        if (data.data.vnc_port) {
+          setVncPort(data.data.vnc_port.toString());
+        }
+        // Use the full vnc_url from backend if available, otherwise construct from port
+        if (data.data.vnc_url) {
+          setVncUrl(data.data.vnc_url);
+        } else if (data.data.vnc_port) {
+          // Fallback: construct URL from port using current window location hostname
+          const hostname = window.location.hostname || "localhost";
+          setVncUrl(`http://${hostname}:${data.data.vnc_port}/vnc.html`);
+        }
         break;
 
       case "action_start":
@@ -238,9 +249,6 @@ const ScriptExecutionView: React.FC<ScriptExecutionViewProps> = ({
   const progressPercent =
     totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0;
 
-  // Get server URL for browser iframe
-  const serverHost = config.server_url || "localhost";
-
   return (
     <div className="h-full flex flex-col bg-primary">
       {/* Header */}
@@ -259,15 +267,10 @@ const ScriptExecutionView: React.FC<ScriptExecutionViewProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {vncPort && (
+          {vncUrl && (
             <Button
               type="default"
-              onClick={() =>
-                window.open(
-                  `http://${serverHost}:${vncPort}/vnc.html`,
-                  "_blank"
-                )
-              }
+              onClick={() => window.open(vncUrl, "_blank")}
               icon={<ExternalLink className="h-4 w-4" />}
             >
               {t("scripts.openLiveView")}
@@ -401,7 +404,7 @@ const ScriptExecutionView: React.FC<ScriptExecutionViewProps> = ({
             </h3>
             {vncPort && (
               <span className="text-xs text-secondary">
-                VNC: {serverHost}:{vncPort}
+                VNC Port: {vncPort}
               </span>
             )}
           </div>
@@ -416,7 +419,6 @@ const ScriptExecutionView: React.FC<ScriptExecutionViewProps> = ({
                 viewOnly={false}
                 scaling="local"
                 showTakeControlOverlay={false}
-                serverUrl={serverHost}
               />
             ) : (status === "completed" || status === "stopped") && finalScreenshot ? (
               <div className="h-full flex flex-col">

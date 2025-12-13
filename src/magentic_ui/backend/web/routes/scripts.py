@@ -77,12 +77,15 @@ async def update_script(
         raise HTTPException(status_code=404, detail="Script not found")
 
     existing_data = existing.data[0]
-    # Preserve created_at from existing record
+    # Preserve created_at and run_count from existing record
     created_at = existing_data.get("created_at") if isinstance(existing_data, dict) else getattr(existing_data, "created_at", None)
+    run_count = existing_data.get("run_count", 0) if isinstance(existing_data, dict) else getattr(existing_data, "run_count", 0)
 
+    # Security: use user_id from query parameter, not request body
+    # This prevents users from changing script ownership
     script = Script(
         id=script_id,
-        user_id=request.user_id,
+        user_id=user_id,  # Use query param user_id for security
         task=request.task,
         start_url=request.start_url,
         actions=request.actions,
@@ -90,6 +93,7 @@ async def update_script(
         viewport_height=request.viewport_height,
         session_id=request.session_id,
         created_at=created_at,
+        run_count=run_count,  # Preserve existing run_count
     )
 
     response = db.upsert(script)
@@ -122,6 +126,9 @@ async def run_script(
     1. Getting the script data
     2. Creating a new session
     3. Sending the script to the orchestrator via WebSocket
+
+    Note: run_count is only incremented in the WebSocket execute endpoint
+    to avoid double-counting.
     """
     user_id = request.user_id
 
@@ -132,28 +139,7 @@ async def run_script(
 
     script_data = response.data[0]
 
-    # Increment run count
-    try:
-        current_run_count = script_data.get("run_count", 0) if isinstance(script_data, dict) else getattr(script_data, "run_count", 0)
-        # Preserve created_at from existing record
-        created_at = script_data.get("created_at") if isinstance(script_data, dict) else getattr(script_data, "created_at", None)
-
-        # Update run count in database
-        update_script = Script(
-            id=script_id,
-            user_id=user_id,
-            task=script_data.get("task") if isinstance(script_data, dict) else script_data.task,
-            start_url=script_data.get("start_url") if isinstance(script_data, dict) else script_data.start_url,
-            actions=script_data.get("actions") if isinstance(script_data, dict) else script_data.actions,
-            viewport_width=script_data.get("viewport_width", 1280) if isinstance(script_data, dict) else script_data.viewport_width,
-            viewport_height=script_data.get("viewport_height", 720) if isinstance(script_data, dict) else script_data.viewport_height,
-            session_id=script_data.get("session_id") if isinstance(script_data, dict) else script_data.session_id,
-            run_count=current_run_count + 1,
-            created_at=created_at,
-        )
-        db.upsert(update_script)
-    except Exception as e:
-        logger.warning(f"Failed to update run count: {e}")
+    # Note: run_count update moved to WebSocket execute endpoint only
 
     return {
         "status": True,

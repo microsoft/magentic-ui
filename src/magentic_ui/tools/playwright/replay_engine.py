@@ -4,11 +4,11 @@ Playwright Replay Engine - Executes saved scripts in the browser.
 
 import asyncio
 from typing import Any, Dict, List, Optional, Callable, AsyncGenerator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from loguru import logger
 
-from playwright.async_api import Page, BrowserContext
+from playwright.async_api import Page
 
 from .playwright_controller import PlaywrightController
 
@@ -40,11 +40,7 @@ class ReplayResult:
     completed_actions: int
     failed_action_index: Optional[int] = None
     error: Optional[str] = None
-    action_results: List[ActionResult] = None
-
-    def __post_init__(self):
-        if self.action_results is None:
-            self.action_results = []
+    action_results: List[ActionResult] = field(default_factory=list)
 
 
 class PlaywrightReplayEngine:
@@ -119,7 +115,6 @@ class PlaywrightReplayEngine:
                     logger.info("Replay stopped by user request")
                     break
 
-                action_type = action.get("action_type", "unknown")
                 description = action.get("description", f"Action {idx + 1}")
 
                 # Notify action start
@@ -145,7 +140,11 @@ class PlaywrightReplayEngine:
                         break
 
                 # Wait after action if specified
-                wait_after = action.get("wait_after", 0)
+                wait_after_raw = action.get("wait_after", 0)
+                try:
+                    wait_after = int(wait_after_raw) if wait_after_raw else 0
+                except (ValueError, TypeError):
+                    wait_after = 0
                 if wait_after > 0:
                     await asyncio.sleep(wait_after / 1000)
 
@@ -196,7 +195,11 @@ class PlaywrightReplayEngine:
                 if result.status == ActionStatus.FAILED:
                     break
 
-                wait_after = action.get("wait_after", 0)
+                wait_after_raw = action.get("wait_after", 0)
+                try:
+                    wait_after = int(wait_after_raw) if wait_after_raw else 0
+                except (ValueError, TypeError):
+                    wait_after = 0
                 if wait_after > 0:
                     await asyncio.sleep(wait_after / 1000)
 
