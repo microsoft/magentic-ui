@@ -46,18 +46,11 @@ class MagenticUISystemConstructor:
 
 
 class WebVoyagerBenchmarkConstructor:
-    DEFAULT_EVAL_CONFIG = {
-        "provider": "OpenAIChatCompletionClient",
-        "config": {"model": "gpt-4o-2024-08-06"},
-        "max_retries": 10,
-    }
-
     def __init__(self, eval_client_config: Optional[Dict[str, Any]] = None):
-        self.eval_client_config = eval_client_config or self.DEFAULT_EVAL_CONFIG
+        self.eval_client_config = eval_client_config
 
-    def __call__(self, data_dir: str = "WebVoyager"):
+    def __call__(self, data_dir: str = "WebVoyager", name: str = "WebVoyager") -> Benchmark:
         """Create a fresh benchmark instance in the worker process."""
-
         benchmark = WebVoyagerBenchmark(
             data_dir=data_dir,
             eval_method="gpt_eval",
@@ -152,9 +145,9 @@ def run_system_evaluation(
     """
     benchmark_constructor: Optional[Callable[..., Benchmark]] = None
     if args.dataset == "WebVoyager":
-        eval_client_config = config.get("eval_client") if config else None
-        benchmark_constructor = WebVoyagerBenchmarkConstructor(eval_client_config)
-
+        benchmark_constructor = WebVoyagerBenchmarkConstructor(
+            config.get("eval_client") if config else None
+        )
     reload_system_per_task = args.parallel > 1
     reload_benchmark_per_task = False
 

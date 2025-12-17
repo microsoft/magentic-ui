@@ -52,6 +52,12 @@ class WebVoyagerBenchmark(Benchmark):
     and evaluates predictions using the GAIA evaluator.
     """
 
+    DEFAULT_EVAL_CONFIG: Dict[str, Any] = {
+        "provider": "OpenAIChatCompletionClient",
+        "config": {"model": "gpt-4o-2024-08-06"},
+        "max_retries": 10,
+    }
+
     # DATA_URL = "https://raw.githubusercontent.com/MinorJerry/WebVoyager/main/data/WebVoyager_data.jsonl"
     # REFERENCE_URL = "https://raw.githubusercontent.com/MinorJerry/WebVoyager/main/data/reference_answer.json"
     DATA_URL = "https://raw.githubusercontent.com/microsoft/fara/main/webeval/data/webvoyager/WebVoyager_data_08312025.jsonl"
@@ -73,9 +79,9 @@ class WebVoyagerBenchmark(Benchmark):
         if eval_method not in ["exact_match", "gpt_eval"]:
             raise ValueError("eval_method must be 'exact_match' or 'gpt_eval'")
         self.eval_method = eval_method
-        if eval_method == "gpt_eval" and eval_client_config is None:
-            raise ValueError("eval_client_config must be provided for gpt_eval")
-        self.eval_client_config = eval_client_config
+        self.eval_client_config: Dict[str, Any] = (
+            eval_client_config or self.DEFAULT_EVAL_CONFIG
+        )
         assert self.data_dir is not None
         self.data_file = os.path.join(self.data_dir, "WebVoyager_data.jsonl")
         self.reference_file = os.path.join(self.data_dir, "reference_answer.json")
@@ -190,11 +196,14 @@ class WebVoyagerBenchmark(Benchmark):
             return await self.gpt_evaluator_async(task, candidate, model_client)
         finally:
             # Cleanup client before event loop closes
-            if hasattr(model_client, 'close'):
+            if hasattr(model_client, "close"):
                 await model_client.close()
 
     async def gpt_evaluator_async(
-        self, task: AllTaskTypes, candidate: AllCandidateTypes, model_client: ChatCompletionClient
+        self,
+        task: AllTaskTypes,
+        candidate: AllCandidateTypes,
+        model_client: ChatCompletionClient,
     ) -> Tuple[float, str]:
         """
         Adapted from https://github.com/MinorJerry/WebVoyager/blob/main/evaluation/auto_eval.py
