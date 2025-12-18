@@ -9,7 +9,54 @@ from systems.magentic_ui_sim_user_system import MagenticUISimUserSystem
 from magentic_ui.eval.systems import LLMSystem
 from magentic_ui.eval.benchmarks import WebVoyagerBenchmark
 from magentic_ui.eval.benchmark import Benchmark
-from autogen_core.models import ChatCompletionClient
+
+class LLMSystemConstructor:
+    def __init__(self, config: Optional[Dict[str, Any]]):
+        self.config = config
+
+    def __call__(self):
+        """Create a fresh LLMSystem instance."""
+        return LLMSystem(
+            system_name="LLM",
+            endpoint_config=self.config.get("model_client") if self.config else None,
+        )
+
+
+class MagenticUISystemConstructor:
+    def __init__(self, config: Optional[Dict[str, Any]], args: argparse.Namespace):
+        self.config = config
+        self.simulated_user_type = args.simulated_user_type
+        self.web_surfer_only = args.web_surfer_only
+        self.how_helpful_user_proxy = args.how_helpful_user_proxy
+        self.dataset = args.dataset
+
+    def __call__(self):
+        """Create a fresh MagenticUISimUserSystem instance."""
+        return MagenticUISimUserSystem(
+            simulated_user_type=self.simulated_user_type,
+            endpoint_config_orch=self.config.get("orchestrator_client") if self.config else None,
+            endpoint_config_websurfer=self.config.get("web_surfer_client") if self.config else None,
+            endpoint_config_coder=self.config.get("coder_client") if self.config else None,
+            endpoint_config_file_surfer=self.config.get("file_surfer_client") if self.config else None,
+            endpoint_config_user_proxy=self.config.get("user_proxy_client") if self.config else None,
+            web_surfer_only=self.web_surfer_only,
+            how_helpful_user_proxy=self.how_helpful_user_proxy,
+            dataset_name=self.dataset,
+        )
+
+
+class WebVoyagerBenchmarkConstructor:
+    def __init__(self, eval_client_config: Optional[Dict[str, Any]] = None):
+        self.eval_client_config = eval_client_config
+
+    def __call__(self, data_dir: str = "WebVoyager", name: str = "WebVoyager") -> Benchmark:
+        """Create a fresh benchmark instance in the worker process."""
+        benchmark = WebVoyagerBenchmark(
+            data_dir=data_dir,
+            eval_method="gpt_eval",
+            eval_client_config=self.eval_client_config,
+        )
+        return benchmark
 
 
 def save_experiment_args(args: argparse.Namespace, system_name: str) -> None:
@@ -98,27 +145,12 @@ def run_system_evaluation(
     """
     benchmark_constructor: Optional[Callable[..., Benchmark]] = None
     if args.dataset == "WebVoyager":
-        # Download the dataset (only needed once)
-        client = ChatCompletionClient.load_component(
-            {
-                "provider": "OpenAIChatCompletionClient",
-                "config": {
-                    "model": "gpt-4o-2024-08-06",
-                },
-                "max_retries": 10,
-            }
+        benchmark_constructor = WebVoyagerBenchmarkConstructor(
+            config.get("eval_client") if config else None
         )
+    reload_system_per_task = args.parallel > 1
+    reload_benchmark_per_task = False
 
-        def create_benchmark(data_dir="WebVoyager", name="WebVoyager"):
-            benchmark = WebVoyagerBenchmark(
-                data_dir=data_dir,
-                eval_method="gpt_eval",
-                model_client=client,
-            )
-            return benchmark
-
-        benchmark_constructor = create_benchmark
-        # Load it into memory
     if args.mode == "eval":
         evaluate_benchmark_func(
             benchmark_name=args.dataset,
@@ -145,6 +177,8 @@ def run_system_evaluation(
             system_constructor=system_constructor,
             subsample=args.subsample if args.subsample < 1 else None,
             redo_eval=args.redo_eval,
+            reload_system_per_task=reload_system_per_task,
+            reload_benchmark_per_task=reload_benchmark_per_task,
         )
 
 
@@ -159,27 +193,16 @@ def run_system_sim_user(args: argparse.Namespace, system_name: str) -> None:
     config = load_config(args.config)
 
     if system_name == "LLM":
-        # Use LLMSystem for LLM-based evaluations
-        system = LLMSystem(
-            system_name=system_name,
-            endpoint_config=config.get("model_client") if config else None,
-        )
+        constructor = LLMSystemConstructor(config)
     else:
-        system = MagenticUISimUserSystem(
-            simulated_user_type=args.simulated_user_type,
-            endpoint_config_orch=config.get("orchestrator_client") if config else None,
-            endpoint_config_websurfer=config.get("web_surfer_client") if config else None,
-            endpoint_config_coder=config.get("coder_client") if config else None,
-            endpoint_config_file_surfer=config.get("file_surfer_client")
-            if config
-            else None,
-            endpoint_config_user_proxy=config.get("user_proxy_client") if config else None,
-            web_surfer_only=args.web_surfer_only,
-            how_helpful_user_proxy=args.how_helpful_user_proxy,
-            dataset_name=args.dataset,
-        )
+        constructor = MagenticUISystemConstructor(config, args)
 
-    run_system_evaluation(args, system, system_name, config)
+    if args.parallel > 1:
+        system_constructor = constructor
+    else:
+        system_constructor = constructor()  # Create instance immediately for reuse
+
+    run_system_evaluation(args, system_constructor, system_name, config)
 
 
 def main() -> None:
