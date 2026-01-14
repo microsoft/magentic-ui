@@ -93,6 +93,18 @@ class TestParseThoughtsAndAction:
         assert thoughts == "Clicking button."
         assert action["name"] == "click"
 
+    def test_parse_invalid_json_and_ast_raises_error(self, surfer):
+        """Test that invalid JSON and invalid ast content raises ValueError."""
+        message = """Clicking button.
+<tool_call>
+not json or python literal
+</tool_call>"""
+
+        with pytest.raises(ValueError) as exc_info:
+            surfer._parse_thoughts_and_action(message)
+
+        assert "Failed to parse tool call content" in str(exc_info.value)
+
     def test_parse_long_message_truncates_in_error(self, surfer):
         """Test that long messages are truncated in error messages."""
         long_content = "x" * 300  # More than 200 characters

@@ -209,11 +209,14 @@ class FaraWebSurfer(WebSurfer):
             )
 
         try:
-            tmp = message.split("<tool_call>\n")
+            tmp = message.split("<tool_call>\n", 1)
             if len(tmp) < 2:
                 # Handle case where <tool_call> exists but not followed by newline
-                tmp = message.split("<tool_call>")
-            if len(tmp) < 2:
+                tmp = message.split("<tool_call>", 1)
+
+            thoughts = tmp[0].strip()
+            action_block = tmp[1]
+            if "</tool_call>" not in action_block:
                 response_preview = (
                     f"{message[:200]}..." if len(message) > 200 else message
                 )
@@ -221,8 +224,7 @@ class FaraWebSurfer(WebSurfer):
                     f"Could not parse tool call from response: {response_preview}"
                 )
 
-            thoughts = tmp[0].strip()
-            action_text = tmp[1].split("</tool_call>")[0].strip()
+            action_text = action_block.split("</tool_call>", 1)[0].strip()
 
             if not action_text:
                 raise ValueError(
@@ -236,7 +238,16 @@ class FaraWebSurfer(WebSurfer):
                 self.logger.warning(
                     f"JSON decode failed, trying ast.literal_eval: {action_text}"
                 )
-                action = ast.literal_eval(action_text)
+                try:
+                    action = ast.literal_eval(action_text)
+                except (ValueError, SyntaxError) as e:
+                    response_preview = (
+                        f"{message[:200]}..." if len(message) > 200 else message
+                    )
+                    raise ValueError(
+                        "Failed to parse tool call content as JSON or Python literal. "
+                        f"Response: {response_preview}"
+                    ) from e
 
             return thoughts, action
         except ValueError:
