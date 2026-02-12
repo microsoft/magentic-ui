@@ -207,6 +207,10 @@ def _run_single_task(
             )
 
         logger.info(f"Completed task for task_id={task_id}")
+
+        # Evaluate immediately after task completion
+        _evaluate_single_task(task_id, system, output_dir, benchmark, redo_eval=False)
+
         return task_id, answer, end_time - start_time
     except Exception:
         # Log the error with traceback

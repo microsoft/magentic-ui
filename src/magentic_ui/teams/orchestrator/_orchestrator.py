@@ -1636,6 +1636,9 @@ class Orchestrator(BaseGroupChatManager):
                                     "type": "sentinel_error",
                                 },
                             )
+                            # add last message from agent to history
+                            self._state.message_history.append(last_agent_message)
+
                             # inform orchestrator that the step has failed
                             self._state.message_history.append(
                                 TextMessage(
@@ -1687,7 +1690,12 @@ class Orchestrator(BaseGroupChatManager):
                         log_msg,
                         metadata=complete_metadata,
                     )
+
+                    # add last message from agent to history
+                    self._state.message_history.append(last_agent_message)
+
                     # inform orchestrator that the step is completed
+
                     self._state.message_history.append(
                         TextMessage(
                             content=f"Sentinel step '{step.title}' completed successfully. Reason: {reason}",

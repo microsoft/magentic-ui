@@ -23,7 +23,7 @@ from magentic_ui.eval.models import BaseTask, BaseCandidate, WebVoyagerCandidate
 from magentic_ui.types import CheckpointEvent
 from magentic_ui.agents import WebSurfer, CoderAgent, FileSurfer
 from magentic_ui.teams import GroupChat
-from magentic_ui.agents.users import MetadataUserProxy
+from magentic_ui.agents.users import MetadataUserProxy, DummyUserProxy
 from magentic_ui.tools.playwright.browser import VncDockerPlaywrightBrowser
 from magentic_ui.tools.playwright.browser.utils import get_available_port
 from magentic_ui.approval_guard import (
@@ -106,7 +106,11 @@ class MagenticUISimUserSystem(BaseSystem):
         self,
         name: str = "MagenticUISimUserSystem",
         simulated_user_type: Literal[
-            "co-planning", "co-execution", "co-planning-and-execution", "none"
+            "co-planning",
+            "co-execution",
+            "co-planning-and-execution",
+            "none",
+            "dummy",
         ] = "none",
         how_helpful_user_proxy: Literal["strict", "soft", "no_hints"] = "soft",
         web_surfer_only: bool = False,
@@ -217,7 +221,7 @@ class MagenticUISimUserSystem(BaseSystem):
                 if self.simulated_user_type in ["co-execution", "none"]
                 else True,
                 autonomous_execution=True
-                if self.simulated_user_type in ["co-planning", "none"]
+                if self.simulated_user_type in ["co-planning", "none", "dummy"]
                 else False,
                 allow_follow_up_input=False,
                 final_answer_prompt=FINAL_ANSWER_PROMPT,
@@ -312,6 +316,10 @@ class MagenticUISimUserSystem(BaseSystem):
 
             if self.simulated_user_type == "none":
                 user_proxy = None
+            elif self.simulated_user_type == "dummy":
+                user_proxy = DummyUserProxy(
+                    name="user_proxy",
+                )
             else:
                 user_proxy = MetadataUserProxy(
                     name="user_proxy",
@@ -346,7 +354,7 @@ class MagenticUISimUserSystem(BaseSystem):
                 from autogen_core import CancellationToken
                 from autogen_core.models import UserMessage
 
-                prompt = f"""Rewrite the following helpful hints to help solve the task, but remove any information that directly reveals the answer. \nKeep the hints as close to the original as possible but remove any information that directly reveals the answer.\nHelpful hints: {task_metadata}\n\nAnswer: {getattr(task, 'ground_truth', '')}\n\nDo not include anything else in your response except the rewritten hints.\nRewritten helpful hints:"""
+                prompt = f"""Rewrite the following helpful hints to help solve the task, but remove any information that directly reveals the answer. \nKeep the hints as close to the original as possible but remove any information that directly reveals the answer.\nHelpful hints: {task_metadata}\n\nAnswer: {getattr(task, "ground_truth", "")}\n\nDo not include anything else in your response except the rewritten hints.\nRewritten helpful hints:"""
                 result = await model_client_orch.create(
                     messages=[UserMessage(content=prompt, source="user")],
                     cancellation_token=CancellationToken(),
@@ -410,6 +418,7 @@ class MagenticUISimUserSystem(BaseSystem):
                     # Convert list of logevent objects to list of dicts
                     messages_json = [msg.model_dump() for msg in messages_so_far]
                     await f.write(json.dumps(messages_json, indent=2))
+                    await f.flush()  # Flush to disk immediately
                 # how the final answer is formatted:  "Final Answer: FINAL ANSWER: Actual final answer"
 
                 if message_str.startswith("Final Answer:"):
@@ -417,9 +426,9 @@ class MagenticUISimUserSystem(BaseSystem):
                     # remove the "FINAL ANSWER:" part and get the string after it
                     answer = answer.split("FINAL ANSWER:")[1].strip()
 
-            assert isinstance(
-                answer, str
-            ), f"Expected answer to be a string, got {type(answer)}"
+            assert isinstance(answer, str), (
+                f"Expected answer to be a string, got {type(answer)}"
+            )
 
             # save the usage of each of the client in a usage json file
             def get_usage(model_client: ChatCompletionClient) -> Dict[str, int]:
@@ -447,8 +456,8 @@ class MagenticUISimUserSystem(BaseSystem):
                     if key != "user_proxy"
                 ),
             }
-            with open(f"{output_dir}/model_tokens_usage.json", "w") as f:
-                json.dump(usage_json, f)
+            async with aiofiles.open(f"{output_dir}/model_tokens_usage.json", "w") as f:
+                await f.write(json.dumps(usage_json, indent=2))
 
             await team.close()
             # Step 5: Prepare the screenshots

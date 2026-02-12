@@ -4,6 +4,8 @@ import logging
 import io
 import json
 import ast
+import os
+import time
 from urllib.parse import quote_plus
 from tenacity import retry, stop_after_attempt, wait_exponential, before_sleep_log
 from autogen_agentchat.base import Response
@@ -360,6 +362,13 @@ class FaraWebSurfer(WebSurfer):
                     tool_names=None,
                     cancellation_token=cancellation_token,
                 )
+
+                if self.to_save_screenshots and self.debug_dir is not None:
+                    current_timestamp = "_" + int(time.time()).__str__()
+                    screenshot_png_name = "screenshot_raw" + current_timestamp + ".png"
+                    Image.open(io.BytesIO(new_screenshot)).save(
+                        os.path.join(self.debug_dir, screenshot_png_name)
+                    )
 
                 yield Response(
                     chat_message=MultiModalMessage(

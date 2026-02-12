@@ -220,7 +220,7 @@ def main() -> None:
         "--simulated-user-type",
         type=str,
         default="none",
-        help="Type of simulated user (co-planning, co-execution, co-planning-and-execution, none)",
+        help="Type of simulated user (co-planning, co-execution, co-planning-and-execution, dummy, none)",
     )
     parser.add_argument(
         "--how-helpful-user-proxy",
