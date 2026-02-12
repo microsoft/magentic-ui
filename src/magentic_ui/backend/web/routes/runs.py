@@ -1,4 +1,5 @@
 # /api/runs routes
+import os
 from typing import Dict, List
 from datetime import datetime
 
@@ -126,6 +127,12 @@ async def upload_files(
             assert filename is not None
         except Exception as e:
             logger.error(f"Error getting filename: {e}")
+            continue
+
+        # Sanitize filename: strip directory components to prevent path traversal attacks
+        filename = os.path.basename(filename)
+        if not filename:
+            logger.error("Empty filename after sanitization, skipping file")
             continue
 
         file_path = paths.internal_run_dir / filename
