@@ -193,22 +193,73 @@ class FaraWebSurfer(WebSurfer):
         return system_message, scaled_screenshot
 
     def _parse_thoughts_and_action(self, message: str) -> Tuple[str, Dict[str, Any]]:
+        if not message or not message.strip():
+            raise ValueError(
+                "Empty response from model. The model may not support the expected "
+                "tool call format. Ensure your model is compatible with Fara's "
+                "<tool_call> format (e.g., served via vLLM with appropriate templates)."
+            )
+
+        if "<tool_call>" not in message:
+            response_preview = f"{message[:200]}..." if len(message) > 200 else message
+            raise ValueError(
+                f"Response missing required <tool_call> tag. The model may not be "
+                f"generating tool calls in the expected format. "
+                f"Received response: {response_preview}"
+            )
+
         try:
-            tmp = message.split("<tool_call>\n")
+            tmp = message.split("<tool_call>\n", 1)
+            if len(tmp) < 2:
+                # Handle case where <tool_call> exists but not followed by newline
+                tmp = message.split("<tool_call>", 1)
+
             thoughts = tmp[0].strip()
-            action_text = tmp[1].split("\n</tool_call>")[0]
+            action_block = tmp[1]
+            if "</tool_call>" not in action_block:
+                response_preview = (
+                    f"{message[:200]}..." if len(message) > 200 else message
+                )
+                raise ValueError(
+                    f"Could not parse tool call from response: {response_preview}"
+                )
+
+            action_text = action_block.split("</tool_call>", 1)[0].strip()
+
+            if not action_text:
+                raise ValueError(
+                    "Empty tool call content. The model generated a <tool_call> tag "
+                    "but did not include any action data."
+                )
+
             try:
                 action = json.loads(action_text)
             except json.decoder.JSONDecodeError:
-                self.logger.error(f"Invalid action text: {action_text}")
-                action = ast.literal_eval(action_text)
+                self.logger.warning(
+                    f"JSON decode failed, trying ast.literal_eval: {action_text}"
+                )
+                try:
+                    action = ast.literal_eval(action_text)
+                except (ValueError, SyntaxError) as e:
+                    response_preview = (
+                        f"{message[:200]}..." if len(message) > 200 else message
+                    )
+                    raise ValueError(
+                        "Failed to parse tool call content as JSON or Python literal. "
+                        f"Response: {response_preview}"
+                    ) from e
 
             return thoughts, action
+        except ValueError:
+            raise
         except Exception as e:
             self.logger.error(
                 f"Error parsing thoughts and action: {message}", exc_info=True
             )
-            raise e
+            response_preview = f"{message[:200]}..." if len(message) > 200 else message
+            raise ValueError(
+                f"Failed to parse model response: {e}. Response: {response_preview}"
+            ) from e
 
     def convert_resized_coords_to_original(
         self, coords: List[float], rsz_w: int, rsz_h: int, og_w: int, og_h: int
