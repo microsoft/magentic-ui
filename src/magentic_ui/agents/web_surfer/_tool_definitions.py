@@ -663,9 +663,9 @@ TOOL_UPLOAD_FILE: ToolSchema = load_tool(
                 },
                 "required": ["explanation", "target_id", "file_path"],
             },
-            "metadata": {
-                "requires_approval": "always",
-            },
+        },
+        "metadata": {
+            "requires_approval": "always",
         },
     }
 )
