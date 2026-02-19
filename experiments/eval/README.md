@@ -1,6 +1,7 @@
 # Reproducing Experimental Results
 
 Make sure to clone the repo and install Magentic-UI with the following command:
+
 ```bash
 pip install magentic-ui[eval]
 ```
@@ -11,7 +12,6 @@ To evaluate an existing run or get partial results, replace "--mode run" with "-
 
 The run.py script takes care of running Magentic-UI on the benchmark of choice. It will download the data in `./data` folder at the root of the repo and store the run logs inside `runs/[SYSTEM NAME]/[DATASET NAME]/[SPLIT NAME]/[RUN ID]`. Inside this folder you'll find a folder for each task with files containing the run messages (`[TASK_ID]_messages.json`), time data (`times.json`), token usage data (`model_tokens_usage.json`), evaluation scores (`score.json`) and any screenshots (`screenshot_raw_[TIMESTAMP].png` and `screenshot*som*[TIMESTAMP].png`) or produced files. You will also find a `metrics.json` file with metrics for the entire run.
 
-
 **NOTE:** Make sure to create a config file with your model client endpoints. We provide a template config file [config_template.yaml](../endpoint_configs/config_template.yaml) that you should adapt. You should copy and rename this file to `config.yaml` inside `experiments/endpoint_configs` directory.
 
 ## WebGames
@@ -21,6 +21,8 @@ python experiments/eval/run.py --current-dir . --dataset WebGames --split test  
 ```
 
 ## WebVoyager
+
+Add `eval_client` to config.yaml if using gpt_eval
 
 ```bash
 python experiments/eval/run.py  --current-dir . --dataset WebVoyager --split webvoyager  --run-id 1 --simulated-user-type none --parallel 1 --config experiments/endpoint_configs/config.yaml --web-surfer-only true --mode run

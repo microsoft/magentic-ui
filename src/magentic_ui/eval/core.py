@@ -312,13 +312,6 @@ def run_benchmark_func(
     if seed is not None:
         random.seed(seed)
 
-    # Validate reload_benchmark_per_task with parallel
-    if reload_benchmark_per_task and parallel > 1:
-        logger.info(
-            "reload_benchmark_per_task=True is not supported in parallel mode. Setting to False."
-        )
-        reload_benchmark_per_task = False
-
     # Prepare benchmark constructor if needed
     if benchmark_constructor is None and benchmark_name:
         benchmark_class = load_benchmark_class(benchmark_name)

@@ -52,8 +52,16 @@ class WebVoyagerBenchmark(Benchmark):
     and evaluates predictions using the GAIA evaluator.
     """
 
-    DATA_URL = "https://raw.githubusercontent.com/MinorJerry/WebVoyager/main/data/WebVoyager_data.jsonl"
-    REFERENCE_URL = "https://raw.githubusercontent.com/MinorJerry/WebVoyager/main/data/reference_answer.json"
+    DEFAULT_EVAL_CONFIG: Dict[str, Any] = {
+        "provider": "OpenAIChatCompletionClient",
+        "config": {"model": "gpt-4o-2024-08-06"},
+        "max_retries": 10,
+    }
+
+    # DATA_URL = "https://raw.githubusercontent.com/MinorJerry/WebVoyager/main/data/WebVoyager_data.jsonl"
+    # REFERENCE_URL = "https://raw.githubusercontent.com/MinorJerry/WebVoyager/main/data/reference_answer.json"
+    DATA_URL = "https://raw.githubusercontent.com/microsoft/fara/main/webeval/data/webvoyager/WebVoyager_data_08312025.jsonl"
+    REFERENCE_URL = "https://raw.githubusercontent.com/microsoft/fara/main/webeval/data/webvoyager/reference_answer.json"
     GAIA_DATA_URL = "https://raw.githubusercontent.com/MinorJerry/WebVoyager/main/data/GAIA_web.jsonl"
 
     def __init__(
@@ -61,7 +69,7 @@ class WebVoyagerBenchmark(Benchmark):
         name: str = "WebVoyager",
         data_dir: Union[str, None] = None,
         eval_method: str = "exact_match",
-        model_client: ChatCompletionClient | None = None,
+        eval_client_config: Dict[str, Any] | None = None,
     ):
         assert data_dir is not None, "data_dir must be provided for WebVoyagerBenchmark"
         super().__init__(
@@ -71,9 +79,9 @@ class WebVoyagerBenchmark(Benchmark):
         if eval_method not in ["exact_match", "gpt_eval"]:
             raise ValueError("eval_method must be 'exact_match' or 'gpt_eval'")
         self.eval_method = eval_method
-        if eval_method == "gpt_eval" and model_client is None:
-            raise ValueError("model_client must be provided for gpt_eval")
-        self.model_client = model_client
+        self.eval_client_config: Dict[str, Any] = (
+            eval_client_config or self.DEFAULT_EVAL_CONFIG
+        )
         assert self.data_dir is not None
         self.data_file = os.path.join(self.data_dir, "WebVoyager_data.jsonl")
         self.reference_file = os.path.join(self.data_dir, "reference_answer.json")
@@ -169,13 +177,33 @@ class WebVoyagerBenchmark(Benchmark):
             return WebVoyagerEvalResult(score=score, reasoning="")
         elif self.eval_method == "gpt_eval":
             score, gpt_response_text = asyncio.run(
-                self.gpt_evaluator_async(task, candidate)
+                self._gpt_eval_with_cleanup(task, candidate)
             )
             return WebVoyagerEvalResult(score=score, reasoning=gpt_response_text)
         raise ValueError(f"Unknown eval_method: {self.eval_method}")
 
-    async def gpt_evaluator_async(
+    async def _gpt_eval_with_cleanup(
         self, task: AllTaskTypes, candidate: AllCandidateTypes
+    ) -> Tuple[float, str]:
+        """
+        Wrapper that creates a fresh model client per task, evaluates, and cleans up properly.
+        This ensures proper event loop management and resource cleanup.
+        """
+        # Create fresh client for this evaluation task
+        model_client = ChatCompletionClient.load_component(self.eval_client_config)
+
+        try:
+            return await self.gpt_evaluator_async(task, candidate, model_client)
+        finally:
+            # Cleanup client before event loop closes
+            if hasattr(model_client, "close"):
+                await model_client.close()
+
+    async def gpt_evaluator_async(
+        self,
+        task: AllTaskTypes,
+        candidate: AllCandidateTypes,
+        model_client: ChatCompletionClient,
     ) -> Tuple[float, str]:
         """
         Adapted from https://github.com/MinorJerry/WebVoyager/blob/main/evaluation/auto_eval.py
@@ -241,8 +269,8 @@ class WebVoyagerBenchmark(Benchmark):
         ]
 
         # Now call the GPT model
-        assert self.model_client is not None
-        response = await self.model_client.create(messages)
+        assert model_client is not None
+        response = await model_client.create(messages)
         assert isinstance(response.content, str)
         gpt_response_text = response.content
         # Parse out the text from the model

@@ -344,138 +344,151 @@ class MagenticUISimUserSystem(BaseSystem):
                 model_client=model_client_orch,
                 termination_condition=termination_condition,
             )
-            await team.lazy_init()
-            # Step 3: Prepare the task message
-            answer: str = ""
-            messages_so_far: List[LogEventSystem] = []
-            # Optionally append rewritten metadata for both multimodal and non-multimodal
-            rewritten_metadata = None
-            if self.include_metadata_in_task_message and task_metadata:
-                from autogen_core import CancellationToken
-                from autogen_core.models import UserMessage
 
-                prompt = f"""Rewrite the following helpful hints to help solve the task, but remove any information that directly reveals the answer. \nKeep the hints as close to the original as possible but remove any information that directly reveals the answer.\nHelpful hints: {task_metadata}\n\nAnswer: {getattr(task, "ground_truth", "")}\n\nDo not include anything else in your response except the rewritten hints.\nRewritten helpful hints:"""
-                result = await model_client_orch.create(
-                    messages=[UserMessage(content=prompt, source="user")],
-                    cancellation_token=CancellationToken(),
-                )
-                assert isinstance(result.content, str)
-                rewritten_metadata = (
-                    "\n\nWe have access to helpful hints that helps in solving the task: "
-                    + result.content.strip()
-                )
-            # check if file name is an image if it exists
-            if (
-                hasattr(task, "file_name")
-                and task.file_name
-                and task.file_name.endswith((".png", ".jpg", ".jpeg"))
-            ):
-                content_list: list[Union[str, AGImage]] = [task_question]
-                if rewritten_metadata:
-                    if isinstance(content_list[0], str):
-                        content_list[0] = content_list[0] + rewritten_metadata
-                content_list.append(AGImage.from_pil(Image.open(task.file_name)))
-                task_message = MultiModalMessage(
-                    content=content_list,
-                    source="user",
-                )
-            else:
-                if rewritten_metadata:
-                    task_message = TextMessage(
-                        content=task_question + rewritten_metadata, source="user"
+            try:
+                await team.lazy_init()
+                # Step 3: Prepare the task message
+                answer: str = ""
+                messages_so_far: List[LogEventSystem] = []
+                # Optionally append rewritten metadata for both multimodal and non-multimodal
+                rewritten_metadata = None
+                if self.include_metadata_in_task_message and task_metadata:
+                    from autogen_core import CancellationToken
+                    from autogen_core.models import UserMessage
+
+                    prompt = f"""Rewrite the following helpful hints to help solve the task, but remove any information that directly reveals the answer. \nKeep the hints as close to the original as possible but remove any information that directly reveals the answer.\nHelpful hints: {task_metadata}\n\nAnswer: {getattr(task, "ground_truth", "")}\n\nDo not include anything else in your response except the rewritten hints.\nRewritten helpful hints:"""
+                    result = await model_client_orch.create(
+                        messages=[UserMessage(content=prompt, source="user")],
+                        cancellation_token=CancellationToken(),
+                    )
+                    assert isinstance(result.content, str)
+                    rewritten_metadata = (
+                        "\n\nWe have access to helpful hints that helps in solving the task: "
+                        + result.content.strip()
+                    )
+                # check if file name is an image if it exists
+                if (
+                    hasattr(task, "file_name")
+                    and task.file_name
+                    and task.file_name.endswith((".png", ".jpg", ".jpeg"))
+                ):
+                    content_list: list[Union[str, AGImage]] = [task_question]
+                    if rewritten_metadata:
+                        if isinstance(content_list[0], str):
+                            content_list[0] = content_list[0] + rewritten_metadata
+                    content_list.append(AGImage.from_pil(Image.open(task.file_name)))
+                    task_message = MultiModalMessage(
+                        content=content_list,
+                        source="user",
                     )
                 else:
-                    task_message = TextMessage(content=task_question, source="user")
-            # Step 4: Run the team on the task
-            async for message in team.run_stream(task=task_message):
-                # Store log events
-                message_str: str = ""
-                try:
-                    if isinstance(message, TaskResult) or isinstance(
-                        message, CheckpointEvent
-                    ):
-                        continue
-                    message_str = message.to_text()
-                    # Create log event with source, content and timestamp
-                    log_event = LogEventSystem(
-                        source=message.source,
-                        content=message_str,
-                        timestamp=datetime.datetime.now().isoformat(),
-                        metadata=message.metadata,
-                    )
-                    messages_so_far.append(log_event)
-                except Exception as e:
-                    logger.info(
-                        f"[likely nothing] When creating model_dump of message encountered exception {e}"
-                    )
-                    pass
+                    if rewritten_metadata:
+                        task_message = TextMessage(
+                            content=task_question + rewritten_metadata, source="user"
+                        )
+                    else:
+                        task_message = TextMessage(content=task_question, source="user")
+                # Step 4: Run the team on the task
+                async for message in team.run_stream(task=task_message):
+                    # Store log events
+                    message_str: str = ""
+                    try:
+                        if isinstance(message, TaskResult) or isinstance(
+                            message, CheckpointEvent
+                        ):
+                            continue
+                        message_str = message.to_text()
+                        # Create log event with source, content and timestamp
+                        log_event = LogEventSystem(
+                            source=message.source,
+                            content=message_str,
+                            timestamp=datetime.datetime.now().isoformat(),
+                            metadata=message.metadata,
+                        )
+                        messages_so_far.append(log_event)
+                    except Exception as e:
+                        logger.info(
+                            f"[likely nothing] When creating model_dump of message encountered exception {e}"
+                        )
+                        pass
 
-                # save to file
-                logger.info(f"Run in progress: {task_id}, message: {message_str}")
-                async with aiofiles.open(
-                    f"{output_dir}/{task_id}_messages.json", "w"
-                ) as f:
-                    # Convert list of logevent objects to list of dicts
-                    messages_json = [msg.model_dump() for msg in messages_so_far]
-                    await f.write(json.dumps(messages_json, indent=2))
-                    await f.flush()  # Flush to disk immediately
-                # how the final answer is formatted:  "Final Answer: FINAL ANSWER: Actual final answer"
+                    # save to file
+                    logger.info(f"Run in progress: {task_id}, message: {message_str}")
+                    async with aiofiles.open(
+                        f"{output_dir}/{task_id}_messages.json", "w"
+                    ) as f:
+                        # Convert list of logevent objects to list of dicts
+                        messages_json = [msg.model_dump() for msg in messages_so_far]
+                        await f.write(json.dumps(messages_json, indent=2))
+                        await f.flush()  # Flush to disk immediately
+                    # how the final answer is formatted:  "Final Answer: FINAL ANSWER: Actual final answer"
 
-                if message_str.startswith("Final Answer:"):
-                    answer = message_str[len("Final Answer:") :].strip()
-                    # remove the "FINAL ANSWER:" part and get the string after it
-                    answer = answer.split("FINAL ANSWER:")[1].strip()
+                    if message_str.startswith("Final Answer:"):
+                        answer = message_str[len("Final Answer:") :].strip()
+                        # remove the "FINAL ANSWER:" part and get the string after it
+                        answer = answer.split("FINAL ANSWER:")[1].strip()
 
-            assert isinstance(answer, str), (
-                f"Expected answer to be a string, got {type(answer)}"
-            )
+                assert isinstance(answer, str), (
+                    f"Expected answer to be a string, got {type(answer)}"
+                )
 
-            # save the usage of each of the client in a usage json file
-            def get_usage(model_client: ChatCompletionClient) -> Dict[str, int]:
-                return {
-                    "prompt_tokens": model_client.total_usage().prompt_tokens,
-                    "completion_tokens": model_client.total_usage().completion_tokens,
+                # save the usage of each of the client in a usage json file
+                def get_usage(model_client: ChatCompletionClient) -> Dict[str, int]:
+                    return {
+                        "prompt_tokens": model_client.total_usage().prompt_tokens,
+                        "completion_tokens": model_client.total_usage().completion_tokens,
+                    }
+
+                usage_json = {
+                    "orchestrator": get_usage(model_client_orch),
+                    "websurfer": get_usage(model_client_websurfer),
+                    "coder": get_usage(model_client_coder),
+                    "file_surfer": get_usage(model_client_file_surfer),
+                    "user_proxy": get_usage(model_client_user_proxy),
                 }
+                usage_json["total_without_user_proxy"] = {
+                    "prompt_tokens": sum(
+                        usage_json[key]["prompt_tokens"]
+                        for key in usage_json
+                        if key != "user_proxy"
+                    ),
+                    "completion_tokens": sum(
+                        usage_json[key]["completion_tokens"]
+                        for key in usage_json
+                        if key != "user_proxy"
+                    ),
+                }
+                async with aiofiles.open(f"{output_dir}/model_tokens_usage.json", "w") as f:
+                    await f.write(json.dumps(usage_json, indent=2))
 
-            usage_json = {
-                "orchestrator": get_usage(model_client_orch),
-                "websurfer": get_usage(model_client_websurfer),
-                "coder": get_usage(model_client_coder),
-                "file_surfer": get_usage(model_client_file_surfer),
-                "user_proxy": get_usage(model_client_user_proxy),
-            }
-            usage_json["total_without_user_proxy"] = {
-                "prompt_tokens": sum(
-                    usage_json[key]["prompt_tokens"]
-                    for key in usage_json
-                    if key != "user_proxy"
-                ),
-                "completion_tokens": sum(
-                    usage_json[key]["completion_tokens"]
-                    for key in usage_json
-                    if key != "user_proxy"
-                ),
-            }
-            async with aiofiles.open(f"{output_dir}/model_tokens_usage.json", "w") as f:
-                await f.write(json.dumps(usage_json, indent=2))
+                # Step 5: Prepare the screenshots
+                screenshots_paths = []
+                # check the directory for screenshots which start with screenshot_raw_
+                for file in os.listdir(output_dir):
+                    if file.startswith("screenshot_raw_"):
+                        # screenshot_raw_1746259609.png
+                        # get the timestamp from the file name
+                        timestamp = file.split("_")[1]
+                        screenshots_paths.append(
+                            [timestamp, os.path.join(output_dir, file)]
+                        )
 
-            await team.close()
-            # Step 5: Prepare the screenshots
-            screenshots_paths = []
-            # check the directory for screenshots which start with screenshot_raw_
-            for file in os.listdir(output_dir):
-                if file.startswith("screenshot_raw_"):
-                    # screenshot_raw_1746259609.png
-                    # get the timestamp from the file name
-                    timestamp = file.split("_")[1]
-                    screenshots_paths.append(
-                        [timestamp, os.path.join(output_dir, file)]
-                    )
+                # restrict to last 15 screenshots by timestamp
+                screenshots_paths = sorted(screenshots_paths, key=lambda x: x[0])[-15:]
+                screenshots_paths = [x[1] for x in screenshots_paths]
+                return answer, screenshots_paths
+            finally:
+                # Ensure proper cleanup even if exceptions occur
+                await team.close()
 
-            # restrict to last 15 screenshots by timestamp
-            screenshots_paths = sorted(screenshots_paths, key=lambda x: x[0])[-15:]
-            screenshots_paths = [x[1] for x in screenshots_paths]
-            return answer, screenshots_paths
+                # Close all model clients
+                for client in [model_client_orch, model_client_websurfer, model_client_coder,
+                              model_client_file_surfer, model_client_user_proxy]:
+                    if client and hasattr(client, 'close'):
+                        try:
+                            await client.close()
+                        except Exception as e:
+                            logger.warning(f"Error closing model client: {e}")
 
         # Step 6: Return the answer and screenshots
         answer, screenshots_paths = asyncio.run(_runner())
