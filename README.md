@@ -223,7 +223,7 @@ Once the server is running, you can access the UI at <http://localhost:8081>.
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install magentic-ui[fara]
+pip install "magentic-ui[fara]"
 ```
 
 2) In a seperate process, serve the Fara-7B model using vLLM:
