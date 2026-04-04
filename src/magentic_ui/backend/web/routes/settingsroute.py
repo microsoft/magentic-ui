@@ -3,12 +3,19 @@ import os
 import yaml
 from typing import Dict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ...datamodel import Settings
 from ..deps import get_db
 
 router = APIRouter()
+
+
+def _get_authenticated_user_id(request: Request) -> str:
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return user_id
 
 
 def _get_or_create_settings(user_id: str, db) -> Settings:
@@ -27,25 +34,32 @@ def _get_or_create_settings(user_id: str, db) -> Settings:
 
 
 @router.get("/")
-async def get_settings(user_id: str, db=Depends(get_db)) -> Dict:
+async def get_settings(request: Request, db=Depends(get_db)) -> Dict:
     try:
+        user_id = _get_authenticated_user_id(request)
         settings = _get_or_create_settings(user_id, db)
         return {"status": True, "data": settings}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/")
-async def update_settings(settings: Settings, db=Depends(get_db)) -> Dict:
+async def update_settings(settings: Settings, request: Request, db=Depends(get_db)) -> Dict:
     try:
+        user_id = _get_authenticated_user_id(request)
+        settings.user_id = user_id
         # Get existing settings to preserve the id
-        existing = _get_or_create_settings(settings.user_id, db)
+        existing = _get_or_create_settings(user_id, db)
         settings.id = existing.id if hasattr(existing, "id") else existing["id"]
 
         response = db.upsert(settings)
         if not response.status:
             raise HTTPException(status_code=400, detail=response.message)
         return {"status": True, "data": response.data}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
