@@ -6,7 +6,14 @@ from pathlib import Path
 from fastapi import HTTPException, status
 
 from ..database import DatabaseManager
+from .alerts import AlertDispatcher
+from .alerts.channels import (
+    SlackChannel,
+    WebhookChannel,
+    WebSocketBroadcastChannel,
+)
 from .config import settings
+from .managers.alert_monitor import AlertMonitor, AlertThresholds
 from .managers.connection import WebSocketManager
 
 logger = logging.getLogger(__name__)
@@ -14,6 +21,8 @@ logger = logging.getLogger(__name__)
 # Global manager instances
 _db_manager: Optional[DatabaseManager] = None
 _websocket_manager: Optional[WebSocketManager] = None
+_alert_dispatcher: Optional[AlertDispatcher] = None
+_alert_monitor: Optional[AlertMonitor] = None
 
 # Context manager for database sessions
 
@@ -59,6 +68,11 @@ async def get_websocket_manager() -> WebSocketManager:
     return _websocket_manager
 
 
+def get_alert_dispatcher() -> Optional[AlertDispatcher]:
+    """Return the configured alert dispatcher, if any."""
+    return _alert_dispatcher
+
+
 # Manager initialization and cleanup
 
 
@@ -74,6 +88,7 @@ async def init_managers(
 ) -> None:
     """Initialize all manager instances"""
     global _db_manager, _websocket_manager, _team_manager
+    global _alert_dispatcher, _alert_monitor
 
     logger.info("Initializing managers...")
 
@@ -93,6 +108,52 @@ async def init_managers(
         )
         logger.info("Connection manager initialized")
 
+        # Initialize alerting (opt-in via MAGENTIC_UI_ALERTS_* env vars).
+        if settings.ALERTS_ENABLED:
+            _alert_dispatcher = AlertDispatcher()
+            if settings.ALERTS_WS_BROADCAST_ENABLED:
+                _alert_dispatcher.register(
+                    WebSocketBroadcastChannel(
+                        _websocket_manager.broadcast,
+                        include_task_summary=settings.ALERTS_INCLUDE_TASK_SUMMARY,
+                    )
+                )
+            if settings.ALERTS_WEBHOOK_URL:
+                _alert_dispatcher.register(
+                    WebhookChannel(
+                        settings.ALERTS_WEBHOOK_URL,
+                        include_task_summary=settings.ALERTS_INCLUDE_TASK_SUMMARY,
+                    )
+                )
+            if settings.ALERTS_SLACK_WEBHOOK_URL:
+                _alert_dispatcher.register(
+                    SlackChannel(
+                        settings.ALERTS_SLACK_WEBHOOK_URL,
+                        include_task_summary=settings.ALERTS_INCLUDE_TASK_SUMMARY,
+                    )
+                )
+            _websocket_manager.set_alert_dispatcher(_alert_dispatcher)
+            thresholds = AlertThresholds(
+                stuck_inactivity_seconds=settings.ALERTS_STUCK_INACTIVITY_SECONDS
+                or None,
+                start_timeout_seconds=settings.ALERTS_START_TIMEOUT_SECONDS or None,
+                awaiting_input_seconds=settings.ALERTS_AWAITING_INPUT_SECONDS
+                or None,
+                poll_interval_seconds=settings.ALERTS_POLL_INTERVAL_SECONDS,
+            )
+            _alert_monitor = AlertMonitor(
+                db_manager=_db_manager,
+                dispatcher=_alert_dispatcher,
+                thresholds=thresholds,
+            )
+            await _alert_monitor.start()
+            logger.info(
+                "Alert monitor started with %d channel(s)",
+                len(_alert_dispatcher.channels),
+            )
+        else:
+            logger.info("Alerting disabled (MAGENTIC_UI_ALERTS_ENABLED=false)")
+
     except Exception as e:
         logger.error(f"Failed to initialize managers: {str(e)}")
         await cleanup_managers()  # Cleanup any partially initialized managers
@@ -102,8 +163,19 @@ async def init_managers(
 async def cleanup_managers() -> None:
     """Cleanup and shutdown all manager instances"""
     global _db_manager, _websocket_manager, _team_manager
+    global _alert_dispatcher, _alert_monitor
 
     logger.info("Cleaning up managers...")
+
+    # Stop the alert monitor before tearing down its dependencies.
+    if _alert_monitor:
+        try:
+            await _alert_monitor.stop()
+        except Exception as e:
+            logger.error(f"Error stopping alert monitor: {str(e)}")
+        finally:
+            _alert_monitor = None
+    _alert_dispatcher = None
 
     # Cleanup connection manager first to ensure all active connections are closed
     if _websocket_manager:

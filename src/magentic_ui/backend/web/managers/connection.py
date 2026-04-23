@@ -33,6 +33,7 @@ from ...datamodel import (
     TeamResult,
 )
 from ...teammanager import TeamManager
+from ..alerts import Alert, AlertDispatcher, AlertReason
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,8 @@ class WebSocketManager:
         self._closed_connections: set[int] = set()
         self._input_responses: Dict[int, asyncio.Queue[str]] = {}
         self._team_managers: Dict[int, TeamManager] = {}
+        # Optional alert dispatcher; set by deps.init_managers when enabled.
+        self._alert_dispatcher: Optional[AlertDispatcher] = None
         self._cancel_message = TeamResult(
             task_result=TaskResult(
                 messages=[TextMessage(source="user", content="Run cancelled by user")],
@@ -89,6 +92,74 @@ class WebSocketManager:
             usage="",
             duration=0,
         ).model_dump()
+
+    def set_alert_dispatcher(self, dispatcher: Optional[AlertDispatcher]) -> None:
+        """Attach (or detach) the alert dispatcher used for error alerts."""
+        self._alert_dispatcher = dispatcher
+
+    async def broadcast(self, message: Dict[str, Any]) -> None:
+        """Send ``message`` to every currently-connected UI WebSocket.
+
+        Used by :class:`WebSocketBroadcastChannel` so that alerts produced by
+        the stuck-run monitor can reach all open UI tabs in real time.
+        Failures on individual sockets are logged and swallowed.
+        """
+        # Snapshot to avoid mutation during iteration.
+        for run_id, websocket in list(self._connections.items()):
+            if run_id in self._closed_connections:
+                continue
+            try:
+                await websocket.send_json(message)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Broadcast failed for run %s: %s", run_id, exc
+                )
+
+    async def _fire_alert(
+        self,
+        run_id: int,
+        reason: AlertReason,
+        *,
+        status: str,
+        error_message: Optional[str] = None,
+    ) -> None:
+        """Dispatch an alert for ``run_id`` if a dispatcher is configured.
+
+        No-op when alerting is disabled so the run loop incurs no cost.
+        """
+        dispatcher = self._alert_dispatcher
+        if dispatcher is None:
+            return
+        try:
+            run = await self._get_run(run_id)
+        except Exception:  # noqa: BLE001
+            run = None
+        session_id = getattr(run, "session_id", None) if run else None
+        user_id = getattr(run, "user_id", None) if run else None
+        last_activity = (
+            getattr(run, "updated_at", None) or getattr(run, "created_at", None)
+            if run
+            else None
+        )
+        try:
+            await dispatcher.dispatch(
+                Alert(
+                    run_id=run_id,
+                    reason=reason,
+                    status=status,
+                    session_id=session_id,
+                    user_id=user_id,
+                    last_activity_at=last_activity,
+                    error_message=error_message,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001 - never let alerts crash runs
+            logger.warning(
+                "Failed to dispatch %s alert for run %s: %s",
+                reason.value,
+                run_id,
+                exc,
+            )
 
     async def connect(self, websocket: WebSocket, run_id: int) -> bool:
         try:
@@ -517,6 +588,12 @@ class WebSocketManager:
             logger.error(f"Error sending message for run {run_id}: {e}, {message}")
             # Don't try to send error message here to avoid potential recursive loop
             await self._update_run_status(run_id, RunStatus.ERROR, str(e))
+            await self._fire_alert(
+                run_id,
+                AlertReason.ERROR,
+                status=RunStatus.ERROR.value,
+                error_message=str(e),
+            )
             await self.disconnect(run_id)
 
     async def _handle_stream_error(self, run_id: int, error: Exception) -> None:
@@ -549,6 +626,12 @@ class WebSocketManager:
 
             await self._update_run(
                 run_id, RunStatus.ERROR, team_result=error_result, error=str(error)
+            )
+            await self._fire_alert(
+                run_id,
+                AlertReason.ERROR,
+                status=RunStatus.ERROR.value,
+                error_message=str(error),
             )
 
     def _format_message(self, message: Any) -> Optional[Dict[str, Any]]:
