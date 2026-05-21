@@ -25,28 +25,28 @@ Click any task below to expand and watch MagenticLite handle it end to end.
 <details open>
   <summary><b>Fill expense forms</b></summary>
 
-  https://github.com/user-attachments/assets/2dd207ae-bd55-4b20-8c68-c028dda6c203
+  https://github.com/user-attachments/assets/a982b60d-127e-4310-96e6-9f094dffb7f0
 
 </details>
 
 <details>
   <summary><b>Find prices for recipe ingredients</b></summary>
 
-  https://github.com/user-attachments/assets/dc8bd475-4ea4-4745-9730-f9d0f9c0a167
+  https://github.com/user-attachments/assets/7ff87917-752f-4e40-b319-8036e08ab8f9
 
 </details>
 
 <details>
   <summary><b>Find and book a restaurant</b></summary>
 
-  https://github.com/user-attachments/assets/9c1fab57-f1cd-46c5-88e1-4e129a18e396
+  https://github.com/user-attachments/assets/ee5f967e-ee1b-4554-b329-36b56b595aa4
 
 </details>
 
 <details>
   <summary><b>Organize local files</b></summary>
 
-  https://github.com/user-attachments/assets/3df94294-68ed-4335-ba04-3f2ff5384866
+  https://github.com/user-attachments/assets/aff385dd-f856-4db4-8f26-08fd0f940aa4
 
 </details>
 
