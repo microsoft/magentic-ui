@@ -3,6 +3,7 @@ import json
 import logging
 import zipfile
 import requests
+from pathlib import PurePosixPath
 from typing import List, Dict
 from ...benchmark import Benchmark
 from ...models import (
@@ -12,6 +13,15 @@ from ...models import (
     AllCandidateTypes,
     AllEvalResultTypes,
 )
+
+
+def _safe_zip_members(zip_ref: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
+    members = zip_ref.infolist()
+    for member in members:
+        member_path = PurePosixPath(member.filename.replace("\\", "/"))
+        if member_path.is_absolute() or ".." in member_path.parts:
+            raise ValueError(f"Unsafe path in Bearcubs ZIP archive: {member.filename}")
+    return members
 
 
 class BearcubsBenchmark(Benchmark):
@@ -56,7 +66,7 @@ class BearcubsBenchmark(Benchmark):
 
         # Extract zip file
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            zip_ref.extractall(self.data_dir)
+            zip_ref.extractall(self.data_dir, members=_safe_zip_members(zip_ref))
 
         # Remove zip file
         os.remove(zip_path)
