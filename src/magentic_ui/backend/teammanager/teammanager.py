@@ -447,7 +447,9 @@ class TeamManager:
                 mount_paths: list[str] = []
                 for d in mount_dirs:
                     n = normalize_host_path(d)
-                    n = os.fspath(Path(n).expanduser().resolve())
+                    n = os.path.expanduser(n)
+                    # validate_host_path does its own realpath() + denylist; it
+                    # raises ValueError for any path outside the allowed set.
                     mount_paths.append(validate_host_path(n))
                 workspace_path = os.fspath(host_run_dir.resolve())
             task = self._augment_task_with_mounts(task, mount_paths, workspace_path)
