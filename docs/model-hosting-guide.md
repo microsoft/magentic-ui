@@ -14,7 +14,7 @@ After deployment, you end up with three values to paste into MagenticLite's onbo
 
 - An [Azure subscription](https://azure.microsoft.com/free/) with a valid payment method. Free and trial subscriptions don't work for GPU deployments.
 - A **hub-based** project in Foundry. The newer "Foundry project" type does not support Managed Compute. If you don't have one, create it from the [Foundry portal](https://ai.azure.com/) under **+ New project → Hub-based project**. Pick a region with H100 or A100 inventory (East US 2 and Sweden Central are good defaults).
-- Quota for at least one GPU SKU large enough to host the models. **Standard_NC48ads_A100_v4** (1× A100, 80 GB) is a good default for both [Fara1.5-9B](https://aka.ms/fara-foundry) and [MagenticBrain](https://aka.ms/MagenticBrain-foundry) at meaningfully lower cost than H100. **Standard_NC40ads_H100_v5** (1× H100, 80 GB) also works if you want extra headroom or have it readily available. If your subscription doesn't have GPU quota in the chosen region, request it from **Quotas** in the Azure portal before deploying. Approval can take 24–48 hours.
+- Quota for at least one GPU SKU large enough to host the models. **Standard_NC24ads_A100_v4** is a good default for both [Fara1.5-9B](https://aka.ms/fara-foundry) and [MagenticBrain](https://aka.ms/MagenticBrain-foundry) for testing and typical single-user use. In [Azure Quotas](https://portal.azure.com/#view/Microsoft_Azure_Capacity/QuotaMenuBlade/~/overview), select **Machine learning**, then request **Standard NCADSA100v4 Family Cluster Dedicated vCPUs** in the same region as your Foundry project. Larger A100 or H100 SKUs also work if you want extra headroom or have them readily available, but they cost more. Approval can take 24–48 hours.
 
 ### 1. Deploy the model
 
@@ -33,10 +33,9 @@ You'll repeat this once per model role you want to use (browser use and/or orche
    | Field           | Value                                                                                                      |
    | --------------- | ---------------------------------------------------------------------------------------------------------- |
    | Endpoint name   | anything, e.g. `fara-15-9b-magentic-lite`. Becomes part of the URL.                                        |
-   | Deployment name | anything, e.g. `Fara1.5-9B`. **MagenticLite uses this as the OpenAI `model` field, so make it memorable.** |
-   | Virtual machine | **Standard_NC48ads_A100_v4** (1× A100, 80 GB). H100 also works; A100 is cheaper.                           |
-   | Instance count  | 1                                                                                                          |
-   | Authentication  | **Key-based**. MagenticLite uses the primary key as a Bearer token.                                        |
+   | Deployment name | anything, e.g. `fara1-5-9b-1` or `magenticbrain-14b-1`. This is for tracking the deployment in Foundry.    |
+   | Virtual machine | **Standard_NC24ads_A100_v4**. Larger A100 or H100 SKUs also work, but they are usually unnecessary for testing. |
+   | Instance count  | **1**. Foundry may default to 3 instances; reduce it to 1 for testing or typical single-user use to avoid unnecessary cost. |
 
    Both Fara and MagenticBrain are served by vLLM under the hood, so the deployed endpoint exposes a fully OpenAI-compatible `/v1/chat/completions` route — text and vision-language requests both work.
 
@@ -48,16 +47,17 @@ You'll repeat this once per model role you want to use (browser use and/or orche
 
 For each deployment, open **Models + endpoints** in your Foundry project and click into the deployment:
 
-- **Target URI** (Details tab): looks like `https://<endpoint-name>.<region>.inference.ml.azure.com/score`. You only want the host portion, with `/v1` appended.
-- **Primary key** (Consume tab): the API key Foundry generated for the endpoint.
+- **REST endpoint** (Details tab): copy the endpoint through `/v1`, for example `https://<endpoint-name>.<region>.inference.ml.azure.com/v1`.
+- **Model ID** (deployment details): use the model name segment after `/models/`, for example `Fara1.5-9B` or `MagenticBrain-14B`. Do not use the deployment name here.
+- **Primary key** (Consume tab): the API key Foundry generated for that endpoint.
 
 Open MagenticLite and fill in the **Browser use model** card (and/or the **Orchestrator** card). On first launch this is part of the onboarding flow; if you've already onboarded, find the same fields under **Settings → Models**.
 
-| Field        | Value                                                                   |
-| ------------ | ----------------------------------------------------------------------- |
-| Endpoint URL | `https://<endpoint-name>.<region>.inference.ml.azure.com/v1`            |
-| Model Name   | the **deployment name** you set during deployment (not the catalog model name) |
-| API Key      | the primary key from the Consume tab                                    |
+| Field        | Browser use model (Fara)                                      | Orchestrator model (MagenticBrain)                             |
+| ------------ | ------------------------------------------------------------- | -------------------------------------------------------------- |
+| Endpoint URL | `https://<fara-endpoint>.<region>.inference.ml.azure.com/v1`  | `https://<brain-endpoint>.<region>.inference.ml.azure.com/v1`  |
+| Model Name   | `Fara1.5-9B`                                                  | `MagenticBrain-14B`                                            |
+| API Key      | the primary key from the Fara endpoint's Consume tab          | the primary key from the MagenticBrain endpoint's Consume tab  |
 
 Click **Verify & Save**. See [Verification fails](#verification-fails) below if you hit an error.
 
