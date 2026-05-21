@@ -272,8 +272,9 @@ class QuicksandSandbox(SandboxBase):
         for host_dir in host_dirs or []:
             normalized = normalize_host_path(host_dir)
             normalized = os.path.expanduser(normalized)
-            # validate_host_path does its own realpath() + denylist; it raises
-            # ValueError for any path outside the allowed set.
+            # validate_host_path canonicalizes via realpath() and raises
+            # ValueError if the path doesn't exist, isn't a directory, or
+            # matches the sensitive denylist (.ssh, .aws, /etc, WSL AppData).
             normalized = validate_host_path(normalized)
             dir_name = extract_dir_basename(normalized)
             validate_dir_name(dir_name, host_dir)
