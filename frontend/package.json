@@ -45,7 +45,7 @@
     "rollup-plugin-visualizer": "^6.0.11",
     "tailwindcss": "^4.3.0",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.59.4",
+    "typescript-eslint": "^8.60.0",
     "vite": "^7.3.3",
     "vitest": "^4.1.7"
   },
