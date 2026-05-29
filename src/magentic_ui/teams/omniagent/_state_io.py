@@ -75,7 +75,9 @@ def write_state(
     os.close(tmp_fd)
     try:
         Path(tmp_name).write_bytes(encoded)
-        os.replace(tmp_name, state_path)
+        if state_path.exists():
+            state_path.rename(state_path.with_suffix(".bak"))
+        state_path.replace(Path(tmp_name))
     except OSError as exc:
         logger.warning("Cannot write omni state to %s: %s", state_path, exc)
         try:
