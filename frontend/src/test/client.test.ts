@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { apiClient, ApiError } from '@/api/client'
 import { API_BASE_URL } from '@/lib/constants'
+import { useBackendHealthStore } from '@/stores/backendHealthStore'
 
 // Mock fetch globally
 const mockFetch = vi.fn()
@@ -256,5 +257,68 @@ describe('ApiError', () => {
     const error = new ApiError('Test error', 400, responseData)
 
     expect(error.response).toEqual(responseData)
+  })
+})
+
+describe('backendHealthStore integration', () => {
+  beforeEach(() => {
+    mockFetch.mockReset()
+    useBackendHealthStore.getState().setReachable(true)
+  })
+
+  it('marks backend unreachable when fetch throws (network error)', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('Network failure'))
+    await expect(apiClient.get('/sessions/1')).rejects.toThrow(ApiError)
+    expect(useBackendHealthStore.getState().reachable).toBe(false)
+  })
+
+  it('marks backend unreachable on 5xx responses', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+      json: () => Promise.resolve({}),
+    })
+    await expect(apiClient.get('/sessions/1')).rejects.toThrow(ApiError)
+    expect(useBackendHealthStore.getState().reachable).toBe(false)
+  })
+
+  it('flips reachability back to true on 4xx (server is up, just an op-specific failure)', async () => {
+    // Pre-set to unreachable to verify a 4xx response restores it.
+    useBackendHealthStore.getState().setReachable(false)
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+      json: () => Promise.resolve({ message: 'Not found' }),
+    })
+    await expect(apiClient.get('/sessions/999')).rejects.toThrow(ApiError)
+    // 4xx proves the server is responding, so it gets marked reachable.
+    expect(useBackendHealthStore.getState().reachable).toBe(true)
+  })
+
+  it('restores reachability on a successful response', async () => {
+    useBackendHealthStore.getState().setReachable(false)
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ status: true, data: { ok: true } }),
+    })
+    await apiClient.get('/health')
+    expect(useBackendHealthStore.getState().reachable).toBe(true)
+  })
+
+  it('leaves reachability untouched on AbortError (cancellation, not connectivity)', async () => {
+    // Pre-set so we can verify it doesn't change.
+    useBackendHealthStore.getState().setReachable(true)
+    const abortErr = new DOMException('The user aborted a request.', 'AbortError')
+    mockFetch.mockRejectedValueOnce(abortErr)
+    await expect(apiClient.get('/sessions/1')).rejects.toBe(abortErr)
+    expect(useBackendHealthStore.getState().reachable).toBe(true)
+
+    useBackendHealthStore.getState().setReachable(false)
+    mockFetch.mockRejectedValueOnce(abortErr)
+    await expect(apiClient.get('/sessions/1')).rejects.toBe(abortErr)
+    expect(useBackendHealthStore.getState().reachable).toBe(false)
   })
 })

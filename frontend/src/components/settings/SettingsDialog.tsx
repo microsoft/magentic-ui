@@ -11,6 +11,7 @@
 import { useState, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { ConnectionStatusBanner } from '@/components/common'
 import { useFolderPreferencesStore } from '@/stores'
 import { ConfirmDialog } from './ConfirmDialog'
 import { FolderSettings } from './FolderSettings'
@@ -79,6 +80,9 @@ function SettingsDialogContent({
       <DialogHeader className="shrink-0 p-4 text-center!">
         <DialogTitle className="text-lg font-semibold">Settings</DialogTitle>
       </DialogHeader>
+
+      {/* Mirror the global banner — the dialog overlay dims the page banner. */}
+      <ConnectionStatusBanner />
 
       <div className="flex min-h-0 flex-1">
         {/* Left nav */}

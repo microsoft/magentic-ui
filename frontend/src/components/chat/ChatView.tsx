@@ -28,6 +28,7 @@ import {
   useSessionAgentMode,
   useIsCuaActive,
   useUIStore,
+  useBackendHealthStore,
 } from '@/stores'
 import {
   useSessionRun,
@@ -108,6 +109,8 @@ export function ChatView({
   const sessionStatus = useSessionStatus(sessionId)
   const novncUrl = useNovncUrl(sessionId)
   const novncPassword = useNovncPassword(sessionId)
+  // Block Send when disconnected. Banner explains why.
+  const backendReachable = useBackendHealthStore((s) => s.reachable)
 
   // Scroll restoration for switching between sessions
   const { scrollRef, handleItemRef } = useScrollRestoration({
@@ -764,7 +767,7 @@ export function ChatView({
             sessionId={sessionId}
             onSend={handleSendWithBannerClear}
             onStop={handleStop}
-            disabled={!sessionId}
+            disabled={!sessionId || !backendReachable}
             sessionStatus={sessionStatus}
             isStopping={isStopping}
             isSending={isSending}

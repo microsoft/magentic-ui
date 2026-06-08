@@ -10,8 +10,9 @@
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react'
 import { ArrowRight, CheckCircle2, ExternalLink, Loader2, RotateCcw } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
+import { useBackendHealthStore } from '@/stores'
 import {
   ModelConfigCard,
   RecommendedModel,
@@ -47,6 +48,10 @@ interface ModelSettingsProps {
 export function ModelSettings({ onDirtyChange }: ModelSettingsProps) {
   const [state, dispatch] = useReducer(modelSettingsReducer, modelSettingsInitialState)
   const { saved, draft, loading, verifying, verified, errors, orchError, wsError } = state
+  // Freeze controls while verifying, during initial load, or when the
+  // backend is unreachable. Banner explains the disconnected case.
+  const reachable = useBackendHealthStore((s) => s.reachable)
+  const frozen = verifying || loading || !reachable
   const queryClient = useQueryClient()
 
   // ── Derived ────────────────────────────────────────────────────
@@ -91,25 +96,41 @@ export function ModelSettings({ onDirtyChange }: ModelSettingsProps) {
     onDirtyChange?.(isDirty)
   }, [isDirty, onDirtyChange])
 
+  // Use react-query so backend-recovery refetch picks it up. Falls back
+  // to empty form on failure.
+  const endpointsQuery = useQuery({
+    queryKey: ['onboarding', 'endpoints'],
+    queryFn: getOnboardingEndpoints,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    retry: false,
+  })
+
+  // Apply loaded data to the reducer. Skip when dirty so a background
+  // refetch on recovery doesn't blow away in-progress edits.
   useEffect(() => {
-    getOnboardingEndpoints()
-      .then((data) => {
-        dispatch({
-          type: 'loaded',
-          orchestrator: toForm(data.orchestrator),
-          webSurfer: toForm(data.web_surfer),
-          agentMode: data.agent_mode ?? 'all',
-        })
+    if (isDirty) return
+    if (endpointsQuery.data) {
+      const data = endpointsQuery.data
+      dispatch({
+        type: 'loaded',
+        orchestrator: toForm(data.orchestrator),
+        webSurfer: toForm(data.web_surfer),
+        agentMode: data.agent_mode ?? 'all',
       })
-      .catch(() =>
-        dispatch({
-          type: 'loaded',
-          orchestrator: { ...EMPTY_FORM },
-          webSurfer: { ...EMPTY_FORM },
-          agentMode: 'all',
-        })
-      )
-  }, [])
+    } else if (endpointsQuery.isError) {
+      dispatch({
+        type: 'loaded',
+        orchestrator: { ...EMPTY_FORM },
+        webSurfer: { ...EMPTY_FORM },
+        agentMode: 'all',
+      })
+    }
+    // isDirty is read as a value, not a dep — a transition to dirty
+    // shouldn't re-fire this; the next refetch will re-apply when clean.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endpointsQuery.data, endpointsQuery.isError])
 
   // ── Handlers ───────────────────────────────────────────────────
   const handleVerify = useCallback(async () => {
@@ -210,13 +231,6 @@ export function ModelSettings({ onDirtyChange }: ModelSettingsProps) {
   const handleSubmit = handleVerify
 
   // ── Render ─────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="text-muted-foreground size-5 animate-spin" />
-      </div>
-    )
-  }
 
   // The silent auto-save path never sets `verifying`, so the button stays on
   // "Connection Verified" the whole time and only flips to "Verifying..." when
@@ -250,7 +264,7 @@ export function ModelSettings({ onDirtyChange }: ModelSettingsProps) {
             config={draft.orchestrator}
             onChange={(partial) => dispatch({ type: 'edit-orch', partial })}
             state={orchError ? 'error' : 'default'}
-            disabled={verifying}
+            disabled={frozen}
             enabled={orchEnabled}
             onEnabledChange={(enabled) => dispatch({ type: 'set-orch-enabled', enabled })}
             description="Powers reasoning, coding, and tool calling — the brain behind every task."
@@ -263,7 +277,7 @@ export function ModelSettings({ onDirtyChange }: ModelSettingsProps) {
             config={draft.webSurfer}
             onChange={(partial) => dispatch({ type: 'edit-ws', partial })}
             state={wsError ? 'error' : 'default'}
-            disabled={verifying}
+            disabled={frozen}
             enabled={wsEnabled}
             onEnabledChange={(enabled) => dispatch({ type: 'set-ws-enabled', enabled })}
             description="Required to unlock browser navigation and web tasks."
@@ -293,7 +307,7 @@ export function ModelSettings({ onDirtyChange }: ModelSettingsProps) {
             variant="destructive"
             className="rounded-full"
             onClick={() => dispatch({ type: 'discard' })}
-            disabled={verifying || !isDirty}
+            disabled={frozen || !isDirty}
           >
             <RotateCcw className="size-4" />
             Discard Changes
@@ -301,7 +315,7 @@ export function ModelSettings({ onDirtyChange }: ModelSettingsProps) {
           <Button
             className="rounded-full"
             onClick={handleSubmit}
-            disabled={verifying || !canSubmit || (!isDirty && verified)}
+            disabled={frozen || !canSubmit || (!isDirty && verified)}
           >
             <SubmitIcon className={cn('size-4', verifying && 'animate-spin')} />
             {submitLabel}
