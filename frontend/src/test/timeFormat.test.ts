@@ -117,6 +117,21 @@ describe('formatChatSeparator', () => {
     const ts = new Date(2024, 5, 10, 17, 1, 0).toISOString()
     expect(formatChatSeparator(ts, NOW, LOCALE)).toBe('June 10, 2024 5:01 PM')
   })
+
+  it('treats a timezone-less timestamp as UTC (reload path)', () => {
+    // The reload path emits naive ISO without a timezone and with 6-digit
+    // microseconds. It must parse to the same instant as the tz-aware form
+    // (not drift by the local offset or render blank in Safari).
+    const naive = '2026-04-29T21:01:00.123456'
+    const utc = '2026-04-29T21:01:00.123Z'
+    expect(formatChatSeparator(naive, NOW, LOCALE)).toBe(formatChatSeparator(utc, NOW, LOCALE))
+  })
+
+  it('accepts a space-separated timezone-less timestamp as UTC', () => {
+    const spaced = '2026-04-29 21:01:00.123456'
+    const utc = '2026-04-29T21:01:00.123Z'
+    expect(formatChatSeparator(spaced, NOW, LOCALE)).toBe(formatChatSeparator(utc, NOW, LOCALE))
+  })
 })
 
 // =============================================================================
@@ -153,5 +168,13 @@ describe('exceedsChatGap', () => {
     const a = new Date(NOW).toISOString()
     const b = new Date(NOW + 60_000).toISOString()
     expect(exceedsChatGap(a, b)).toBe(false)
+  })
+
+  it('treats mixed tz-aware and tz-less timestamps consistently (UTC)', () => {
+    // A tz-less reload timestamp and a tz-aware live timestamp at the same
+    // instant must produce no gap (would be hours apart if parsed as local).
+    const naive = '2026-04-29T21:01:00.123456'
+    const utc = '2026-04-29T21:01:30.000Z'
+    expect(exceedsChatGap(naive, utc)).toBe(false)
   })
 })

@@ -252,7 +252,10 @@ class DatabaseManager:
                 else f"{model_class.__name__} Created Successfully"
             ),
             status=status,
-            data=model.model_dump() if return_json else model,
+            # Use JSON mode so datetime fields run through their serializers
+            # (UTC ISO with tzinfo); python mode would leave naive datetimes
+            # that the API then encodes without a timezone.
+            data=model.model_dump(mode="json") if return_json else model,
         )
 
     def get(

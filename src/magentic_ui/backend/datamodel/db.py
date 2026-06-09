@@ -73,8 +73,8 @@ class Message(SQLModel, table=True):
         default={}, sa_column=Column(JSON)
     )
 
-    @field_serializer("created_at", "updated_at")
-    def serialize_datetime(cls, value: datetime) -> Optional[str]:
+    @field_serializer("created_at", "updated_at", when_used="json")
+    def serialize_datetime(self, value: datetime) -> Optional[str]:
         return _serialize_utc(value)
 
 
@@ -95,8 +95,8 @@ class Session(SQLModel, table=True):
         default_factory=list, sa_column=Column(JSON)
     )
 
-    @field_serializer("created_at", "updated_at")
-    def serialize_datetime(cls, value: datetime) -> Optional[str]:
+    @field_serializer("created_at", "updated_at", when_used="json")
+    def serialize_datetime(self, value: datetime) -> Optional[str]:
         return _serialize_utc(value)
 
 
@@ -164,8 +164,8 @@ class Run(SQLModel, table=True):
     # "unknown" and avoid hiding any messages.
     agent_mode: Optional[str] = None
 
-    @field_serializer("created_at", "updated_at")
-    def serialize_datetime(cls, value: datetime) -> Optional[str]:
+    @field_serializer("created_at", "updated_at", when_used="json")
+    def serialize_datetime(self, value: datetime) -> Optional[str]:
         return _serialize_utc(value)
 
 
