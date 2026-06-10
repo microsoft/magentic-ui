@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -26,10 +26,10 @@ def _make_completion(text: str, total_tokens: int = 50) -> MagicMock:
 
 
 def _mock_llm_client(responses: list[str]) -> MagicMock:
+    from ._stream_mock import install_stream_mock
+
     client = MagicMock()
-    client.chat.completions.create = AsyncMock(
-        side_effect=[_make_completion(t) for t in responses]
-    )
+    install_stream_mock(client, [_make_completion(t) for t in responses])
     return client
 
 
@@ -70,7 +70,7 @@ async def test_second_run_stream_sees_first_turn_history(tmp_path: Path) -> None
     finally:
         await sandbox.__aexit__(None, None, None)
 
-    calls = client.chat.completions.create.call_args_list
+    calls = client.chat.completions.stream.call_args_list
     assert len(calls) == 2
 
     # The first user message of a session is prepended with a one-shot
@@ -169,7 +169,7 @@ async def test_second_agent_resumes_from_disk(tmp_path: Path) -> None:
     finally:
         await sandbox_b.__aexit__(None, None, None)
 
-    calls = client_b.chat.completions.create.call_args_list
+    calls = client_b.chat.completions.stream.call_args_list
     assert len(calls) == 1
 
     # Turn 1 nudged the original task; turn 2 in a new agent must keep that
@@ -225,7 +225,7 @@ async def test_resume_preserves_delegate_cua_tool_response(tmp_path: Path) -> No
     finally:
         await sandbox.__aexit__(None, None, None)
 
-    messages = client.chat.completions.create.call_args_list[0].kwargs["messages"]
+    messages = client.chat.completions.stream.call_args_list[0].kwargs["messages"]
     contents = [m["content"] for m in messages]
     # Fresh system prompt at index 0 — should not equal the seeded placeholder.
     assert contents[0] != "ignored — replaced by current prompt"
@@ -295,7 +295,7 @@ async def test_resume_with_corrupted_state_starts_fresh(tmp_path: Path) -> None:
 
     # Fresh start: the first user message should carry the nudge prefix,
     # exactly like a never-resumed agent.
-    msgs = client.chat.completions.create.call_args_list[0].kwargs["messages"]
+    msgs = client.chat.completions.stream.call_args_list[0].kwargs["messages"]
     assert msgs[1]["content"] == f"{_PATH_QUOTING_NUDGE}\nhello"
 
 

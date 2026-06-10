@@ -19,10 +19,15 @@ import shutil
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import openai
 from openai import AsyncOpenAI
+from openai.lib.streaming.chat import (
+    ContentDeltaEvent,
+    FunctionToolCallArgumentsDeltaEvent,
+    RefusalDeltaEvent,
+)
 
 from ...agents.message_schemas import (
     compaction_end_props,
@@ -46,6 +51,16 @@ logger = logging.getLogger(__name__)
 _RETRY_DELAY_SECONDS = 5.0
 _MAX_RETRY_ATTEMPTS = 3
 _MAX_EMERGENCY_COMPACTIONS = 2
+
+# Stream events whose arrival means the model has started producing
+# output. Matching against the SDK's concrete classes (rather than a
+# ``.delta`` suffix) fails at import if the SDK renames them, instead of
+# silently never emitting "generating".
+_FIRST_TOKEN_EVENTS = (
+    ContentDeltaEvent,
+    RefusalDeltaEvent,
+    FunctionToolCallArgumentsDeltaEvent,
+)
 
 # Default compaction threshold in tokens. When ``total_tokens`` from the
 # most recent persistent generate call reaches this value, the next
@@ -261,15 +276,39 @@ class OmniResponses:
         persist: bool = True,
         call_type: str = "round",
     ) -> str:
+        """Back-compat wrapper around :meth:`generate_streaming`.
+
+        Drains the streaming variant and returns just the assistant
+        text, discarding the intermediate ``"generating"`` transition.
+        Suitable for callers that only need the final text and do not
+        surface streaming progress to the UI (e.g. compaction summary
+        and final-answer fallback).
+        """
+        text = ""
+        async for kind, payload in self.generate_streaming(
+            new_input, persist=persist, call_type=call_type
+        ):
+            if kind == "result":
+                text = cast(str, payload)
+        return text
+
+    async def generate_streaming(
+        self,
+        new_input: str | list[Message] | None = None,
+        *,
+        persist: bool = True,
+        call_type: str = "round",
+    ) -> AsyncIterator[tuple[Literal["state", "result"], Any]]:
         """Send the current history plus optional new input to the LLM.
 
-        If the API rejects the request with a context_length_exceeded
-        error and ``persist`` is True, emergency compaction runs in
-        place and the call is retried automatically with the freshly-
-        compacted history plus the same ``new_input``. The retry loop
-        is gated on ``persist`` so the compaction summary call itself
-        (which runs with ``persist=False``) cannot recurse into
-        another emergency compaction.
+        Yields ``("state", "generating")`` once the model starts replying
+        (suppressed if the call fails before the first token), then
+        ``("result", text)`` with the assistant's full response.
+
+        On a context_length_exceeded error with ``persist`` True,
+        emergency compaction runs in place and the call retries with the
+        compacted history. The retry is gated on ``persist`` so the
+        compaction summary call (``persist=False``) can't recurse.
 
         Args:
             new_input: Content to include on top of the existing
@@ -290,18 +329,19 @@ class OmniResponses:
                 ``"compaction"`` and ``"final_answer"``. Trace logging
                 is unconditional — even ``persist=False`` calls land
                 in ``trace.jsonl`` for observability.
-
-        Returns:
-            The assistant's text response. For a persistent call, this
-            is the same text that was just appended to history.
         """
         extra = _normalize_input(new_input)
 
         emergency_attempts = 0
+        response: ChatCompletion | None = None
         while True:
             prompt_messages = self._messages + extra
             try:
-                response = await self._call_api(prompt_messages)
+                async for kind, payload in self._call_api(prompt_messages):
+                    if kind == "state":
+                        yield ("state", payload)
+                    else:
+                        response = payload
                 break
             except openai.BadRequestError as e:
                 if not persist or not _is_context_length_exceeded(e):
@@ -322,6 +362,10 @@ class OmniResponses:
                 # Loop back — rebuild prompt_messages with refreshed
                 # self._messages (now compacted) plus the same extra.
 
+        # Explicit guard (not assert, which -O strips): _call_api always
+        # yields a result on the success path.
+        if response is None:
+            raise RuntimeError("_call_api returned without yielding a completion")
         text = response.choices[0].message.content or ""
 
         usage = response.usage
@@ -360,36 +404,31 @@ class OmniResponses:
             self._total_tokens = usage.total_tokens if usage else 0
             await self._append_transcript(extra + [assistant_msg(text)])
 
-        return text
+        yield ("result", text)
 
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
 
-    async def _call_api(self, messages: list[Message]) -> ChatCompletion:
+    async def _call_api(
+        self, messages: list[Message]
+    ) -> AsyncIterator[tuple[Literal["state", "result"], Any]]:
         """Invoke chat completions, retrying only transient errors.
 
-        Retries up to ``_MAX_RETRY_ATTEMPTS`` times with a fixed
-        ``_RETRY_DELAY_SECONDS`` delay between attempts. Retryable
-        conditions are:
+        Yields ``("state", "generating")`` once the model starts replying
+        (at most once per call), then ``("result", ChatCompletion)`` when
+        the stream is drained. Streaming exists only to distinguish
+        "waiting" from "replying"; tokens themselves are never surfaced.
 
-        - ``openai.RateLimitError`` (HTTP 429)
-        - ``openai.APITimeoutError``
-        - ``openai.APIConnectionError``
-        - ``openai.APIStatusError`` with ``status_code >= 500``
+        Retries transient errors (429, timeout, connection, 5xx) up to
+        ``_MAX_RETRY_ATTEMPTS`` — but only before ``"generating"`` is
+        emitted. After the model has started, a mid-stream failure is
+        terminal: resending would regress the UI from "generating" back
+        to "waiting" and waste the partial response.
 
-        Permanent errors (4xx other than 429, malformed requests,
-        authentication failures, model not found, etc.) propagate
-        immediately without retry so the caller can surface them or
-        handle them specifically. The emergency context-length-
-        exceeded handler lives in :meth:`generate` where the original
-        ``new_input`` is in scope, not here.
-
-        Args:
-            messages: Fully-assembled message list to send.
-
-        Returns:
-            The raw ``ChatCompletion`` response object.
+        Permanent errors propagate immediately. The emergency
+        context-length handler lives in :meth:`generate_streaming`, where
+        the original ``new_input`` is in scope.
 
         Raises:
             RuntimeError: If every attempt hit a transient error.
@@ -397,39 +436,60 @@ class OmniResponses:
         """
         attempt = 0
         while True:
+            generation_started = False
             try:
-                return await self._client.chat.completions.create(
+                async with self._client.chat.completions.stream(
                     model=self._model,
                     messages=messages,  # type: ignore[arg-type]  # Message is TypedDict
                     temperature=self._temperature,
                     top_p=0.8,
                     presence_penalty=1.0,
+                    # Required for a usage block on streamed completions;
+                    # without it token accounting resets to 0 and
+                    # ``maybe_compact`` never fires.
+                    stream_options={"include_usage": True},
                     extra_body={
                         "top_k": 20,
                         "min_p": 0,
                         "chat_template_kwargs": {"enable_thinking": False},
                     },
-                )
+                ) as stream:
+                    async for event in stream:
+                        # A delta event means the model has started replying.
+                        if not generation_started and isinstance(
+                            event, _FIRST_TOKEN_EVENTS
+                        ):
+                            generation_started = True
+                            yield ("state", "generating")
+                    completion = await stream.get_final_completion()
+                yield ("result", completion)
+                return
             except openai.RateLimitError as e:
+                if generation_started:
+                    raise
                 logger.warning(
                     "Rate limit (429); retrying in %.0fs: %s",
                     _RETRY_DELAY_SECONDS,
                     e,
                 )
             except openai.APITimeoutError as e:
+                if generation_started:
+                    raise
                 logger.warning(
                     "Request timeout; retrying in %.0fs: %s",
                     _RETRY_DELAY_SECONDS,
                     e,
                 )
             except openai.APIConnectionError as e:
+                if generation_started:
+                    raise
                 logger.warning(
                     "Connection error; retrying in %.0fs: %s",
                     _RETRY_DELAY_SECONDS,
                     e,
                 )
             except openai.APIStatusError as e:
-                if e.status_code < 500:
+                if e.status_code < 500 or generation_started:
                     raise
                 logger.warning(
                     "Server error %s; retrying in %.0fs: %s",

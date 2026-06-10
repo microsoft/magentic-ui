@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -43,10 +43,10 @@ def _make_completion(text: str, total_tokens: int = 50) -> MagicMock:
 
 
 def _mock_llm_client(responses: list[str]) -> MagicMock:
+    from ._stream_mock import install_stream_mock
+
     client = MagicMock()
-    client.chat.completions.create = AsyncMock(
-        side_effect=[_make_completion(t) for t in responses]
-    )
+    install_stream_mock(client, [_make_completion(t) for t in responses])
     return client
 
 
@@ -70,7 +70,7 @@ async def _build_agent(
 
 def _last_user_response(client: MagicMock) -> str:
     """Grab the second LLM call's most-recent user-role <tool_response> message."""
-    calls = client.chat.completions.create.call_args_list
+    calls = client.chat.completions.stream.call_args_list
     assert len(calls) >= 2, "expected at least two LLM calls"
     msgs = calls[1].kwargs["messages"]
     user_responses = [
@@ -272,7 +272,7 @@ class TestParseErrorSurfacing:
             await sandbox.__aexit__(None, None, None)
 
         # Round-1 → Round-2: user message should contain the parse error
-        calls = client.chat.completions.create.call_args_list
+        calls = client.chat.completions.stream.call_args_list
         round2_msgs = calls[1].kwargs["messages"]
         last_user = round2_msgs[-1]
         assert last_user["role"] == "user"

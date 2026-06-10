@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import openai
 import pytest
@@ -62,22 +62,25 @@ def _bad_request(code: str | int, message: str = "") -> openai.BadRequestError:
 def _mock_llm_client(responses: list[Any]) -> MagicMock:
     """Build a MagicMock AsyncOpenAI client with canned responses.
 
-    Successive calls to ``client.chat.completions.create()`` consume
+    Successive calls to ``client.chat.completions.stream()`` consume
     ``responses`` in order. Each element is either a string (returned
     as a completion with ``total_tokens=10``), a ``(text, total_tokens)``
-    tuple, or an exception instance (raised when that call happens).
+    tuple, or an exception instance (raised from the stream context
+    manager when that call happens).
     """
+    from ._stream_mock import install_stream_mock
+
     client = MagicMock()
-    side_effects: list[Any] = []
+    items: list[Any] = []
     for item in responses:
         if isinstance(item, Exception):
-            side_effects.append(item)
+            items.append(item)
         elif isinstance(item, tuple):
             text, tokens = item
-            side_effects.append(_make_completion(text, tokens))
+            items.append(_make_completion(text, tokens))
         else:
-            side_effects.append(_make_completion(item))
-    client.chat.completions.create = AsyncMock(side_effect=side_effects)
+            items.append(_make_completion(item))
+    install_stream_mock(client, items)
     return client
 
 
@@ -667,18 +670,18 @@ class TestEmergencyHandler:
         await chat.generate("initial task")
 
         # Resolve the underlying mock so we can inspect its call history.
-        mock_create = chat._client.chat.completions.create
+        mock_stream = chat._client.chat.completions.stream
 
         result = await chat.generate("follow-up with important detail")
         assert result == "recovery response"
 
-        # Four create() calls should have been made:
+        # Four stream() calls should have been made:
         #   1. priming (succeeded)
         #   2. follow-up with important detail (raised 400)
         #   3. compaction summary (persist=False)
         #   4. retry of follow-up with important detail (after compact)
-        assert mock_create.call_count == 4
-        retry_call = mock_create.call_args_list[3]
+        assert mock_stream.call_count == 4
+        retry_call = mock_stream.call_args_list[3]
         retry_messages = retry_call.kwargs["messages"]
         # The retry must contain the triggering user input verbatim.
         assert any(
@@ -795,7 +798,66 @@ class TestEmergencyHandler:
         # Exactly 6 API calls: 1 priming + 3 failing attempts + 2
         # successful compaction summaries. Anything > 6 would mean the
         # cap did not engage and we attempted a 3rd compaction.
-        assert chat._client.chat.completions.create.call_count == 6
+        assert chat._client.chat.completions.stream.call_count == 6
+
+
+# ---------------------------------------------------------------------------
+# Streaming I/O: agent_state transition + usage accounting
+# ---------------------------------------------------------------------------
+
+
+class TestStreaming:
+    @pytest.mark.asyncio
+    async def test_stream_requests_usage(self):
+        """``include_usage`` must be set or streamed completions carry no
+        usage block, which would silently zero out token accounting and
+        keep ``maybe_compact`` from ever firing."""
+        client = _mock_llm_client(["response"])
+        chat = _build_chat(client, threshold=None)
+        await chat.generate("task")
+        _, kwargs = client.chat.completions.stream.call_args
+        assert kwargs["stream_options"] == {"include_usage": True}
+
+    @pytest.mark.asyncio
+    async def test_usage_flows_into_total_tokens(self):
+        """The streamed completion's usage drives ``total_tokens`` so the
+        compaction threshold can be evaluated against real token counts."""
+        client = _mock_llm_client([("response", 4242)])
+        chat = _build_chat(client, threshold=None)
+        await chat.generate("task")
+        assert chat.total_tokens == 4242
+
+    @pytest.mark.asyncio
+    async def test_generating_emitted_once_first_token_arrives(self):
+        """A delta event triggers exactly one ``("state", "generating")``
+        before the final ``("result", text)``."""
+        from ._stream_mock import content_delta, StreamScript, install_stream_mock
+
+        client = MagicMock()
+        script = StreamScript(
+            events=[content_delta(), content_delta()],  # two token deltas
+            completion=_make_completion("hello"),
+        )
+        install_stream_mock(client, [script])
+        chat = _build_chat(client, threshold=None)
+
+        events = [
+            (kind, payload) async for kind, payload in chat.generate_streaming("task")
+        ]
+        # generating emitted once (not per delta), then a single result.
+        assert events == [("state", "generating"), ("result", "hello")]
+
+    @pytest.mark.asyncio
+    async def test_no_generating_state_when_stream_has_no_tokens(self):
+        """With no token events the call still produces a result and never
+        claims the model started replying."""
+        client = _mock_llm_client(["response"])
+        chat = _build_chat(client, threshold=None)
+        events = [
+            (kind, payload) async for kind, payload in chat.generate_streaming("task")
+        ]
+        assert [k for k, _ in events] == ["result"]
+        assert events[0][1] == "response"
 
 
 # ---------------------------------------------------------------------------

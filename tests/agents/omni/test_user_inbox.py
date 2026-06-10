@@ -9,7 +9,7 @@ request.
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -32,10 +32,10 @@ def _make_completion(text: str, total_tokens: int = 50) -> MagicMock:
 
 
 def _mock_llm_client(responses: list[str]) -> MagicMock:
+    from ._stream_mock import install_stream_mock
+
     client = MagicMock()
-    client.chat.completions.create = AsyncMock(
-        side_effect=[_make_completion(t) for t in responses]
-    )
+    install_stream_mock(client, [_make_completion(t) for t in responses])
     return client
 
 
@@ -59,7 +59,7 @@ async def _build_agent(
 
 def _user_messages_in_call(client: MagicMock, call_index: int) -> list[str]:
     """Return the content strings of every user-role message in the Nth LLM call."""
-    call = client.chat.completions.create.call_args_list[call_index]
+    call = client.chat.completions.stream.call_args_list[call_index]
     return [m["content"] for m in call.kwargs["messages"] if m["role"] == "user"]
 
 
