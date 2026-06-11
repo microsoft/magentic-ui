@@ -560,54 +560,81 @@ class TestExtractDirBasename:
 
 
 class TestValidateHostPath:
-    def test_valid_directory(self, tmp_path):
-        d = tmp_path / "photos"
+    @pytest.fixture
+    def fake_home(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+        """Return a temp directory that ``validate_host_path`` treats as
+        the user home (the root mounts must live under)."""
+        home = tmp_path / "home"
+        home.mkdir()
+        home = home.resolve()
+        monkeypatch.setattr(
+            "magentic_ui.sandbox._path_validator.get_home",
+            lambda: home,
+        )
+        return home
+
+    def test_valid_directory(self, fake_home: Path):
+        d = fake_home / "photos"
         d.mkdir()
         result = validate_host_path(str(d))
         assert result == str(d)
 
-    def test_rejects_nonexistent(self, tmp_path):
-        with pytest.raises(ValueError, match="does not exist"):
-            validate_host_path(str(tmp_path / "nope"))
+    def test_tilde_expands_against_get_home(self, fake_home: Path):
+        # ``~`` must expand against get_home() (the containment root),
+        # not os.path.expanduser (which uses the Linux $HOME on WSL and
+        # would land outside the fake home, rejecting a valid path).
+        d = fake_home / "photos"
+        d.mkdir()
+        result = validate_host_path("~/photos")
+        assert result == str(d)
 
-    def test_rejects_file(self, tmp_path):
-        f = tmp_path / "file.txt"
+    def test_rejects_nonexistent(self, fake_home: Path):
+        with pytest.raises(ValueError, match="does not exist"):
+            validate_host_path(str(fake_home / "nope"))
+
+    def test_rejects_file(self, fake_home: Path):
+        f = fake_home / "file.txt"
         f.write_text("hi")
         with pytest.raises(ValueError, match="not a directory"):
             validate_host_path(str(f))
 
-    def test_rejects_ssh_dir(self, tmp_path, monkeypatch):
-        # Simulate ~/.ssh existing
-        fake_home = tmp_path / "fakehome"
-        fake_ssh = fake_home / ".ssh"
-        fake_ssh.mkdir(parents=True)
-        monkeypatch.setenv("HOME", str(fake_home))
-        # Path.home() caches, so patch it directly
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
+    def test_rejects_ssh_dir(self, fake_home: Path):
+        ssh = fake_home / ".ssh"
+        ssh.mkdir()
         with pytest.raises(ValueError, match="sensitive location"):
-            validate_host_path(str(fake_ssh))
+            validate_host_path(str(ssh))
 
-    def test_rejects_subdir_of_ssh(self, tmp_path, monkeypatch):
-        fake_home = tmp_path / "fakehome"
-        fake_ssh_keys = fake_home / ".ssh" / "keys"
-        fake_ssh_keys.mkdir(parents=True)
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
+    def test_rejects_subdir_of_ssh(self, fake_home: Path):
+        keys = fake_home / ".ssh" / "keys"
+        keys.mkdir(parents=True)
         with pytest.raises(ValueError, match="sensitive location"):
-            validate_host_path(str(fake_ssh_keys))
+            validate_host_path(str(keys))
 
-    def test_rejects_etc(self):
-        # /etc should always exist on Linux/macOS
-        with pytest.raises(ValueError, match="sensitive location"):
+    def test_rejects_outside_home(self, fake_home: Path):
+        # /etc lives outside the user-home root; the containment check
+        # rejects it before the denylist gets a turn.
+        with pytest.raises(ValueError, match="not under user home"):
             validate_host_path("/etc")
 
-    def test_rejects_symlink_to_denied(self, tmp_path, monkeypatch):
-        fake_home = tmp_path / "fakehome"
-        fake_ssh = fake_home / ".ssh"
-        fake_ssh.mkdir(parents=True)
-        monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
-
-        # Symlink that points to ~/.ssh
-        innocent = tmp_path / "innocent"
-        innocent.symlink_to(fake_ssh)
+    def test_rejects_symlink_to_denied(self, fake_home: Path):
+        ssh = fake_home / ".ssh"
+        ssh.mkdir()
+        # Symlink lives inside home so containment passes; resolution
+        # then lands on ``.ssh`` which the denylist catches.
+        innocent = fake_home / "innocent"
+        innocent.symlink_to(ssh)
         with pytest.raises(ValueError, match="sensitive location"):
             validate_host_path(str(innocent))
+
+    def test_rejects_symlink_escaping_home(
+        self, fake_home: Path, tmp_path: Path
+    ) -> None:
+        # Symlink inside home pointing to a target outside home — passes
+        # the initial string containment but ``resolve`` then escapes,
+        # and the re-validation step catches it.
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        escape = fake_home / "escape"
+        escape.symlink_to(outside)
+        with pytest.raises(ValueError, match="escapes home via symlink"):
+            validate_host_path(str(escape))
