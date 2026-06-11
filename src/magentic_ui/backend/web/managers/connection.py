@@ -408,6 +408,19 @@ class WebSocketManager:
                 )
                 props: Dict[str, Any] = update.additional_properties or {}
 
+                # Transient agent_state signal: forward to the WS and do not
+                # persist — the next persistent message clears it.
+                if props.get("type") == "agent_state":
+                    await self._send_message(
+                        run_id,
+                        {
+                            "type": "agent_state",
+                            "state": props.get("state"),
+                            "source": props.get("source", "unknown_agent"),
+                        },
+                    )
+                    continue
+
                 # Handle system messages (e.g., status updates like "paused", "complete", "error")
                 if props.get("type") == "system":
                     status_str: str = props.get("status", "")

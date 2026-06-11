@@ -584,7 +584,14 @@ class TestFaraWebSurferResumeState:
 
         updates = [update async for update in surfer.run_stream("continue")]
 
-        assert len(updates) == 2
+        # Ignore the transient ``calling_model`` agent_state signals emitted
+        # before each model call; only the two substantive updates matter.
+        content_updates = [
+            u
+            for u in updates
+            if (u.additional_properties or {}).get("type") != "agent_state"
+        ]
+        assert len(content_updates) == 2
         calls = agent._generate_model_call.call_args_list  # type: ignore[attr-defined]
         assert calls[0].kwargs["user_response"] == "continue"
         assert calls[1].kwargs["user_response"] == "continue"
@@ -706,6 +713,57 @@ class TestFaraWebSurferUserInbox:
             ]
             == "continue"
         )
+
+
+class TestFaraWebSurferAgentState:
+    """FaraWebSurfer emits a transient ``calling_model`` agent_state signal
+    before each (non-streaming) model call so the UI can show
+    "Waiting for model…". FARA never streams tokens, so it does not emit
+    ``thinking``."""
+
+    def _surfer(
+        self, side_effect, *, max_rounds: int = 3
+    ) -> tuple[FaraWebSurfer, FaraQwen3Agent]:
+        surfer = FaraWebSurfer(
+            model_client_config={"api_key": "test", "base_url": "http://x"},
+        )
+        agent = FaraQwen3Agent(
+            client_config={"api_key": "test", "base_url": "http://x"},
+            max_rounds=max_rounds,
+        )
+        agent._state = FaraQwen3AgentState(
+            chat_history=[LLMMessage(role="user", content="previous task")]
+        )
+        agent._generate_model_call = AsyncMock(  # type: ignore[method-assign]
+            side_effect=side_effect
+        )
+        surfer._agent = agent
+        surfer._env = _make_mock_env()
+        surfer._lazy_init = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        return surfer, agent
+
+    @pytest.mark.asyncio
+    async def test_emits_calling_model_before_model_call(self):
+        action = {
+            "arguments": {
+                "action": "terminate",
+                "answer": "done",
+                "thoughts": "done",
+            }
+        }
+        surfer, _ = self._surfer([(action, "raw")])
+
+        events = [evt async for evt in surfer.run_stream("go")]
+
+        states = [
+            (evt.additional_properties or {}).get("state")
+            for evt in events
+            if (evt.additional_properties or {}).get("type") == "agent_state"
+        ]
+        # calling_model is emitted (at least once, before the model call);
+        # generating is never emitted because FARA does not stream tokens.
+        assert "calling_model" in states
+        assert "generating" not in states
 
 
 # ===========================================================================

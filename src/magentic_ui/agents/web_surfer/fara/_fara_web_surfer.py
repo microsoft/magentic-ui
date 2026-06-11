@@ -29,6 +29,7 @@ from ...message_schemas import (
     HandoffInfo,
     HandoffReason,
     HandoffStatus,
+    agent_state_props,
     browser_address_props,
     error_props,
     final_answer_props,
@@ -421,6 +422,13 @@ class FaraWebSurfer:
                     )
                     self._pending_error_message = None
 
+                # "Waiting for model…" before the model call. FARA does not
+                # stream tokens, so it emits only ``calling_model``.
+                yield StreamUpdate(
+                    additional_properties=dict(
+                        agent_state_props(self._name, "calling_model")
+                    ),
+                )
                 action, raw_response = await self._agent._generate_model_call(
                     self._env,
                     is_first_round,

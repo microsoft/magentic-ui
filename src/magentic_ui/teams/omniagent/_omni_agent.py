@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -23,6 +24,7 @@ from openai import AsyncOpenAI
 
 from ...agents.message_schemas import (
     HandoffInfo,
+    agent_state_props,
     final_answer_props,
     reasoning_props,
     system_props,
@@ -335,7 +337,31 @@ class OmniAgent:
                 pending.append(user_msg(user_response))
 
             # --- LLM call ---
-            response_text = await chat.generate(pending)
+            # Transient calling_model -> generating signals (not persisted;
+            # cleared by the next persistent message).
+            yield StreamUpdate(
+                additional_properties=dict(
+                    agent_state_props(self.name, "calling_model")
+                ),
+            )
+            response_text = ""
+            # Stamp generation time on the reasoning message; agent_state
+            # isn't persisted, so the frontend can't derive it from history.
+            thinking_started_at: float | None = None
+            thinking_seconds: int | None = None
+            async for kind, payload in chat.generate_streaming(pending):
+                if kind == "state":
+                    if payload == "generating":
+                        thinking_started_at = time.monotonic()
+                    yield StreamUpdate(
+                        additional_properties=dict(
+                            agent_state_props(self.name, payload)
+                        ),
+                    )
+                else:
+                    response_text = cast(str, payload)
+                    if thinking_started_at is not None:
+                        thinking_seconds = round(time.monotonic() - thinking_started_at)
             pending = []
 
             # --- Drain any compaction events triggered by this round ---
@@ -374,7 +400,11 @@ class OmniAgent:
             if parsed.thoughts:
                 yield StreamUpdate(
                     text=parsed.thoughts,
-                    additional_properties=dict(reasoning_props(source=self.name)),
+                    additional_properties=dict(
+                        reasoning_props(
+                            source=self.name, thinking_seconds=thinking_seconds
+                        )
+                    ),
                 )
 
             # --- Check answer ---

@@ -26,6 +26,7 @@ from typing import Any, Literal, TypedDict, NotRequired
 # =============================================================================
 
 MessageType = Literal[
+    "agent_state",
     "browser_address",
     "browser_screenshot",
     "code_to_execute",
@@ -45,6 +46,10 @@ MessageType = Literal[
 SystemStatus = Literal["complete", "error", "paused", "stopped", "awaiting_input"]
 
 InputType = Literal["text_input", "approval", "continuation"]
+
+# Transient signal around LLM calls so the UI can distinguish "waiting for
+# the model" from "generating". Forwarded to the WebSocket only, not persisted.
+AgentState = Literal["calling_model", "generating"]
 
 
 # =============================================================================
@@ -134,6 +139,9 @@ class ReasoningProps(TypedDict):
 
     source: str
     type: Literal["reasoning"]
+    # Model generation time (first token -> completion). Omitted when
+    # unknown (legacy rows, or no token stream) rather than null.
+    thinking_seconds: NotRequired[int]
 
 
 class TextProps(TypedDict):
@@ -229,6 +237,19 @@ class CompactionEndProps(TypedDict):
 
     source: str
     type: Literal["compaction_end"]
+
+
+class AgentStateProps(TypedDict):
+    """Transient agent activity signal around an LLM call.
+
+    ``calling_model`` before the request is dispatched; ``generating`` once
+    the first token streams back. Cleared by the next persistent message,
+    so there is no explicit ``idle`` state.
+    """
+
+    source: str
+    type: Literal["agent_state"]
+    state: AgentState
 
 
 # =============================================================================
@@ -352,11 +373,27 @@ def error_props(source: str) -> ErrorProps:
     }
 
 
-def reasoning_props(source: str) -> ReasoningProps:
-    """Create reasoning/thought properties."""
-    return {
+def reasoning_props(source: str, thinking_seconds: int | None = None) -> ReasoningProps:
+    """Create reasoning/thought properties.
+
+    ``thinking_seconds`` is the model's generation time; omitted when None
+    so the frontend's timestamp-diff fallback is unchanged.
+    """
+    props: ReasoningProps = {
         "source": source,
         "type": "reasoning",
+    }
+    if thinking_seconds is not None:
+        props["thinking_seconds"] = thinking_seconds
+    return props
+
+
+def agent_state_props(source: str, state: AgentState) -> AgentStateProps:
+    """Create transient agent_state properties (not persisted)."""
+    return {
+        "source": source,
+        "type": "agent_state",
+        "state": state,
     }
 
 
