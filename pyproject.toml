@@ -51,6 +51,8 @@ dependencies = [
     "tiktoken>=0.12,<0.14",
     "quick-sandbox[qemu,cua]~=0.11.14",
     "quicksand-cua>=0.3.10",
+    "quicksand-core==0.11.14a0",
+    "quicksand-qemu==0.5.11a",
     "pip>=24",
 ]
 
