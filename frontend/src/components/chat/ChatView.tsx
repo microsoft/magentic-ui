@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { ChatInput } from './ChatInput'
 import { clearInputDraft, setInputDraft } from '@/lib/inputDrafts'
 import { MessageList } from './MessageList'
-import { SessionStatusIndicator } from './messages'
+import { SessionStatusIndicator, ReasoningPlaceholder } from './messages'
 import { SampleTaskCards } from '@/components/common'
 import { ChatInputBanner } from './ChatInputBanner'
 import { shouldUseInputResponse } from './chatViewUtils'
@@ -229,6 +229,13 @@ export function ChatView({
     sessionId ? s.getSessionState(sessionId).pendingTakeoverFeedback : false
   )
   const setPendingTakeoverFeedback = useChatStore((s) => s.setPendingTakeoverFeedback)
+
+  // Transient agent activity: ``calling_model`` shows "Waiting for model…"
+  // in the status indicator; ``generating`` shows a shimmer placeholder card.
+  // Cleared by the store when the next persistent message arrives.
+  const agentActivity = useChatStore((s) =>
+    sessionId ? s.getSessionState(sessionId).agentActivity : null
+  )
 
   // Timeout for pending actions - clear if stuck for too long (e.g., backend crashed)
   // Timeout: clear stuck pending actions (e.g., backend crashed during stop/pause/send).
@@ -698,12 +705,23 @@ export function ChatView({
                     onHideStatusIndicator={handleHideStatusIndicator}
                     onFilePreview={onFilePreview}
                   />
-                  {/* Session status indicator — hidden when redundant or while a send is pending
-                      (avoids flashing the prior "completed/stopped" status during the transition
-                      window between user send and the server confirming 'active'). */}
-                  {!hideStatusIndicator && !isSending && (
+                  {/* Shimmer placeholder while the model is generating,
+                      replaced by the real ReasoningMessage on completion. */}
+                  {agentActivity === 'generating' && !isSending && (
                     <div className="mt-6">
-                      <SessionStatusIndicator status={sessionStatus} />
+                      <ReasoningPlaceholder />
+                    </div>
+                  )}
+                  {/* Status indicator — hidden when redundant, while sending,
+                      or while generating (the placeholder card covers that). */}
+                  {!hideStatusIndicator && !isSending && agentActivity !== 'generating' && (
+                    <div className="mt-6">
+                      <SessionStatusIndicator
+                        status={sessionStatus}
+                        labelOverride={
+                          agentActivity === 'calling_model' ? 'Waiting for model…' : undefined
+                        }
+                      />
                     </div>
                   )}
                 </>

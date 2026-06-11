@@ -239,6 +239,96 @@ describe('useWebSocketManager query invalidation', () => {
   })
 
   // ===========================================================================
+  // agent_state: transient "Waiting for model" / "Thinking" signal
+  // ===========================================================================
+  describe('agent_state messages', () => {
+    it('updates agentActivity in the chat store on agent_state messages', async () => {
+      renderHook(() => useWebSocketManager(), { wrapper })
+
+      await waitFor(() => {
+        expect(mockWsInstances.length).toBeGreaterThan(0)
+      })
+      const ws = mockWsInstances[0]
+      ws.simulateOpen()
+
+      act(() => {
+        ws.simulateMessage({
+          type: 'agent_state',
+          state: 'calling_model',
+          source: 'omni_agent',
+        })
+      })
+      expect(useChatStore.getState().getSessionState(1).agentActivity).toBe('calling_model')
+
+      act(() => {
+        ws.simulateMessage({
+          type: 'agent_state',
+          state: 'generating',
+          source: 'omni_agent',
+        })
+      })
+      expect(useChatStore.getState().getSessionState(1).agentActivity).toBe('generating')
+    })
+
+    it('clears agentActivity when a terminal system status arrives', async () => {
+      renderHook(() => useWebSocketManager(), { wrapper })
+
+      await waitFor(() => {
+        expect(mockWsInstances.length).toBeGreaterThan(0)
+      })
+      const ws = mockWsInstances[0]
+      ws.simulateOpen()
+
+      act(() => {
+        ws.simulateMessage({
+          type: 'agent_state',
+          state: 'generating',
+          source: 'omni_agent',
+        })
+      })
+      expect(useChatStore.getState().getSessionState(1).agentActivity).toBe('generating')
+
+      act(() => {
+        ws.simulateMessage({
+          type: 'system',
+          status: 'complete',
+        })
+      })
+      expect(useChatStore.getState().getSessionState(1).agentActivity).toBeNull()
+    })
+
+    it('clears agentActivity when the run pauses (non-active status)', async () => {
+      renderHook(() => useWebSocketManager(), { wrapper })
+
+      await waitFor(() => {
+        expect(mockWsInstances.length).toBeGreaterThan(0)
+      })
+      const ws = mockWsInstances[0]
+      ws.simulateOpen()
+
+      act(() => {
+        ws.simulateMessage({
+          type: 'agent_state',
+          state: 'generating',
+          source: 'omni_agent',
+        })
+      })
+      expect(useChatStore.getState().getSessionState(1).agentActivity).toBe('generating')
+
+      // Take Control pauses the run; the agent is no longer calling the
+      // model, so the transient indicator must clear even though 'paused'
+      // is not a terminal status.
+      act(() => {
+        ws.simulateMessage({
+          type: 'system',
+          status: 'paused',
+        })
+      })
+      expect(useChatStore.getState().getSessionState(1).agentActivity).toBeNull()
+    })
+  })
+
+  // ===========================================================================
   // sendInputResponse: mid-session file uploads (issue #291)
   // ===========================================================================
   describe('sendInputResponse', () => {

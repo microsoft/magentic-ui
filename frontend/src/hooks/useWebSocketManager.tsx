@@ -243,6 +243,7 @@ export function WebSocketManagerProvider({
   const setPendingAction = useChatStore((s) => s.setPendingAction)
   const setControlState = useChatStore((s) => s.setControlState)
   const setPendingTakeoverFeedback = useChatStore((s) => s.setPendingTakeoverFeedback)
+  const setAgentActivity = useChatStore((s) => s.setAgentActivity)
   const getSessionState = useChatStore((s) => s.getSessionState)
 
   // Ref for send function (used inside createMessageHandler for auto-approve)
@@ -333,6 +334,13 @@ export function WebSocketManagerProvider({
             // At this point, status should be a valid ServerRunStatus
             // Type assertion is safe because we've filtered out connection events
             setServerStatus(sessionId, status as ServerRunStatus)
+
+            // The transient agent activity is only meaningful while the run
+            // is active; clear it on any other status (terminal or paused,
+            // e.g. Take Control) to avoid a stale "Waiting for model…".
+            if (status !== 'active') {
+              setAgentActivity(sessionId, null)
+            }
 
             // Terminal states: disconnect and notify
             const isTerminalState = ['complete', 'error', 'stopped'].includes(status)
@@ -534,6 +542,14 @@ export function WebSocketManagerProvider({
             break
 
           // =====================================================================
+          // AGENT_STATE: transient "Waiting for model" / "Thinking" signal,
+          // auto-cleared by the store on the next persistent message.
+          // =====================================================================
+          case WS_SERVER_MESSAGE_TYPE.AGENT_STATE:
+            setAgentActivity(sessionId, message.state)
+            break
+
+          // =====================================================================
           // FILE: Generated/modified file notification (PR 283)
           // Backend sends this when new or modified files are detected.
           // Only insert a chat message for newly seen files (dedup by url).
@@ -636,6 +652,7 @@ export function WebSocketManagerProvider({
       setControlState,
       setPendingTakeoverFeedback,
       setPendingAction,
+      setAgentActivity,
     ]
   )
 

@@ -22,6 +22,7 @@ import {
   type InputRequest,
   type SessionStatus,
   type BrowserViewMode,
+  type AgentActivityState,
   initialSessionChatState,
   computeSessionStatus,
   isOptimisticMessage,
@@ -95,6 +96,13 @@ interface ChatStore {
 
   // Folder mounting state
   setMountedFolder: (sessionId: number, folder: import('@/types').FolderInfo | null) => void
+
+  /**
+   * Set the transient agent activity signal (or null to clear). Driven by
+   * ``agent_state`` WS messages; auto-cleared when the next persistent
+   * message arrives.
+   */
+  setAgentActivity: (sessionId: number, activity: AgentActivityState | null) => void
 
   // Auto-approve state
   /** Enable auto-approve for a specific tool or all tools in this session */
@@ -266,6 +274,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         ...current,
         messages: [...current.messages, parsed],
         previewFile,
+        // A persistent message clears any transient agent activity signal.
+        agentActivity: null,
       })
       return { sessionStates: newStates }
     })
@@ -474,6 +484,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const newStates = new Map(state.sessionStates)
       const current = newStates.get(sessionId) ?? { ...initialSessionChatState }
       newStates.set(sessionId, { ...current, mountedFolder: folder })
+      return { sessionStates: newStates }
+    })
+  },
+
+  setAgentActivity: (sessionId, activity) => {
+    set((state) => {
+      const newStates = new Map(state.sessionStates)
+      const current = newStates.get(sessionId) ?? { ...initialSessionChatState }
+      if (current.agentActivity === activity) return state
+      newStates.set(sessionId, { ...current, agentActivity: activity })
       return { sessionStates: newStates }
     })
   },
