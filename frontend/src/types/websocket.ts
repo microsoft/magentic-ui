@@ -161,8 +161,9 @@ export interface WsServerPongMessage {
 /**
  * Transient signal around an LLM call: "waiting for the model" vs
  * "generating". Not persisted — the next persistent message clears it.
+ * ``model_slow`` is "still waiting" past a grace period.
  */
-export type AgentActivityState = 'calling_model' | 'generating'
+export type AgentActivityState = 'calling_model' | 'model_slow' | 'generating'
 
 export interface WsServerAgentStateMessage {
   type: typeof WS_SERVER_MESSAGE_TYPE.AGENT_STATE

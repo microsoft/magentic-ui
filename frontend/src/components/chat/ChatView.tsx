@@ -719,7 +719,11 @@ export function ChatView({
                       <SessionStatusIndicator
                         status={sessionStatus}
                         labelOverride={
-                          agentActivity === 'calling_model' ? 'Waiting for model…' : undefined
+                          agentActivity === 'model_slow'
+                            ? 'Model is slow to respond, still waiting…'
+                            : agentActivity === 'calling_model'
+                              ? 'Waiting for model…'
+                              : undefined
                         }
                       />
                     </div>

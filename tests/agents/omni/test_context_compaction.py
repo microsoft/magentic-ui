@@ -9,6 +9,7 @@ chaining, and error propagation.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Any
@@ -858,6 +859,72 @@ class TestStreaming:
         ]
         assert [k for k, _ in events] == ["result"]
         assert events[0][1] == "response"
+
+    @pytest.mark.asyncio
+    async def test_model_slow_emitted_when_first_token_is_slow(self, monkeypatch):
+        """A slow first token yields ``model_slow`` before ``generating``,
+        so the UI can warn the user instead of waiting silently."""
+        from ._stream_mock import content_delta
+        from magentic_ui.teams.omniagent import _responses
+
+        monkeypatch.setattr(_responses, "_SLOW_MODEL_SECONDS", 0.01)
+
+        class _SlowStream:
+            def __init__(self) -> None:
+                self._events = [content_delta()]
+                self._first = True
+
+            def __aiter__(self) -> "_SlowStream":
+                return self
+
+            async def __anext__(self):
+                if self._first:
+                    self._first = False
+                    await asyncio.sleep(0.1)  # outlasts the patched threshold
+                if not self._events:
+                    raise StopAsyncIteration
+                return self._events.pop(0)
+
+            async def get_final_completion(self):
+                return _make_completion("hi")
+
+        chat = _build_chat(MagicMock(), threshold=None)
+        events = [item async for item in chat._consume_stream(_SlowStream())]
+
+        states = [payload for kind, payload in events if kind == "state"]
+        assert states == ["model_slow", "generating"]
+        assert events[-1][0] == "result"
+
+    @pytest.mark.asyncio
+    async def test_fatal_model_error_fails_fast_without_retry(self):
+        """A connection error is fatal — the SDK already retried, so the
+        agent must not loop ``_MAX_RETRY_ATTEMPTS`` more times."""
+        from unittest.mock import MagicMock as _MM
+
+        err = openai.APIConnectionError(message="unreachable", request=_MM())
+        client = _mock_llm_client([err])
+        chat = _build_chat(client, threshold=None)
+
+        with pytest.raises(openai.APIConnectionError):
+            await chat.generate("task")
+        assert client.chat.completions.stream.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_transient_error_is_retried(self, monkeypatch):
+        """A 5xx is transient, so the call retries and then succeeds."""
+        from magentic_ui.teams.omniagent import _responses
+
+        monkeypatch.setattr(_responses, "_RETRY_DELAY_SECONDS", 0.0)
+        response = MagicMock()
+        response.status_code = 503
+        response.request = MagicMock()
+        err = openai.InternalServerError(message="busy", response=response, body=None)
+        client = _mock_llm_client([err, "recovered"])
+        chat = _build_chat(client, threshold=None)
+
+        text = await chat.generate("task")
+        assert text == "recovered"
+        assert client.chat.completions.stream.call_count == 2
 
 
 # ---------------------------------------------------------------------------

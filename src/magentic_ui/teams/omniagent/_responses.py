@@ -12,6 +12,7 @@ rather than I/O and bookkeeping.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import re
@@ -29,6 +30,7 @@ from openai.lib.streaming.chat import (
     RefusalDeltaEvent,
 )
 
+from ..._ai_client import is_retryable_model_error
 from ...agents.message_schemas import (
     compaction_end_props,
     compaction_start_props,
@@ -61,6 +63,10 @@ _FIRST_TOKEN_EVENTS = (
     RefusalDeltaEvent,
     FunctionToolCallArgumentsDeltaEvent,
 )
+
+# How long to wait for the first token before signaling a slow model, so the UI
+# can warn the user instead of silently waiting out the long read timeout.
+_SLOW_MODEL_SECONDS = 15.0
 
 # Default compaction threshold in tokens. When ``total_tokens`` from the
 # most recent persistent generate call reaches this value, the next
@@ -415,13 +421,14 @@ class OmniResponses:
     ) -> AsyncIterator[tuple[Literal["state", "result"], Any]]:
         """Invoke chat completions, retrying only transient errors.
 
-        Yields ``("state", "generating")`` once the model starts replying
-        (at most once per call), then ``("result", ChatCompletion)`` when
-        the stream is drained. Streaming exists only to distinguish
-        "waiting" from "replying"; tokens themselves are never surfaced.
+        Yields ``("state", "model_slow")`` if the first token is slow,
+        ``("state", "generating")`` once the model starts replying, then
+        ``("result", ChatCompletion)`` when the stream is drained.
+        Streaming exists only to distinguish "waiting" from "replying";
+        tokens themselves are never surfaced.
 
-        Retries transient errors (429, timeout, connection, 5xx) up to
-        ``_MAX_RETRY_ATTEMPTS`` — but only before ``"generating"`` is
+        Retries transient errors (see ``is_retryable_model_error``) up
+        to ``_MAX_RETRY_ATTEMPTS`` — but only before ``"generating"`` is
         emitted. After the model has started, a mid-stream failure is
         terminal: resending would regress the UI from "generating" back
         to "waiting" and waste the partial response.
@@ -435,8 +442,10 @@ class OmniResponses:
             openai.OpenAIError: On any permanent error.
         """
         attempt = 0
+        last_error: Exception | None = None
         while True:
             generation_started = False
+            completion: ChatCompletion | None = None
             try:
                 async with self._client.chat.completions.stream(
                     model=self._model,
@@ -454,46 +463,30 @@ class OmniResponses:
                         "chat_template_kwargs": {"enable_thinking": False},
                     },
                 ) as stream:
-                    async for event in stream:
-                        # A delta event means the model has started replying.
-                        if not generation_started and isinstance(
-                            event, _FIRST_TOKEN_EVENTS
-                        ):
-                            generation_started = True
-                            yield ("state", "generating")
-                    completion = await stream.get_final_completion()
+                    async for kind, payload in self._consume_stream(stream):
+                        if kind == "state":
+                            # Only "generating" means the model has started
+                            # replying; "model_slow" is still pre-first-token,
+                            # so it must not gate retries.
+                            if payload == "generating":
+                                generation_started = True
+                            yield ("state", payload)
+                        else:
+                            completion = cast("ChatCompletion", payload)
+                if completion is None:
+                    raise RuntimeError("stream ended without a final completion")
                 yield ("result", completion)
                 return
-            except openai.RateLimitError as e:
-                if generation_started:
+            except openai.OpenAIError as e:
+                # Retry policy: see is_retryable_model_error in _ai_client.
+                # After the model has started replying, a mid-stream failure
+                # is terminal (resending would regress the UI and waste the
+                # partial response).
+                if generation_started or not is_retryable_model_error(e):
                     raise
+                last_error = e
                 logger.warning(
-                    "Rate limit (429); retrying in %.0fs: %s",
-                    _RETRY_DELAY_SECONDS,
-                    e,
-                )
-            except openai.APITimeoutError as e:
-                if generation_started:
-                    raise
-                logger.warning(
-                    "Request timeout; retrying in %.0fs: %s",
-                    _RETRY_DELAY_SECONDS,
-                    e,
-                )
-            except openai.APIConnectionError as e:
-                if generation_started:
-                    raise
-                logger.warning(
-                    "Connection error; retrying in %.0fs: %s",
-                    _RETRY_DELAY_SECONDS,
-                    e,
-                )
-            except openai.APIStatusError as e:
-                if e.status_code < 500 or generation_started:
-                    raise
-                logger.warning(
-                    "Server error %s; retrying in %.0fs: %s",
-                    e.status_code,
+                    "Transient model error; retrying in %.0fs: %s",
                     _RETRY_DELAY_SECONDS,
                     e,
                 )
@@ -502,8 +495,65 @@ class OmniResponses:
                 raise RuntimeError(
                     f"Chat completion failed after {_MAX_RETRY_ATTEMPTS} "
                     f"attempts with transient errors"
-                )
+                ) from last_error
             await asyncio.sleep(_RETRY_DELAY_SECONDS)
+
+    async def _consume_stream(
+        self, stream: Any
+    ) -> AsyncIterator[tuple[Literal["state", "result"], Any]]:
+        """Drain a streamed completion, flagging a slow first token.
+
+        Yields ``("state", "model_slow")`` if no token arrives within
+        ``_SLOW_MODEL_SECONDS``, ``("state", "generating")`` on the first
+        token, then ``("result", ChatCompletion)`` when drained.
+
+        The stream is drained in a background task feeding a queue so the
+        first-token wait can time out without cancelling (and breaking)
+        the underlying HTTP stream.
+        """
+        # Bounded so a fast model can't outrun the consumer and grow the
+        # queue without limit; ``put`` blocks the drain task for backpressure.
+        events: asyncio.Queue[tuple[str, Any]] = asyncio.Queue(maxsize=256)
+
+        async def _drain() -> None:
+            try:
+                async for ev in stream:
+                    await events.put(("event", ev))
+                await events.put(("done", await stream.get_final_completion()))
+            except Exception as exc:  # surfaced to the consumer, then re-raised
+                await events.put(("error", exc))
+
+        drain_task = asyncio.create_task(_drain())
+        generation_started = False
+        slow_emitted = False
+        try:
+            while True:
+                wait = (
+                    None
+                    if (generation_started or slow_emitted)
+                    else _SLOW_MODEL_SECONDS
+                )
+                try:
+                    kind, payload = await asyncio.wait_for(events.get(), wait)
+                except asyncio.TimeoutError:
+                    slow_emitted = True
+                    yield ("state", "model_slow")
+                    continue
+                if kind == "event":
+                    if not generation_started and isinstance(
+                        payload, _FIRST_TOKEN_EVENTS
+                    ):
+                        generation_started = True
+                        yield ("state", "generating")
+                elif kind == "done":
+                    yield ("result", payload)
+                    return
+                else:  # "error" — re-raise with the drain task's traceback
+                    raise payload.with_traceback(payload.__traceback__)
+        finally:
+            drain_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await drain_task
 
     def _lower_threshold_from_error(self, error: openai.BadRequestError) -> None:
         """Lower ``compaction_threshold`` after a context_length_exceeded error.

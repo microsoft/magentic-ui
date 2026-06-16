@@ -298,13 +298,10 @@ class FaraQwen3NextAgent(FaraQwen3Agent):
             },
         ]
 
-        # TODO: wrap this in the client create function
         assert self._model is not None, "Call initialize() first"
-        response = await asyncio.wait_for(
-            self._client.chat.completions.create(
-                model=self._model,
-                messages=messages,
-            ),
-            timeout=self.config.model_call_timeout_s,
+        # Bounded by the client's httpx read timeout.
+        response = await self._client.chat.completions.create(
+            model=self._model,
+            messages=messages,
         )
         return response.choices[0].message.content or "Error: Extraction failed."

@@ -25,11 +25,12 @@ from pydantic import BaseModel
 from tenacity import (
     before_sleep_log,
     retry,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
 
-from ...._ai_client import create_openai_client
+from ...._ai_client import create_openai_client, is_retryable_model_error
 from ._prompts import get_computer_use_system_prompt
 from ._types import BrowserEnvironment, ImageObj, LLMMessage
 
@@ -91,7 +92,6 @@ class FaraQwen3AgentConfig(BaseModel):
     # on a backbone whose chat template does not honor `enable_thinking`
     # (e.g. legacy Qwen3-VL).
     disable_thinking: bool = True
-    model_call_timeout_s: float = 60.0
     include_input_text_key_args: bool = True
     viewport_width: int = 1440
     viewport_height: int = 900
@@ -380,6 +380,7 @@ class FaraQwen3Agent:
     # ------------------------------------------------------------------
 
     @retry(
+        retry=retry_if_exception(is_retryable_model_error),
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=5.0, min=5.0, max=60),
         before_sleep=before_sleep_log(logging.getLogger(__name__), logging.WARNING),
@@ -409,13 +410,13 @@ class FaraQwen3Agent:
                 {"enable_thinking": False},
             )
         assert self._model is not None, "Call initialize() first"
-        response = await asyncio.wait_for(
-            self._client.chat.completions.create(
-                model=self._model,
-                messages=openai_messages,
-                **create_args,
-            ),
-            timeout=self.config.model_call_timeout_s,
+        # The httpx read timeout on the client bounds this call; a slow model
+        # surfaces as openai.APITimeoutError, which the retry predicate treats
+        # as transient.
+        response = await self._client.chat.completions.create(
+            model=self._model,
+            messages=openai_messages,
+            **create_args,
         )
         return response.choices[0].message.content or ""
 

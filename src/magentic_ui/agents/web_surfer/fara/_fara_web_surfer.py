@@ -18,6 +18,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import openai
 from loguru import logger
 
 from ._browser_env import PlaywrightBrowserEnvironment
@@ -34,8 +35,10 @@ from ...message_schemas import (
     error_props,
     final_answer_props,
     screenshot_props,
+    system_props,
     tool_call_props,
 )
+from ...._ai_client import humanize_model_error, is_retryable_model_error
 from ....tools.playwright.playwright_controller_fara import PlaywrightController
 from ....types import ContinuationRequest, InputRequest, PauseController
 
@@ -73,6 +76,7 @@ class FaraWebSurfer:
         agent_variant: str = "qwen3_next",
         max_rounds: int = 100,
         state_dir: Path | None = None,
+        is_standalone: bool = False,
     ) -> None:
         self._model_client_config = model_client_config
         self._browser = browser
@@ -86,6 +90,11 @@ class FaraWebSurfer:
         self.output_dir = output_dir
         self._agent_variant = agent_variant
         self._max_rounds = max_rounds
+        # Top-level agent (websurfer_only) vs. a sub-agent delegated by
+        # OmniAgent. Standalone runs surface a fatal model error as a
+        # terminal error status; delegated runs hand it back so the
+        # orchestrator can decide what to do.
+        self._is_standalone = is_standalone
         # Session-scoped state file: last URL + chat history, restored
         # by a follow-up run after the TM is closed (death/stop/idle).
         self._state_path: Path | None = (
@@ -449,18 +458,43 @@ class FaraWebSurfer:
                 logger.error(
                     f"Tool call error: {error_str} | Raw: {repr(raw_response)}"
                 )
-                # Make connection failures explicit so users know the LLM
-                # endpoint is unreachable, not the magentic-ui itself.
-                user_error = (
-                    f"Model API connection error ({error_str})"
-                    if "connection error" in error_str.lower()
-                    else error_str
-                )
+                # A fatal model error (auth, quota, unreachable endpoint)
+                # can't be fixed by feeding it back and retrying, so stop
+                # immediately. Validation and other recoverable errors fall
+                # through to the retry path, where the model sees the error
+                # and can correct.
+                if isinstance(e, openai.OpenAIError) and not is_retryable_model_error(
+                    e
+                ):
+                    message = humanize_model_error(e) or error_str
+                    if self._is_standalone:
+                        # No orchestrator above us — fail the run outright so
+                        # the UI shows an error status, not a final answer.
+                        yield StreamUpdate(
+                            text=message,
+                            additional_properties=dict(
+                                system_props(self._name, "error", message)
+                            ),
+                        )
+                    else:
+                        # Hand back to the orchestrator, which decides whether
+                        # to retry, switch tools, or surface the failure.
+                        info = await self._handoff_info(
+                            status=HandoffStatus.ERROR,
+                            reason=HandoffReason.MODEL_ERROR,
+                        )
+                        yield StreamUpdate(
+                            text=message,
+                            additional_properties=final_answer_props(
+                                self._name, handoff=info
+                            ),
+                        )
+                    return
                 consecutive_errors += 1
                 if consecutive_errors >= max_consecutive_errors:
                     final_text = (
                         f"Giving up after {consecutive_errors} consecutive errors. "
-                        f"Last error: {user_error}"
+                        f"Last error: {humanize_model_error(e) or error_str}"
                     )
                     info = await self._handoff_info(
                         status=HandoffStatus.ERROR,
@@ -476,7 +510,7 @@ class FaraWebSurfer:
                 if raw_response:
                     self._pending_error_message = error_str
                 yield StreamUpdate(
-                    text=f"{user_error}. Retrying ({consecutive_errors}/{max_consecutive_errors})...",
+                    text=f"{error_str}. Retrying ({consecutive_errors}/{max_consecutive_errors})...",
                     additional_properties=error_props(self._name),
                 )
                 continue

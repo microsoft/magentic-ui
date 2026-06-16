@@ -49,7 +49,7 @@ InputType = Literal["text_input", "approval", "continuation"]
 
 # Transient signal around LLM calls so the UI can distinguish "waiting for
 # the model" from "generating". Forwarded to the WebSocket only, not persisted.
-AgentState = Literal["calling_model", "generating"]
+AgentState = Literal["calling_model", "model_slow", "generating"]
 
 
 # =============================================================================
@@ -183,6 +183,7 @@ class HandoffReason(str, Enum):
     MAX_ROUNDS = "max_rounds"
     ORPHAN_RECOVERY = "orphan_recovery"
     CONSECUTIVE_ERRORS = "consecutive_errors"
+    MODEL_ERROR = "model_error"
 
 
 class HandoffInfo(TypedDict):
@@ -242,9 +243,10 @@ class CompactionEndProps(TypedDict):
 class AgentStateProps(TypedDict):
     """Transient agent activity signal around an LLM call.
 
-    ``calling_model`` before the request is dispatched; ``generating`` once
-    the first token streams back. Cleared by the next persistent message,
-    so there is no explicit ``idle`` state.
+    ``calling_model`` before the request is dispatched; ``model_slow`` if the
+    first token is still not back after a grace period; ``generating`` once the
+    first token streams back. Cleared by the next persistent message, so there
+    is no explicit ``idle`` state.
     """
 
     source: str

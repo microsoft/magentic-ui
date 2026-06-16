@@ -39,6 +39,7 @@ from ...teammanager import TeamManager
 from ...utils.utils import construct_task
 
 from ....magentic_ui_config import MagenticUIConfig
+from ...._ai_client import humanize_model_error
 from ....approval import (
     AGENT_INPUT_SESSION_AUTO_APPROVE,
     ApprovalDecision,
@@ -694,7 +695,11 @@ class WebSocketManager:
 
     async def _handle_stream_error(self, run_id: int, error: Exception) -> None:
         """Handle stream errors and persist error detail as a Message record."""
-        error_text = str(error) or f"{type(error).__name__}: (no message)"
+        error_text = (
+            humanize_model_error(error)
+            or str(error)
+            or f"{type(error).__name__}: (no message)"
+        )
         await self._update_run_status(run_id, RunStatus.ERROR, content=error_text)
         await self._save_message(
             run_id,

@@ -24,6 +24,7 @@ from openai import AsyncOpenAI
 
 from ...agents.message_schemas import (
     HandoffInfo,
+    HandoffReason,
     agent_state_props,
     final_answer_props,
     reasoning_props,
@@ -86,6 +87,11 @@ _PATH_QUOTING_NUDGE = (
     "  ls -la 'My Folder/file (1).pdf'   ← quoted, works\n"
     "  ls -la My Folder/file (1).pdf     ← unquoted, fails\n"
 )
+
+# Abort after this many consecutive delegate model errors. A delegated
+# sub-agent's model failure (auth, quota, unreachable) won't fix itself on
+# retry, so re-delegating just loops; one tolerance covers a transient blip.
+_MAX_DELEGATE_MODEL_ERRORS = 2
 
 
 class OmniAgent:
@@ -278,6 +284,9 @@ class OmniAgent:
         consecutive_parse_errors = 0
         max_parse_retries = 3
         bare_text_retries = 0
+        # Consecutive delegate model errors across rounds; reset on any
+        # delegate that doesn't fail with a model error.
+        consecutive_delegate_model_errors = 0
 
         self._sub_agent_drain_cursor = (
             self._pause_controller.drain_log_cursor
@@ -694,7 +703,9 @@ class OmniAgent:
                                 "Tool %s failed: %s", tool_name, e, exc_info=True
                             )
 
-                # Truncate per-call output
+                # Truncate per-call output before any use (including the
+                # abort path below) so a large delegate response can't bypass
+                # the size budget and bloat DB / websocket payloads.
                 tool_result = format_tool_output(
                     data={"output": tool_result},
                     truncatable_fields=["output"],
@@ -702,6 +713,25 @@ class OmniAgent:
                     outputs_dir=self._outputs_dir,
                     to_guest_path=self._to_guest_path,
                 )
+
+                # A delegate whose model failed won't recover on retry; abort
+                # once it happens repeatedly instead of re-delegating forever.
+                # Any other outcome (success, a different failure) resets the
+                # count — only a persistent model outage should end the run.
+                if last_handoff is not None and (
+                    last_handoff.get("reason") == HandoffReason.MODEL_ERROR.value
+                ):
+                    consecutive_delegate_model_errors += 1
+                    if consecutive_delegate_model_errors >= _MAX_DELEGATE_MODEL_ERRORS:
+                        yield StreamUpdate(
+                            additional_properties=dict(
+                                system_props(self.name, "error", tool_result)
+                            ),
+                        )
+                        await self._save_state()
+                        return
+                elif agent_entry is not None:
+                    consecutive_delegate_model_errors = 0
 
                 # Model gets the handoff envelope; the UI event stays clean.
                 model_result = (
