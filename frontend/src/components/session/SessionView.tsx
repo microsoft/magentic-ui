@@ -517,11 +517,9 @@ export function SessionView({
               aria-label="Session history"
               className="border-sidebar-border bg-sidebar flex h-full w-[340px] shrink-0 flex-col border-r"
             >
+              {/* Real error surfaces via the global ConnectionStatusBanner. */}
               <div className="flex flex-1 items-center justify-center">
-                <p className="text-destructive text-lg">
-                  Failed to load sessions:{' '}
-                  {error instanceof Error ? error.message : 'Unknown error'}
-                </p>
+                <p className="text-muted-foreground text-lg">No sessions to show</p>
               </div>
             </aside>
           ) : (
@@ -558,7 +556,7 @@ export function SessionView({
             {visitedIds.length === 0 ? (
               // No session selected yet
               <div className="flex h-full items-center justify-center">
-                <p className="text-muted-foreground">Select a session to start chatting</p>
+                <p className="text-muted-foreground text-lg">Select a session to start chatting</p>
               </div>
             ) : (
               // Render all visited sessions, hide non-selected ones

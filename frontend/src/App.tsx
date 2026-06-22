@@ -9,7 +9,7 @@ import {
   Navigate,
 } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ErrorBoundary } from '@/components/common'
+import { ErrorBoundary, ConnectionStatusBanner } from '@/components/common'
 import { Header, type AppLayout } from '@/components/layout'
 import { SessionView, Dashboard, DashboardTabs } from '@/components/session'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -20,6 +20,7 @@ import {
   useResponsiveLayout,
   WebSocketManagerProvider,
   useEnsureSessionData,
+  useBackendHealthPolling,
   type ActiveRun,
 } from '@/hooks'
 import { useSessionList, useSessionsWithStatus } from '@/api'
@@ -122,6 +123,8 @@ function DashboardPage() {
         />
       </ErrorBoundary>
 
+      <ConnectionStatusBanner />
+
       {/* Main content */}
       <main className="flex flex-1 flex-col overflow-auto">
         <ErrorBoundary>
@@ -130,10 +133,9 @@ function DashboardPage() {
               <p className="text-muted-foreground text-lg">Loading sessions...</p>
             </div>
           ) : error ? (
+            // Real error surfaces via the global ConnectionStatusBanner.
             <div className="flex flex-1 items-center justify-center">
-              <p className="text-destructive text-lg">
-                Failed to load sessions: {error instanceof Error ? error.message : 'Unknown error'}
-              </p>
+              <p className="text-muted-foreground text-lg">No sessions to show</p>
             </div>
           ) : (
             <Dashboard sessions={filteredSessions} onSessionClick={handleSessionClick} />
@@ -235,6 +237,8 @@ function SessionPage() {
           onBackToDashboard={handleBackToDashboard}
         />
       </ErrorBoundary>
+
+      <ConnectionStatusBanner />
 
       {/* Main content area */}
       <main className="flex flex-1 overflow-hidden">
@@ -340,6 +344,10 @@ function WebSocketWrapper({ children }: { children: React.ReactNode }) {
   const { data: sessions, isLoading } = useSessionsWithStatus()
   const cleanupInvalidSessions = useNotificationStore((s) => s.cleanupInvalidSessions)
   const selectedSessionId = useUIStore((s) => s.selectedSessionId)
+
+  // Poll /health while the backend is unreachable so the banner
+  // dismisses on recovery even on pages with no other queries.
+  useBackendHealthPolling()
 
   // Track if we've done initial sync
   const hasSyncedRef = useRef(false)

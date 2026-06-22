@@ -952,6 +952,86 @@ describe('parseMessage - reasoning messages', () => {
     }
   })
 
+  it('prefers backend-stamped thinking_seconds over timestamp diff', () => {
+    const msg = createMessage({
+      source: 'omni_agent',
+      content: [{ type: 'text', text: 'Backend-measured thinking' }],
+      metadata: { type: 'reasoning', thinking_seconds: 4 },
+    })
+    // Timestamp diff would yield 10s, but the stamped value (4) wins.
+    msg.created_at = '2024-01-01T00:00:10Z'
+
+    const result = parseMessage(msg, '2024-01-01T00:00:00Z')
+
+    expect(result.kind).toBe('reasoning')
+    if (result.kind === 'reasoning') {
+      expect(result.thinkingSeconds).toBe(4)
+    }
+  })
+
+  it('uses thinking_seconds of 0 from metadata without falling back', () => {
+    const msg = createMessage({
+      source: 'omni_agent',
+      content: [{ type: 'text', text: 'Sub-second generation' }],
+      metadata: { type: 'reasoning', thinking_seconds: 0 },
+    })
+    // Diff would be 10s, but an explicit 0 must be respected (no fallback).
+    msg.created_at = '2024-01-01T00:00:10Z'
+
+    const result = parseMessage(msg, '2024-01-01T00:00:00Z')
+
+    expect(result.kind).toBe('reasoning')
+    if (result.kind === 'reasoning') {
+      expect(result.thinkingSeconds).toBe(0)
+    }
+  })
+
+  it('falls back to timestamp diff when thinking_seconds is absent', () => {
+    const msg = createMessage({
+      source: 'omni_agent',
+      content: [{ type: 'text', text: 'Legacy row' }],
+      metadata: { type: 'reasoning' },
+    })
+    msg.created_at = '2024-01-01T00:00:06Z'
+
+    const result = parseMessage(msg, '2024-01-01T00:00:00Z')
+
+    expect(result.kind).toBe('reasoning')
+    if (result.kind === 'reasoning') {
+      expect(result.thinkingSeconds).toBe(6)
+    }
+  })
+
+  it('rounds a fractional backend thinking_seconds', () => {
+    const msg = createMessage({
+      source: 'omni_agent',
+      content: [{ type: 'text', text: 'Fractional backend value' }],
+      metadata: { type: 'reasoning', thinking_seconds: 4.231 },
+    })
+
+    const result = parseMessage(msg)
+
+    expect(result.kind).toBe('reasoning')
+    if (result.kind === 'reasoning') {
+      expect(result.thinkingSeconds).toBe(4)
+    }
+  })
+
+  it('clamps a negative backend thinking_seconds to 0', () => {
+    const msg = createMessage({
+      source: 'omni_agent',
+      content: [{ type: 'text', text: 'Negative backend value' }],
+      metadata: { type: 'reasoning', thinking_seconds: -3 },
+    })
+
+    const result = parseMessage(msg)
+
+    expect(result.kind).toBe('reasoning')
+    if (result.kind === 'reasoning') {
+      expect(result.thinkingSeconds).toBe(0)
+    }
+  })
+
   it('handles string content (non-array)', () => {
     const msg = createMessage({
       source: 'omni_agent',

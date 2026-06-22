@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 import os
 import shlex
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -55,10 +54,7 @@ class TestGuestToolsNullSandbox:
 
     @pytest_asyncio.fixture()
     async def sandbox(self, tmp_path: Path):
-        # Pre-create venv with uv so NullSandbox skips python3 -m venv
-        # (system python3 may lack ensurepip on some systems)
-        venv_dir = tmp_path / ".agent" / "sandbox" / "venv"
-        subprocess.run(["uv", "venv", str(venv_dir)], capture_output=True, check=True)
+        # Uses the shared session venv (see tests/agents/omni/conftest.py).
         sb = NullSandbox(workspace=tmp_path, bash_only=True)
         await sb.__aenter__()
         sb._mounts.append(Mount(_GUEST_TOOLS_DIR.resolve(), _GUEST_TOOLS_DIR.resolve()))

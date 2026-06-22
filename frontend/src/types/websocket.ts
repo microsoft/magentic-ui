@@ -35,6 +35,7 @@ export const WS_SERVER_MESSAGE_TYPE = {
   MESSAGE_CHUNK: 'message_chunk',
   INPUT_REQUEST: 'input_request',
   FILE: 'file',
+  AGENT_STATE: 'agent_state',
   PONG: 'pong',
 } as const
 
@@ -47,6 +48,7 @@ export type WsServerMessage =
   | WsServerMessageChunk
   | WsServerInputRequestMessage
   | WsServerFileMessage
+  | WsServerAgentStateMessage
   | WsServerPongMessage
 
 /**
@@ -154,6 +156,22 @@ export interface WsServerFileMessage {
 export interface WsServerPongMessage {
   type: typeof WS_SERVER_MESSAGE_TYPE.PONG
   timestamp: string
+}
+
+/**
+ * Transient signal around an LLM call: "waiting for the model" vs
+ * "generating". Not persisted — the next persistent message clears it.
+ * ``model_slow`` is "still waiting" past a grace period.
+ */
+export type AgentActivityState = 'calling_model' | 'model_slow' | 'generating'
+
+export interface WsServerAgentStateMessage {
+  type: typeof WS_SERVER_MESSAGE_TYPE.AGENT_STATE
+  state: AgentActivityState
+  /** Agent that emitted the signal. */
+  source: string
+  /** Optional server-assigned UTC ISO timestamp. */
+  timestamp?: string
 }
 
 // =============================================================================

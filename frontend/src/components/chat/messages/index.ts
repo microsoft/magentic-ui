@@ -19,6 +19,7 @@ export {
   type OrchestratorToolMessageProps,
 } from './OrchestratorToolMessage'
 export { ReasoningMessage, type ReasoningMessageProps } from './ReasoningMessage'
+export { ReasoningPlaceholder } from './ReasoningPlaceholder'
 export { SessionStatusIndicator, type SessionStatusIndicatorProps } from './SessionStatusIndicator'
 export { SystemStatusMessage, type SystemStatusMessageProps } from './SystemStatusMessage'
 export { ToolResultMessage, type ToolResultMessageProps } from './ToolResultMessage'

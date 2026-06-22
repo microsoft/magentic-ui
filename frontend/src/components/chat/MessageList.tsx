@@ -162,10 +162,10 @@ export function MessageList({
                 <div className="min-w-0 pr-16">
                   <CollapsibleHeader
                     icon={<Globe className="size-4" />}
-                    label="Using web browser"
+                    label={sessionStatus === 'active' ? 'Using web browser' : 'Used web browser'}
                     isExpanded={false}
                     disabled
-                    isActive
+                    isActive={sessionStatus === 'active'}
                   />
                 </div>
               </div>

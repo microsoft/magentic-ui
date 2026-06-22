@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import AsyncIterator
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -42,10 +42,10 @@ def _make_completion(text: str, total_tokens: int = 50) -> MagicMock:
 
 
 def _mock_llm_client(responses: list[str]) -> MagicMock:
+    from ._stream_mock import install_stream_mock
+
     client = MagicMock()
-    client.chat.completions.create = AsyncMock(
-        side_effect=[_make_completion(t) for t in responses]
-    )
+    install_stream_mock(client, [_make_completion(t) for t in responses])
     return client
 
 
@@ -178,7 +178,7 @@ async def test_continuation_continue_resets_counter(tmp_path: Path) -> None:
         "(the agent should reach <answer> in round 2)"
     )
     assert (
-        client.chat.completions.create.await_count == 2
+        client.chat.completions.stream.call_count == 2
     ), "Expected exactly 2 LLM calls (one per batch)"
 
 
@@ -223,7 +223,7 @@ async def test_subagent_user_stop_appends_no_redelegate_directive(
 
     # Round 2's user message should contain both the tool_response and
     # the orchestrator-only "do not re-delegate" directive.
-    second_call = client.chat.completions.create.call_args_list[1]
+    second_call = client.chat.completions.stream.call_args_list[1]
     user_msgs = [
         m["content"] for m in second_call.kwargs["messages"] if m["role"] == "user"
     ]

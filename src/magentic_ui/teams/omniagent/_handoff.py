@@ -16,6 +16,10 @@ _NOTE_BY_REASON: dict[HandoffReason, str] = {
     HandoffReason.CONSECUTIVE_ERRORS: (
         "NOTE: Fara aborted after repeated errors; the result below is partial."
     ),
+    HandoffReason.MODEL_ERROR: (
+        "NOTE: Fara stopped because the model call itself failed (connection, "
+        "auth, or quota); the result below is partial."
+    ),
 }
 _NOTE_FALLBACK = "NOTE: Fara did not finish; the result below is partial."
 

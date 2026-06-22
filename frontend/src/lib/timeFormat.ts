@@ -28,13 +28,29 @@ function startOfLocalDay(ms: number): number {
 }
 
 /**
+ * Treat a timezone-less timestamp as UTC so it parses consistently.
+ *
+ * The reload path serializes SQLite `DateTime` columns as naive ISO (no
+ * timezone, 6-digit fraction). Browsers read those as LOCAL time — and Safari
+ * rejects the fraction — so reloaded timestamps drift or render blank. Stamp
+ * UTC and trim the fraction to milliseconds; tz-aware inputs pass through.
+ */
+function normalizeTimestamp(input: string): string {
+  if (/[zZ]$|[+-]\d{2}:?\d{2}$/.test(input)) return input
+  const m = input.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(\.\d+)?$/)
+  if (!m) return input
+  const millis = m[3] ? m[3].slice(0, 4) : '' // ".095839" -> ".095"
+  return `${m[1]}T${m[2]}${millis}Z`
+}
+
+/**
  * Coerce a timestamp input (ISO string, epoch ms, or nullish) to epoch ms.
  * Returns NaN for unparseable / nullish input so callers can short-circuit.
  */
 function toEpochMs(input: string | number | null | undefined): number {
   if (input == null || input === '') return NaN
   if (typeof input === 'number') return input
-  return new Date(input).getTime()
+  return new Date(normalizeTimestamp(input)).getTime()
 }
 
 /**
@@ -138,8 +154,8 @@ export function exceedsChatGap(
 ): boolean {
   if (!currentIso) return false
   if (!prevIso) return true
-  const prev = new Date(prevIso).getTime()
-  const curr = new Date(currentIso).getTime()
+  const prev = toEpochMs(prevIso)
+  const curr = toEpochMs(currentIso)
   if (Number.isNaN(prev) || Number.isNaN(curr)) return false
   return curr - prev > CHAT_TIMESTAMP_GAP_MS
 }

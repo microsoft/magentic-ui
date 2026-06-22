@@ -6,39 +6,36 @@ import {
   type AgentSettings as AgentSettingsValue,
 } from '@/api'
 import { Input } from '@/components/ui/input'
+import { useBackendHealthStore } from '@/stores'
 
 const MIN_ROUNDS = 1
 const MAX_ROUNDS = 1000
 
 export function AgentMaxRoundsSettings() {
-  const { data, isLoading, error } = useAgentSettings()
+  const { data } = useAgentSettings()
 
-  if (isLoading) {
-    return <p className="text-muted-foreground text-sm">Loading agent settings…</p>
-  }
-  if (error || !data) {
-    return (
-      <p className="text-destructive text-sm">
-        Failed to load agent max-rounds. Reopen this dialog to retry.
-      </p>
-    )
-  }
-
-  // Remount the form when server values change so local input state re-initializes.
-  const formKey = `${data.orchestrator.max_rounds}-${data.web_surfer.max_rounds}`
-  return <AgentMaxRoundsForm key={formKey} initial={data} />
+  // Remount when server values change so input state re-initializes.
+  // When data is null (loading or fetch failed) the form renders
+  // disabled with empty inputs.
+  const formKey = data ? `${data.orchestrator.max_rounds}-${data.web_surfer.max_rounds}` : 'no-data'
+  return <AgentMaxRoundsForm key={formKey} initial={data ?? null} />
 }
 
 interface AgentMaxRoundsFormProps {
-  initial: AgentSettingsValue
+  /** Server-loaded values, or null when not yet loaded. */
+  initial: AgentSettingsValue | null
 }
 
 function AgentMaxRoundsForm({ initial }: AgentMaxRoundsFormProps) {
   const updateMutation = useUpdateAgentSettings()
+  const reachable = useBackendHealthStore((s) => s.reachable)
+  const disabled = updateMutation.isPending || !reachable || initial === null
   const [orchestratorInput, setOrchestratorInput] = useState(() =>
-    String(initial.orchestrator.max_rounds)
+    initial ? String(initial.orchestrator.max_rounds) : ''
   )
-  const [webSurferInput, setWebSurferInput] = useState(() => String(initial.web_surfer.max_rounds))
+  const [webSurferInput, setWebSurferInput] = useState(() =>
+    initial ? String(initial.web_surfer.max_rounds) : ''
+  )
 
   const commit = (
     raw: string,
@@ -46,6 +43,7 @@ function AgentMaxRoundsForm({ initial }: AgentMaxRoundsFormProps) {
     setLocal: (next: string) => void,
     apply: (next: number) => AgentSettingsValue
   ) => {
+    if (initial === null) return
     const trimmed = raw.trim()
     // Reject anything that isn't a plain decimal integer literal so
     // "5x", "3.9", and "1e3" can't slip past Number() and let the
@@ -86,7 +84,8 @@ function AgentMaxRoundsForm({ initial }: AgentMaxRoundsFormProps) {
           inputMode="numeric"
           value={orchestratorInput}
           onChange={(e) => setOrchestratorInput(e.target.value)}
-          onBlur={() =>
+          onBlur={() => {
+            if (!initial) return
             commit(
               orchestratorInput,
               initial.orchestrator.max_rounds,
@@ -96,14 +95,14 @@ function AgentMaxRoundsForm({ initial }: AgentMaxRoundsFormProps) {
                 orchestrator: { ...initial.orchestrator, max_rounds: next },
               })
             )
-          }
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault()
               ;(e.target as HTMLInputElement).blur()
             }
           }}
-          disabled={updateMutation.isPending}
+          disabled={disabled}
           className="w-24 text-right"
         />
       </div>
@@ -130,19 +129,20 @@ function AgentMaxRoundsForm({ initial }: AgentMaxRoundsFormProps) {
           inputMode="numeric"
           value={webSurferInput}
           onChange={(e) => setWebSurferInput(e.target.value)}
-          onBlur={() =>
+          onBlur={() => {
+            if (!initial) return
             commit(webSurferInput, initial.web_surfer.max_rounds, setWebSurferInput, (next) => ({
               ...initial,
               web_surfer: { ...initial.web_surfer, max_rounds: next },
             }))
-          }
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault()
               ;(e.target as HTMLInputElement).blur()
             }
           }}
-          disabled={updateMutation.isPending}
+          disabled={disabled}
           className="w-24 text-right"
         />
       </div>

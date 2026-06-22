@@ -8,7 +8,6 @@ multi-tenant workspace isolation.
 from __future__ import annotations
 
 import asyncio
-import os
 from pathlib import Path
 from typing import Any
 
@@ -271,10 +270,12 @@ class QuicksandSandbox(SandboxBase):
         # Add user-selected host dirs
         for host_dir in host_dirs or []:
             normalized = normalize_host_path(host_dir)
-            normalized = os.path.expanduser(normalized)
-            # validate_host_path canonicalizes via realpath() and raises
-            # ValueError if the path doesn't exist, isn't a directory, or
-            # matches the sensitive denylist (.ssh, .aws, /etc, WSL AppData).
+            # validate_host_path expands ``~`` against get_home(), contains
+            # the path to the user home, and raises ValueError if it doesn't
+            # exist, isn't a directory, or matches the sensitive denylist
+            # (.ssh, .aws, /etc, WSL AppData). Don't pre-expand with
+            # os.path.expanduser — on WSL that uses the Linux home and would
+            # disagree with the get_home() containment root.
             normalized = validate_host_path(normalized)
             dir_name = extract_dir_basename(normalized)
             validate_dir_name(dir_name, host_dir)

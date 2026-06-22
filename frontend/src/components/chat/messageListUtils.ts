@@ -443,38 +443,41 @@ export function computeRenderItems(
     }
   }
 
-  // Add browser embed if VNC is available or screenshots exist
-  // - If there's a CUA group, place after the last one
-  // - Otherwise, add a placeholder header and place at the end
   if (novncUrl || hasScreenshots) {
-    // Stable groupId prevents VNC reconnection when CUA groups change
+    // Stable groupId prevents VNC reconnection when CUA groups change.
     const groupId = 'browser-embed'
 
     if (lastCuaGroupItemIndex >= 0) {
-      // Has CUA group: insert after it
       items.splice(lastCuaGroupItemIndex + 1, 0, {
         kind: 'browser-embed',
         groupId,
       })
     } else {
-      // No CUA group yet: add placeholder header + browser embed
-      // Skip cua-placeholder if delegate_cua orchestrator-tool already serves as placeholder
       const lastItem = items[items.length - 1]
       const hasDelegateCuaPlaceholder =
         lastItem?.kind === 'message' &&
         lastItem.message.kind === 'orchestrator-tool' &&
         lastItem.message.tool === 'delegate_cua'
 
-      if (!hasDelegateCuaPlaceholder) {
+      if (hasDelegateCuaPlaceholder) {
+        // delegate_cua already signals browsing intent; embed under it.
+        items.push({
+          kind: 'browser-embed',
+          groupId,
+        })
+      } else if (hasScreenshots) {
         items.push({
           kind: 'cua-placeholder',
           groupId: 'cua-placeholder',
         })
+        items.push({
+          kind: 'browser-embed',
+          groupId,
+        })
       }
-      items.push({
-        kind: 'browser-embed',
-        groupId,
-      })
+      // A live browser with no CUA action yet (websurfer_only at launch):
+      // defer the embed until the first tool call forms a cua-group, so the
+      // bottom status indicator stays visible.
     }
   }
 

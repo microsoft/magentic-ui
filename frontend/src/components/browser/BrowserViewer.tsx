@@ -111,6 +111,15 @@ export function BrowserViewer({
       // eslint-disable-next-line react-hooks/immutability -- noVNC API requires property mutation
       rfb.viewOnly = viewOnly
     }
+    // When taking control, move focus to the VNC canvas. The React re-renders
+    // triggered by the controlState transition often park focus on <body>,
+    // and noVNC's keyboard listener is attached to the canvas — so without
+    // this the user has to click the canvas first before typing reaches the
+    // VM. Only steal focus when it is already on <body>: if the user is
+    // typing into another input (e.g. the chat textarea), leave it alone.
+    if (!viewOnly && document.activeElement === document.body) {
+      vncRef.current?.focus()
+    }
   }, [viewOnly])
 
   // Clipboard sync: VM → User

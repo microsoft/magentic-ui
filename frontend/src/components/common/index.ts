@@ -1,4 +1,5 @@
 export { ErrorBoundary } from './ErrorBoundary'
+export { ConnectionStatusBanner } from './ConnectionStatusBanner'
 export { FileChip, type FileChipProps } from './FileChip'
 export { FolderChip, type FolderChipProps } from './FolderChip'
 export { Markdown } from './Markdown'

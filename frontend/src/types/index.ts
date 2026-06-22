@@ -62,7 +62,7 @@ export { initialSessionChatState } from './store'
 
 // WebSocket types
 export { WS_SERVER_MESSAGE_TYPE, WS_CLIENT_MESSAGE_TYPE } from './websocket'
-export type { ActiveRun, WsServerMessage, WsClientMessage } from './websocket'
+export type { ActiveRun, WsServerMessage, WsClientMessage, AgentActivityState } from './websocket'
 
 // UI types
 export type { UISession } from './ui'

@@ -3,11 +3,27 @@
 Verifies create_session()/destroy_session() without booting a real VM.
 """
 
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from magentic_ui.sandbox._quicksand import QuicksandSandbox
+
+
+@pytest.fixture(autouse=True)
+def _mock_home_to_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Point ``get_home`` at the test's ``tmp_path`` so mount paths
+    constructed under it pass ``validate_host_path``'s containment
+    check. Without this the validator rejects ``/tmp/...`` because it
+    lives outside the runner's actual home directory.
+    """
+    home = tmp_path.resolve()
+    monkeypatch.setattr(
+        "magentic_ui.sandbox._path_validator.get_home",
+        lambda: home,
+    )
+    return home
 
 
 def _make_sandbox_with_mock_sb() -> QuicksandSandbox:
