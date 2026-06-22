@@ -8,57 +8,17 @@ browse and select folders (full path) without needing a native dialog.
 
 import errno
 import os
-import subprocess
 import sys
 from datetime import datetime, timezone
-from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from loguru import logger
 
-from magentic_ui.sandbox._path_normalizer import _is_wsl
+from magentic_ui.sandbox._path_normalizer import get_home
 
 router = APIRouter()
-
-
-@lru_cache(maxsize=1)
-def _get_home() -> Path:
-    """Get the user's home directory.
-
-    On WSL, returns the Windows user profile directory (e.g. /mnt/c/Users/name)
-    so the folder browser shows the user's actual Windows files.
-    On Linux/macOS, returns the standard home directory.
-    """
-    if _is_wsl():
-        try:
-            result = subprocess.run(
-                ["cmd.exe", "/c", "echo", "%USERPROFILE%"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            win_path = result.stdout.strip().replace("\r", "")
-            if win_path and "%" not in win_path:
-                wsl_result = subprocess.run(
-                    ["wslpath", "-u", win_path],
-                    capture_output=True,
-                    text=True,
-                    timeout=5,
-                )
-                wsl_path_str = wsl_result.stdout.strip()
-                if wsl_result.returncode == 0 and wsl_path_str:
-                    wsl_path = Path(wsl_path_str)
-                    if wsl_path.is_dir():
-                        logger.info(f"WSL detected, using Windows home: {wsl_path}")
-                        return wsl_path.resolve()
-        except (OSError, subprocess.TimeoutExpired):
-            pass
-        logger.warning(
-            "WSL detected but failed to resolve Windows home, using Linux home"
-        )
-    return Path.home().resolve()
 
 
 def _resolve_path(raw_path: str) -> Path:
@@ -83,7 +43,7 @@ def _resolve_path(raw_path: str) -> Path:
     if "\x00" in raw_path:
         raise HTTPException(status_code=400, detail="Invalid path")
 
-    home = _get_home()
+    home = get_home()
 
     # Pure string normalisation — collapses ".." and "." without I/O
     normed = os.path.normpath(raw_path)
@@ -168,7 +128,7 @@ def _entry_info(entry: os.DirEntry) -> Optional[Dict]:
         if entry.is_symlink():
             target = Path(entry.path).resolve()
             try:
-                target.relative_to(_get_home())
+                target.relative_to(get_home())
             except ValueError:
                 return None  # Symlink escapes home — hide it
 
@@ -200,7 +160,7 @@ async def get_roots() -> Dict:
 
     On WSL, returns the Windows user profile directory.
     """
-    home = str(_get_home())
+    home = str(get_home())
 
     return {
         "status": True,
@@ -245,7 +205,7 @@ async def list_directory(
     )
 
     # Compute parent path (only if still within home)
-    home = _get_home()
+    home = get_home()
     parent_path = resolved.parent
     if parent_path != resolved:
         try:

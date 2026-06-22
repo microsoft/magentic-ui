@@ -405,7 +405,12 @@ export function parseMessage(
   if (metaType === 'reasoning') {
     const text = extractText(content)
     let thinkingSeconds: number | null = null
-    if (previousTimestamp) {
+    // Prefer the backend-stamped time (round + clamp non-negative for a
+    // clean label); fall back to the timestamp diff for legacy rows.
+    const metaSeconds = rawMeta?.thinking_seconds
+    if (typeof metaSeconds === 'number' && Number.isFinite(metaSeconds)) {
+      thinkingSeconds = Math.max(0, Math.round(metaSeconds))
+    } else if (previousTimestamp) {
       const diff = new Date(created_at).getTime() - new Date(previousTimestamp).getTime()
       if (diff > 0) thinkingSeconds = Math.round(diff / 1000)
     }

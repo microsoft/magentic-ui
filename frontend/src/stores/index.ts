@@ -26,6 +26,7 @@ export {
 
 export { useFolderPreferencesStore } from './folderPreferencesStore'
 export { useOnboardingStore } from './onboardingStore'
+export { useBackendHealthStore } from './backendHealthStore'
 
 // Re-export types needed by consumers of stores
 export type { Notification, NotificationType, BrowserViewMode } from '@/types'

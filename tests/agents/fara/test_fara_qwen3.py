@@ -5,8 +5,9 @@ No browser or LLM required — uses mock BrowserEnvironment.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
+import openai
 import pytest
 
 from magentic_ui.agents.web_surfer.fara._fara_qwen3 import (
@@ -146,6 +147,21 @@ class TestMakeModelCall:
         extra_body = create.call_args.kwargs["extra_body"]
         assert extra_body["guided_json"] == {"x": 1}
         assert extra_body["chat_template_kwargs"] == {"enable_thinking": False}
+
+    @pytest.mark.asyncio
+    async def test_fatal_error_is_not_retried(self):
+        """A fatal model error (model not found) re-raises on the first
+        attempt instead of burning the exponential backoff."""
+        agent, create = _agent_with_mock_create()
+        response = MagicMock()
+        response.status_code = 404
+        response.request = MagicMock()
+        create.side_effect = openai.NotFoundError(
+            message="no such model", response=response, body=None
+        )
+        with pytest.raises(openai.NotFoundError):
+            await agent._make_model_call([])
+        assert create.call_count == 1
 
 
 def _terminate_response() -> str:
@@ -526,9 +542,11 @@ class TestFaraWebSurferResumeState:
         side_effect,
         *,
         max_rounds: int = 3,
+        is_standalone: bool = False,
     ) -> tuple[FaraWebSurfer, FaraQwen3Agent]:
         surfer = FaraWebSurfer(
-            model_client_config={"api_key": "test", "base_url": "http://x"}
+            model_client_config={"api_key": "test", "base_url": "http://x"},
+            is_standalone=is_standalone,
         )
         agent = FaraQwen3Agent(
             client_config={"api_key": "test", "base_url": "http://x"},
@@ -584,10 +602,77 @@ class TestFaraWebSurferResumeState:
 
         updates = [update async for update in surfer.run_stream("continue")]
 
-        assert len(updates) == 2
+        # A 500 is transient: Fara retries without injecting the error into
+        # the next prompt, so both calls keep the original user_response.
+        assert agent._generate_model_call.call_count == 2  # type: ignore[attr-defined]
         calls = agent._generate_model_call.call_args_list  # type: ignore[attr-defined]
         assert calls[0].kwargs["user_response"] == "continue"
         assert calls[1].kwargs["user_response"] == "continue"
+        # The run completes via the terminate action, not an error handoff.
+        assert updates[-1].additional_properties["type"] == "final_answer"
+        assert updates[-1].additional_properties["handoff"]["reason"] == "terminate"
+
+    @pytest.mark.asyncio
+    async def test_fatal_model_error_delegate_hands_off_without_retry(self):
+        """Delegated (sub-agent) run: a fatal auth error hands off
+        immediately with a ``model_error`` reason rather than retrying,
+        so the orchestrator can decide what to do."""
+        response = MagicMock()
+        response.status_code = 401
+        response.request = MagicMock()
+        auth_error = openai.AuthenticationError(
+            message="bad key", response=response, body=None
+        )
+        action = {
+            "arguments": {
+                "action": "terminate",
+                "answer": "done",
+                "thoughts": "done",
+            }
+        }
+        surfer, agent = self._surfer_with_restored_history(
+            [auth_error, (action, "raw")],
+            max_rounds=2,
+        )
+
+        updates = [update async for update in surfer.run_stream("continue")]
+
+        # Only one model call — no retry on a fatal error.
+        assert agent._generate_model_call.call_count == 1  # type: ignore[attr-defined]
+        last = updates[-1].additional_properties
+        assert last["type"] == "final_answer"
+        assert last["handoff"]["reason"] == "model_error"
+
+    @pytest.mark.asyncio
+    async def test_fatal_model_error_standalone_fails_run(self):
+        """Standalone (websurfer_only) run: a fatal error ends the run
+        with an error system status, not a final answer."""
+        response = MagicMock()
+        response.status_code = 401
+        response.request = MagicMock()
+        auth_error = openai.AuthenticationError(
+            message="bad key", response=response, body=None
+        )
+        action = {
+            "arguments": {
+                "action": "terminate",
+                "answer": "done",
+                "thoughts": "done",
+            }
+        }
+        surfer, agent = self._surfer_with_restored_history(
+            [auth_error, (action, "raw")],
+            max_rounds=2,
+            is_standalone=True,
+        )
+
+        updates = [update async for update in surfer.run_stream("continue")]
+
+        assert agent._generate_model_call.call_count == 1  # type: ignore[attr-defined]
+        last = updates[-1].additional_properties
+        assert last["type"] == "system"
+        assert last["status"] == "error"
+        assert "API key" in updates[-1].text
 
 
 class TestFaraWebSurferUserInbox:
@@ -706,6 +791,57 @@ class TestFaraWebSurferUserInbox:
             ]
             == "continue"
         )
+
+
+class TestFaraWebSurferAgentState:
+    """FaraWebSurfer emits a transient ``calling_model`` agent_state signal
+    before each (non-streaming) model call so the UI can show
+    "Waiting for model…". FARA never streams tokens, so it does not emit
+    ``thinking``."""
+
+    def _surfer(
+        self, side_effect, *, max_rounds: int = 3
+    ) -> tuple[FaraWebSurfer, FaraQwen3Agent]:
+        surfer = FaraWebSurfer(
+            model_client_config={"api_key": "test", "base_url": "http://x"},
+        )
+        agent = FaraQwen3Agent(
+            client_config={"api_key": "test", "base_url": "http://x"},
+            max_rounds=max_rounds,
+        )
+        agent._state = FaraQwen3AgentState(
+            chat_history=[LLMMessage(role="user", content="previous task")]
+        )
+        agent._generate_model_call = AsyncMock(  # type: ignore[method-assign]
+            side_effect=side_effect
+        )
+        surfer._agent = agent
+        surfer._env = _make_mock_env()
+        surfer._lazy_init = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        return surfer, agent
+
+    @pytest.mark.asyncio
+    async def test_emits_calling_model_before_model_call(self):
+        action = {
+            "arguments": {
+                "action": "terminate",
+                "answer": "done",
+                "thoughts": "done",
+            }
+        }
+        surfer, _ = self._surfer([(action, "raw")])
+
+        events = [evt async for evt in surfer.run_stream("go")]
+
+        states = [
+            (evt.additional_properties or {}).get("state")
+            for evt in events
+            if (evt.additional_properties or {}).get("type") == "agent_state"
+        ]
+        # calling_model is emitted (at least once, before the model call);
+        # generating is never emitted because FARA does not stream tokens.
+        assert "calling_model" in states
+        assert "generating" not in states
 
 
 # ===========================================================================

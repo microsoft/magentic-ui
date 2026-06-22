@@ -5,6 +5,7 @@
  * Handles the standard response wrapper format: { status: boolean, data: T, message?: string }
  */
 import { API_BASE_URL } from '@/lib/constants'
+import { useBackendHealthStore } from '@/stores/backendHealthStore'
 import { getAuthHeaders } from './auth'
 
 // =============================================================================
@@ -118,8 +119,22 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   try {
     response = await fetch(url, config)
   } catch (error) {
-    // Network error (offline, DNS failure, etc.)
+    // Skip health updates for intentional cancellations (AbortController,
+    // React Query unmount cleanup) — they don't say anything about backend
+    // reachability and would otherwise flip the global banner spuriously.
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error
+    }
+    // Network/CORS/offline — backend unreachable.
+    useBackendHealthStore.getState().setReachable(false)
     throw new ApiError(error instanceof Error ? error.message : 'Network error', undefined, error)
+  }
+
+  // 5xx → backend down; anything else (incl. 4xx) → backend responding.
+  if (response.status >= 500) {
+    useBackendHealthStore.getState().setReachable(false)
+  } else {
+    useBackendHealthStore.getState().setReachable(true)
   }
 
   // Handle HTTP errors (4xx, 5xx)

@@ -12,6 +12,7 @@
 import { CollapsibleHeader } from './CollapsibleHeader'
 import { PreBlock } from './PreBlock'
 import { useCollapsibleGroup } from '@/hooks'
+import { useSessionStatus } from '@/stores/chatStore'
 import { getOrchestratorToolLabel, getOrchestratorToolIcon } from '@/lib/messages/constants'
 
 // =============================================================================
@@ -80,8 +81,13 @@ export function OrchestratorToolMessage({
   sessionId,
   approvalStatus,
 }: OrchestratorToolMessageProps) {
+  // A tool call with no result is "active" only while the run is still
+  // going; once it terminates (error/stopped/complete), an unfinished call
+  // can never complete, so stop the shimmer instead of spinning forever.
+  const sessionStatus = useSessionStatus(sessionId)
   const isComplete = resultContent !== undefined
-  const label = getOrchestratorToolLabel(tool, !isComplete)
+  const isActive = !isComplete && sessionStatus === 'active'
+  const label = getOrchestratorToolLabel(tool, isActive)
   const icon = getOrchestratorToolIcon(tool)
   const { isExpanded, toggle } = useCollapsibleGroup(sessionId, groupId, 'toolCall')
   // delegate_cua is a placeholder header — don't show its args (task param)
@@ -96,7 +102,7 @@ export function OrchestratorToolMessage({
           label={label}
           isExpanded={isExpanded}
           onToggle={toggle}
-          isActive={!isComplete}
+          isActive={isActive}
         />
       ) : (
         <CollapsibleHeader
@@ -104,7 +110,7 @@ export function OrchestratorToolMessage({
           label={label}
           isExpanded={false}
           disabled
-          isActive={!isComplete}
+          isActive={isActive}
         />
       )}
 

@@ -11,6 +11,7 @@ import type { ServerRunStatus, ConnectionStatus, PendingAction, ControlState } f
 import type { FileInfo } from './file'
 import type { FolderInfo } from './folder'
 import type { AgentMode } from '@/lib/messages'
+import type { AgentActivityState } from './websocket'
 
 // =============================================================================
 // Browser View Types
@@ -87,6 +88,13 @@ export interface SessionChatState {
   // Folder mounting state
   /** Currently mounted folder for this session (null = none) */
   mountedFolder: FolderInfo | null
+
+  /**
+   * Transient agent activity, set by ``agent_state`` WS messages and
+   * cleared by the next persistent message. Drives "Waiting for model…"
+   * and the generating placeholder card.
+   */
+  agentActivity: AgentActivityState | null
 }
 
 /**
@@ -114,6 +122,7 @@ export const initialSessionChatState: SessionChatState = {
   previewFile: null,
   fileMaximized: false,
   mountedFolder: null,
+  agentActivity: null,
 }
 
 // =============================================================================

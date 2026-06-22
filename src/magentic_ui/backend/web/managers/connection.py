@@ -39,6 +39,7 @@ from ...teammanager import TeamManager
 from ...utils.utils import construct_task
 
 from ....magentic_ui_config import MagenticUIConfig
+from ...._ai_client import humanize_model_error
 from ....approval import (
     AGENT_INPUT_SESSION_AUTO_APPROVE,
     ApprovalDecision,
@@ -408,6 +409,19 @@ class WebSocketManager:
                 )
                 props: Dict[str, Any] = update.additional_properties or {}
 
+                # Transient agent_state signal: forward to the WS and do not
+                # persist — the next persistent message clears it.
+                if props.get("type") == "agent_state":
+                    await self._send_message(
+                        run_id,
+                        {
+                            "type": "agent_state",
+                            "state": props.get("state"),
+                            "source": props.get("source", "unknown_agent"),
+                        },
+                    )
+                    continue
+
                 # Handle system messages (e.g., status updates like "paused", "complete", "error")
                 if props.get("type") == "system":
                     status_str: str = props.get("status", "")
@@ -681,7 +695,11 @@ class WebSocketManager:
 
     async def _handle_stream_error(self, run_id: int, error: Exception) -> None:
         """Handle stream errors and persist error detail as a Message record."""
-        error_text = str(error) or f"{type(error).__name__}: (no message)"
+        error_text = (
+            humanize_model_error(error)
+            or str(error)
+            or f"{type(error).__name__}: (no message)"
+        )
         await self._update_run_status(run_id, RunStatus.ERROR, content=error_text)
         await self._save_message(
             run_id,

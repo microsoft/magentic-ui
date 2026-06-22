@@ -171,10 +171,10 @@ def _make_completion(text: str, total_tokens: int = 50) -> MagicMock:
 
 
 def _mock_llm_client(responses: list[str]) -> MagicMock:
+    from ._stream_mock import install_stream_mock
+
     client = MagicMock()
-    client.chat.completions.create = AsyncMock(
-        side_effect=[_make_completion(t) for t in responses]
-    )
+    install_stream_mock(client, [_make_completion(t) for t in responses])
     return client
 
 
@@ -394,3 +394,91 @@ class TestPoolFullRetry:
         # call ran. Both received the same task — OmniAgent didn't mangle it.
         assert fara.call_count == 2
         assert fara.received_tasks == ["Look up news", "Look up news"]
+
+
+# ---------------------------------------------------------------------------
+# Delegate model-error abort — a delegated sub-agent whose model keeps
+# failing should end the run with an error status instead of looping.
+# ---------------------------------------------------------------------------
+
+
+class _ModelErrorFara:
+    """Sub-agent stub that always fails with a model_error handoff."""
+
+    def __init__(self) -> None:
+        self.call_count = 0
+
+    async def run_stream(self, task: str = "", **_: Any):
+        from magentic_ui.agents.message_schemas import (
+            HandoffReason,
+            HandoffStatus,
+            final_answer_props,
+        )
+        from magentic_ui.agents.web_surfer.fara._types import StreamUpdate
+
+        self.call_count += 1
+        info = {
+            "status": HandoffStatus.ERROR.value,
+            "reason": HandoffReason.MODEL_ERROR.value,
+            "last_url": None,
+            "facts": [],
+        }
+        yield StreamUpdate(
+            text="The model server rejected the API key.",
+            additional_properties=dict(
+                final_answer_props("web_surfer", handoff=info)  # type: ignore[arg-type]
+            ),
+        )
+
+    async def close(self) -> None:
+        pass
+
+
+class TestDelegateModelErrorAbort:
+    @pytest.mark.asyncio
+    async def test_repeated_model_error_aborts_run(self, tmp_path: Path) -> None:
+        """When the delegate keeps returning a model_error handoff, OmniAgent
+        aborts with a system error rather than re-delegating forever."""
+        # The model stubbornly re-delegates every round.
+        client = _mock_llm_client(
+            [
+                '<tool_call>{"name": "delegate_cua", "arguments": '
+                '{"task": "browse"}}</tool_call>'
+            ]
+            * 5
+        )
+        sandbox = NullSandbox(workspace=tmp_path)
+        await sandbox.__aenter__()
+        try:
+            fara = _ModelErrorFara()
+            registry = AgentRegistry()
+            registry.register(
+                AgentEntry(
+                    agent=fara,  # pyright: ignore[reportArgumentType]
+                    tool_definition=DELEGATE_CUA_DEF,
+                    capabilities=frozenset({Capability.WEB_BROWSING}),
+                )
+            )
+            agent = OmniAgent(
+                client=client,
+                model="m",
+                host_workspace=tmp_path,
+                sandbox=sandbox,
+                agent_registry=registry,
+                approval_policy=ApprovalPolicy.AUTO_APPROVE,
+            )
+
+            system_errors = [
+                event.additional_properties
+                async for event in agent.run_stream("test")
+                if getattr(event, "additional_properties", None)
+                and event.additional_properties.get("type") == "system"
+                and event.additional_properties.get("status") == "error"
+            ]
+        finally:
+            await sandbox.__aexit__(None, None, None)
+
+        # Aborted after the 2nd consecutive model error, not after all 5.
+        assert fara.call_count == 2
+        assert len(system_errors) == 1
+        assert "API key" in system_errors[0]["content"]

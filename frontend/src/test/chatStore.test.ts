@@ -630,6 +630,63 @@ describe('chatStore', () => {
   })
 
   // ---------------------------------------------------------------------------
+  // setAgentActivity
+  // ---------------------------------------------------------------------------
+
+  describe('setAgentActivity', () => {
+    it('defaults to null for new sessions', () => {
+      const store = useChatStore.getState()
+      store.initSession(1, 'run-1')
+      expect(store.getSessionState(1).agentActivity).toBeNull()
+    })
+
+    it('sets and clears the activity signal', () => {
+      const store = useChatStore.getState()
+      store.initSession(1, 'run-1')
+
+      store.setAgentActivity(1, 'calling_model')
+      expect(store.getSessionState(1).agentActivity).toBe('calling_model')
+
+      store.setAgentActivity(1, 'generating')
+      expect(store.getSessionState(1).agentActivity).toBe('generating')
+
+      store.setAgentActivity(1, null)
+      expect(store.getSessionState(1).agentActivity).toBeNull()
+    })
+
+    it('isolates activity between sessions', () => {
+      const store = useChatStore.getState()
+      store.initSession(1, 'run-1')
+      store.initSession(2, 'run-2')
+
+      store.setAgentActivity(1, 'calling_model')
+
+      expect(store.getSessionState(1).agentActivity).toBe('calling_model')
+      expect(store.getSessionState(2).agentActivity).toBeNull()
+    })
+
+    it('clears activity when a persistent message arrives via addMessage', () => {
+      const store = useChatStore.getState()
+      store.initSession(1, 'run-1')
+      store.setAgentActivity(1, 'generating')
+
+      store.addMessage(1, {
+        id: 1,
+        session_id: 1,
+        run_id: 'run-1',
+        config: {
+          source: 'assistant',
+          content: 'hello',
+          metadata: { type: 'text' },
+        },
+        created_at: new Date().toISOString(),
+      })
+
+      expect(store.getSessionState(1).agentActivity).toBeNull()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
   // useSessionAgentMode (issue #626)
   // ---------------------------------------------------------------------------
 

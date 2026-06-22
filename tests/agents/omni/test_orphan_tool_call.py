@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -61,10 +61,10 @@ def _make_completion(text: str, total_tokens: int = 50) -> MagicMock:
 
 
 def _mock_llm_client(responses: list[str]) -> MagicMock:
+    from ._stream_mock import install_stream_mock
+
     client = MagicMock()
-    client.chat.completions.create = AsyncMock(
-        side_effect=[_make_completion(t) for t in responses]
-    )
+    install_stream_mock(client, [_make_completion(t) for t in responses])
     return client
 
 
@@ -129,9 +129,9 @@ async def test_orphan_delegate_cua_injects_subagent_summary(tmp_path: Path) -> N
                 "content": '<tool_call>{"name":"delegate_cua","arguments":{"task":"find stem gifts"}}</tool_call>',
             }
         )
-        client.chat.completions.create = AsyncMock(
-            return_value=_make_completion("<answer>resumed</answer>")
-        )
+        from ._stream_mock import install_stream_mock
+
+        install_stream_mock(client, [_make_completion("<answer>resumed</answer>")])
 
         async for _ in agent.run_stream("where are we?"):
             pass
@@ -139,7 +139,7 @@ async def test_orphan_delegate_cua_injects_subagent_summary(tmp_path: Path) -> N
         await sandbox.__aexit__(None, None, None)
 
     assert sub.summarize_calls == 1
-    sent = client.chat.completions.create.call_args.kwargs["messages"]
+    sent = client.chat.completions.stream.call_args.kwargs["messages"]
     # Final user-role message before any new assistant turn must include
     # both the synthetic tool_response and the new user task.
     contents = [m["content"] for m in sent if m["role"] == "user"]
@@ -172,16 +172,16 @@ async def test_orphan_non_subagent_uses_generic_fallback(tmp_path: Path) -> None
                 "content": '<tool_call>{"name":"bash","arguments":{"command":"sleep 60"}}</tool_call>',
             }
         )
-        client.chat.completions.create = AsyncMock(
-            return_value=_make_completion("<answer>ok</answer>")
-        )
+        from ._stream_mock import install_stream_mock
+
+        install_stream_mock(client, [_make_completion("<answer>ok</answer>")])
 
         async for _ in agent.run_stream("retry?"):
             pass
     finally:
         await sandbox.__aexit__(None, None, None)
 
-    sent = client.chat.completions.create.call_args.kwargs["messages"]
+    sent = client.chat.completions.stream.call_args.kwargs["messages"]
     user_contents = [m["content"] for m in sent if m["role"] == "user"]
     assert any("previous `bash` call was interrupted" in c for c in user_contents)
     assert any("retry?" in c for c in user_contents)
@@ -203,7 +203,7 @@ async def test_no_orphan_when_last_message_is_answer(tmp_path: Path) -> None:
         await sandbox.__aexit__(None, None, None)
 
     assert sub.summarize_calls == 0
-    sent_second = client.chat.completions.create.call_args_list[1].kwargs["messages"]
+    sent_second = client.chat.completions.stream.call_args_list[1].kwargs["messages"]
     user_contents = [m["content"] for m in sent_second if m["role"] == "user"]
     # Only the nudged first task and the plain follow-up appear; no synthetic
     # tool_response sneaked in.
@@ -224,7 +224,7 @@ async def test_fresh_session_no_orphan_injection(tmp_path: Path) -> None:
         await sandbox.__aexit__(None, None, None)
 
     assert sub.summarize_calls == 0
-    sent = client.chat.completions.create.call_args.kwargs["messages"]
+    sent = client.chat.completions.stream.call_args.kwargs["messages"]
     user_contents = [m["content"] for m in sent if m["role"] == "user"]
     assert not any("<tool_response>" in c for c in user_contents)
     assert user_contents[0] == f"{_PATH_QUOTING_NUDGE}\nfirst task"
@@ -274,7 +274,7 @@ async def test_orphan_detected_on_resume_from_disk(tmp_path: Path) -> None:
         await sandbox.__aexit__(None, None, None)
 
     assert sub.summarize_calls == 1
-    sent = client.chat.completions.create.call_args.kwargs["messages"]
+    sent = client.chat.completions.stream.call_args.kwargs["messages"]
     user_contents = [m["content"] for m in sent if m["role"] == "user"]
     # Resume-from-disk path also builds the full envelope Omni-side.
     assert any(
@@ -308,16 +308,16 @@ async def test_summarize_failure_falls_back_to_generic(tmp_path: Path) -> None:
                 "content": '<tool_call>{"name":"delegate_cua","arguments":{"task":"x"}}</tool_call>',
             }
         )
-        client.chat.completions.create = AsyncMock(
-            return_value=_make_completion("<answer>ok</answer>")
-        )
+        from ._stream_mock import install_stream_mock
+
+        install_stream_mock(client, [_make_completion("<answer>ok</answer>")])
 
         async for _ in agent.run_stream("retry?"):
             pass
     finally:
         await sandbox.__aexit__(None, None, None)
 
-    sent = client.chat.completions.create.call_args.kwargs["messages"]
+    sent = client.chat.completions.stream.call_args.kwargs["messages"]
     user_contents = [m["content"] for m in sent if m["role"] == "user"]
     assert any(
         "previous `delegate_cua` call was interrupted" in c for c in user_contents

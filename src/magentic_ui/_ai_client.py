@@ -13,10 +13,103 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING, Any, Union, cast
 
+import httpx
+import openai
 from openai import AsyncOpenAI
 
 if TYPE_CHECKING:
     from .agents.web_surfer.fara._types import LLMMessage
+
+
+# A short connect timeout surfaces "can't reach the server" (wrong base_url,
+# VPN off) in seconds instead of hanging. The read timeout only guards against
+# a server that accepted the request but never replies; a generous default
+# tolerates cold starts, and the slow-model UI signal covers the wait.
+_CONNECT_TIMEOUT_SECONDS = 5.0
+_READ_TIMEOUT_SECONDS = 120.0
+
+
+def _build_timeout() -> httpx.Timeout:
+    # Pool acquisition uses the short connect timeout so an unreachable server
+    # fails fast instead of waiting the full read timeout for a free
+    # connection. Writing the request body shares the generous read budget.
+    return httpx.Timeout(
+        connect=_CONNECT_TIMEOUT_SECONDS,
+        read=_READ_TIMEOUT_SECONDS,
+        write=_READ_TIMEOUT_SECONDS,
+        pool=_CONNECT_TIMEOUT_SECONDS,
+    )
+
+
+def humanize_model_error(error: BaseException) -> str | None:
+    """Translate a model-call exception into a user-readable message.
+
+    Follows the ``__cause__`` chain so transient errors wrapped in a
+    ``RuntimeError`` are still recognized. Returns ``None`` for anything
+    unrecognized, leaving the caller to surface the raw text.
+    """
+    seen: set[int] = set()
+    exc: BaseException | None = error
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        # APITimeoutError subclasses APIConnectionError, so check it first.
+        if isinstance(exc, openai.APITimeoutError):
+            return (
+                "The model server did not respond in time. It may be overloaded "
+                "or still starting up — try again in a moment."
+            )
+        if isinstance(exc, openai.APIConnectionError):
+            host = _error_host(exc)
+            where = f" at {host}" if host else ""
+            return (
+                f"Could not reach the model server{where}. Check your network "
+                "connection, VPN, and the configured base_url."
+            )
+        if isinstance(exc, openai.AuthenticationError):
+            return "The model server rejected the API key. Check your API key configuration."
+        if isinstance(exc, openai.PermissionDeniedError):
+            return "The model server denied access. Check that the API key may use this model."
+        if isinstance(exc, openai.RateLimitError):
+            if getattr(exc, "code", None) == "insufficient_quota":
+                return "The model account is out of quota. Check the plan and billing."
+            return (
+                "The model server is rate limiting requests. Wait a moment and retry."
+            )
+        if isinstance(exc, openai.NotFoundError):
+            return "The configured model was not found on the server. Check the model name."
+        exc = exc.__cause__
+    return None
+
+
+def _error_host(error: BaseException) -> str | None:
+    request = getattr(error, "request", None)
+    url = getattr(request, "url", None)
+    host = getattr(url, "host", None)
+    return str(host) if host else None
+
+
+def is_retryable_model_error(error: BaseException) -> bool:
+    """Whether a model-call error is transient and worth retrying.
+
+    Retryable (transient): plain 429 rate limits, request timeouts, 5xx.
+    Fatal (fail fast): connection errors (the SDK already retried and
+    still couldn't reach the server), auth / permission / not-found, and
+    quota exhaustion — retrying these can't help.
+
+    Shared by OmniAgent (``_responses._call_api``) and FaraWebSurfer
+    (``_fara_web_surfer`` run loop) so both classify network errors the
+    same way. Unrecognized errors are treated as fatal.
+    """
+    # APITimeoutError subclasses APIConnectionError, so check it first.
+    if isinstance(error, openai.APITimeoutError):
+        return True
+    if isinstance(error, openai.APIConnectionError):
+        return False
+    if isinstance(error, openai.RateLimitError):
+        return getattr(error, "code", None) != "insufficient_quota"
+    if isinstance(error, openai.APIStatusError):
+        return error.status_code >= 500
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +186,7 @@ def create_client(config: Union[Any, None]) -> tuple[AsyncOpenAI, str]:
 def create_openai_client(model_config: dict[str, Any]) -> tuple[AsyncOpenAI, str]:
     model = model_config.get("model", "gpt-4.1-2025-04-14")
 
-    kwargs: dict[str, Any] = {"max_retries": 5}
+    kwargs: dict[str, Any] = {"max_retries": 5, "timeout": _build_timeout()}
     if model_config.get("base_url"):
         kwargs["base_url"] = model_config["base_url"]
     api_key = (
@@ -143,5 +236,6 @@ def _create_azure(model_config: dict[str, Any]) -> tuple[AsyncOpenAI, str]:
         api_version=api_version,
         azure_ad_token_provider=credential,
         max_retries=5,
+        timeout=_build_timeout(),
     )
     return client, model  # type: ignore[return-value]

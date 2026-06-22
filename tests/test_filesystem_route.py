@@ -11,14 +11,14 @@ from magentic_ui.backend.web.routes.filesystem import _resolve_path
 
 @pytest.fixture(autouse=True)
 def _mock_home(tmp_path: Path):
-    """Mock _get_home to return a temp directory for safe testing."""
+    """Mock get_home to return a temp directory for safe testing."""
     # Create some test directories
     (tmp_path / "Documents").mkdir()
     (tmp_path / "Documents" / "project").mkdir()
     (tmp_path / "Desktop").mkdir()
 
     with patch(
-        "magentic_ui.backend.web.routes.filesystem._get_home",
+        "magentic_ui.backend.web.routes.filesystem.get_home",
         return_value=tmp_path,
     ):
         yield tmp_path

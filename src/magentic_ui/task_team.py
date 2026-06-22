@@ -93,6 +93,7 @@ async def get_task_team(
             agent_variant=magentic_ui_config.web_surfer_variant,
             max_rounds=web_surfer_max_rounds,
             state_dir=state_dir,
+            is_standalone=True,
         )
 
     # agent_mode == "all": OmniAgent with FaraWebSurfer via registry
@@ -105,6 +106,7 @@ async def get_task_team(
         agent_variant=magentic_ui_config.web_surfer_variant,
         max_rounds=web_surfer_max_rounds,
         state_dir=state_dir,
+        is_standalone=False,
     )
 
     agent_registry = AgentRegistry()

@@ -27,6 +27,7 @@ import { sessionKeys } from '@/api/sessions'
 import type { SessionListItem, UploadedFileRef } from '@/types'
 import { useChatStore } from '@/stores/chatStore'
 import { useNotificationStore } from '@/stores/notificationStore'
+import { useBackendHealthStore } from '@/stores/backendHealthStore'
 import { DEFAULT_USER_ID } from '@/lib/constants'
 import { buildNovncUrl } from '@/lib/utils'
 import type {
@@ -126,9 +127,15 @@ interface WebSocketManagerContext {
 // Constants
 // =============================================================================
 
-const MAX_RECONNECT_ATTEMPTS = 5
+// Reconnect indefinitely with capped exponential backoff. The banner
+// keeps the user informed; we don't give up while a run is still active.
 const BASE_RECONNECT_DELAY = 1000 // ms, doubles each attempt
-const PING_INTERVAL = 30000 // 30 seconds - keep connections alive
+const MAX_RECONNECT_DELAY = 15_000
+const PING_INTERVAL = 30000
+
+// After this many consecutive failures, treat the whole backend as down
+// (not just one socket) and wake up the banner/polling/refetch logic.
+const WS_FAILURE_BACKEND_DOWN_THRESHOLD = 3
 
 // =============================================================================
 // Context
@@ -236,6 +243,7 @@ export function WebSocketManagerProvider({
   const setPendingAction = useChatStore((s) => s.setPendingAction)
   const setControlState = useChatStore((s) => s.setControlState)
   const setPendingTakeoverFeedback = useChatStore((s) => s.setPendingTakeoverFeedback)
+  const setAgentActivity = useChatStore((s) => s.setAgentActivity)
   const getSessionState = useChatStore((s) => s.getSessionState)
 
   // Ref for send function (used inside createMessageHandler for auto-approve)
@@ -326,6 +334,13 @@ export function WebSocketManagerProvider({
             // At this point, status should be a valid ServerRunStatus
             // Type assertion is safe because we've filtered out connection events
             setServerStatus(sessionId, status as ServerRunStatus)
+
+            // The transient agent activity is only meaningful while the run
+            // is active; clear it on any other status (terminal or paused,
+            // e.g. Take Control) to avoid a stale "Waiting for model…".
+            if (status !== 'active') {
+              setAgentActivity(sessionId, null)
+            }
 
             // Terminal states: disconnect and notify
             const isTerminalState = ['complete', 'error', 'stopped'].includes(status)
@@ -527,6 +542,14 @@ export function WebSocketManagerProvider({
             break
 
           // =====================================================================
+          // AGENT_STATE: transient "Waiting for model" / "Thinking" signal,
+          // auto-cleared by the store on the next persistent message.
+          // =====================================================================
+          case WS_SERVER_MESSAGE_TYPE.AGENT_STATE:
+            setAgentActivity(sessionId, message.state)
+            break
+
+          // =====================================================================
           // FILE: Generated/modified file notification (PR 283)
           // Backend sends this when new or modified files are detected.
           // Only insert a chat message for newly seen files (dedup by url).
@@ -629,6 +652,7 @@ export function WebSocketManagerProvider({
       setControlState,
       setPendingTakeoverFeedback,
       setPendingAction,
+      setAgentActivity,
     ]
   )
 
@@ -649,9 +673,14 @@ export function WebSocketManagerProvider({
         return
       }
 
+      // On retry, keep status as 'reconnecting' (not 'connecting') so the
+      // banner doesn't flash every retry cycle.
+      const isRetry = existing?.status === 'reconnecting'
+      const nextStatus: ConnectionStatus = isRetry ? 'reconnecting' : 'connecting'
+
       // Initialize session in store with API status to avoid status flicker
       initSession(sessionId, runId, initialStatus)
-      setConnectionStatus(sessionId, 'connecting')
+      setConnectionStatus(sessionId, nextStatus)
 
       const wsUrl = `${getWsBaseUrl()}/ws/runs/${runId}`
       const ws = createAuthenticatedWebSocket(wsUrl)
@@ -660,7 +689,7 @@ export function WebSocketManagerProvider({
         ws,
         sessionId,
         runId,
-        status: 'connecting',
+        status: nextStatus,
         reconnectAttempts: existing?.reconnectAttempts ?? 0,
       }
       connectionsRef.current.set(runId, connection)
@@ -670,32 +699,38 @@ export function WebSocketManagerProvider({
         connection.status = 'connected'
         connection.reconnectAttempts = 0
         setConnectionStatus(sessionId, 'connected')
+        // A successful WS open also proves the backend is reachable.
+        useBackendHealthStore.getState().setReachable(true)
       }
 
       ws.onmessage = createMessageHandler(sessionId, runId)
 
       ws.onerror = (error) => {
+        // Log only — onclose owns the state transition.
         logError(`Error: session=${sessionId}`, error)
-        connection.status = 'error'
-        setConnectionStatus(sessionId, 'error')
       }
 
       ws.onclose = (event) => {
         logClosed(sessionId, event.code)
 
-        // Check if we should reconnect
+        // Reconnect indefinitely unless the close was clean.
         const shouldReconnect =
-          event.code !== 1000 &&
-          event.code !== 1001 &&
-          connection.reconnectAttempts < MAX_RECONNECT_ATTEMPTS &&
-          connectionsRef.current.has(runId) // Still in our managed list
+          event.code !== 1000 && event.code !== 1001 && connectionsRef.current.has(runId)
 
         if (shouldReconnect) {
           connection.status = 'reconnecting'
           setConnectionStatus(sessionId, 'reconnecting')
 
-          const delay = BASE_RECONNECT_DELAY * Math.pow(2, connection.reconnectAttempts)
+          const delay = Math.min(
+            MAX_RECONNECT_DELAY,
+            BASE_RECONNECT_DELAY * Math.pow(2, connection.reconnectAttempts)
+          )
           connection.reconnectAttempts++
+
+          // Repeated failures → likely the whole backend is down.
+          if (connection.reconnectAttempts >= WS_FAILURE_BACKEND_DOWN_THRESHOLD) {
+            useBackendHealthStore.getState().setReachable(false)
+          }
 
           logSkipReconnect(
             `Reconnecting session=${sessionId} in ${delay}ms (attempt ${connection.reconnectAttempts})`

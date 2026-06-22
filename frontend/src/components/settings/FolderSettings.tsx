@@ -8,11 +8,13 @@
 import { FolderClosed, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useFolderPreferencesStore } from '@/stores'
+import { useFolderPreferencesStore, useBackendHealthStore } from '@/stores'
 
 export function FolderSettings() {
   const trustedFolders = useFolderPreferencesStore((s) => s.trustedFolders)
   const removeTrustedFolder = useFolderPreferencesStore((s) => s.removeTrustedFolder)
+  // Removing a folder hits the backend; freeze when unreachable.
+  const reachable = useBackendHealthStore((s) => s.reachable)
 
   return (
     <div className="flex h-full flex-col gap-3">
@@ -47,8 +49,11 @@ export function FolderSettings() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="hover:bg-destructive/10 hover:text-destructive size-8 shrink-0 rounded-full"
+                      // Show cursor-not-allowed on hover when disabled
+                      // (default Button suppresses pointer events).
+                      className="hover:bg-destructive/10 hover:text-destructive size-8 shrink-0 rounded-full disabled:pointer-events-auto disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-current"
                       onClick={() => removeTrustedFolder(folder.path)}
+                      disabled={!reachable}
                       aria-label={`Remove ${folder.name} from allowed folders`}
                     >
                       <Trash2 className="size-4" />

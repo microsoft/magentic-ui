@@ -755,10 +755,14 @@ def classify_sensitive_read(path: str, is_sandbox: bool) -> ClassificationResult
     if is_sandbox:
         return ClassificationResult(CommandVerdict.ALLOW, None, "")
 
-    from ...sandbox._path_validator import is_denied_path, expand_tilde_and_home
+    from ...sandbox._path_normalizer import get_home
+    from ...sandbox._path_validator import expand_tilde_and_home, is_denied_path
 
-    expanded = expand_tilde_and_home(path, str(Path.home()))
-    denied, matched = is_denied_path(expanded)
+    # Expand ``~`` against get_home(); the denylist anchors to both
+    # get_home() and get_runtime_home(), so the credential dir is flagged
+    # whichever home the shell would actually resolve ``~`` to on WSL.
+    expanded = expand_tilde_and_home(path, str(get_home()))
+    denied, matched = is_denied_path(Path(expanded).resolve())
     if denied:
         return ClassificationResult(
             CommandVerdict.REQUIRE_APPROVAL,

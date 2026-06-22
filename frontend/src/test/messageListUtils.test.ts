@@ -364,14 +364,28 @@ describe('computeRenderItems', () => {
     expect(result[1].kind).toBe('browser-embed')
   })
 
-  it('adds placeholder when novncUrl available but no CUA actions', () => {
+  it('defers browser embed when novncUrl available but no CUA actions yet', () => {
     const messages = [createBrowserAddressMessage('1')]
 
     const result = computeRenderItems(messages, 'ws://localhost:6080')
 
-    expect(result).toHaveLength(2) // placeholder + browser-embed
-    expect(result[0].kind).toBe('cua-placeholder')
-    expect(result[1].kind).toBe('browser-embed')
+    // A live browser is connected but no tool call has happened yet
+    // (e.g. websurfer_only right after launch). The browser embed and the
+    // "Using web browser" placeholder are deferred until the first CUA
+    // action forms a group, so the bottom status indicator stays visible.
+    expect(result).toHaveLength(0)
+  })
+
+  it('shows browser embed once the first CUA action arrives', () => {
+    const messages = [createBrowserAddressMessage('1'), createBrowserToolMessage('2', 'visit_url')]
+
+    const result = computeRenderItems(messages, 'ws://localhost:6080')
+
+    // First tool call forms a cua-group; the browser embed now appears.
+    expect(result.some((it) => it.kind === 'cua-group')).toBe(true)
+    expect(result.some((it) => it.kind === 'browser-embed')).toBe(true)
+    // No standalone "Using web browser" placeholder once a real group exists.
+    expect(result.some((it) => it.kind === 'cua-placeholder')).toBe(false)
   })
 
   it('sets canUseProgressiveTense for last CUA group', () => {

@@ -1,5 +1,7 @@
 """Tests for the bash command approval policy classifier."""
 
+from pathlib import Path
+
 import pytest
 
 from magentic_ui.teams.omniagent._command_policy import (
@@ -7,6 +9,7 @@ from magentic_ui.teams.omniagent._command_policy import (
     CommandVerdict,
     classify_bash_command,
     classify_file_tool,
+    classify_sensitive_read,
 )
 
 
@@ -613,3 +616,117 @@ class TestFlagAware:
     def test_rg_unsafe_flags(self, cmd: str) -> None:
         result = classify_bash_command(cmd)
         assert result.verdict == CommandVerdict.REQUIRE_APPROVAL, f"{cmd!r} → {result}"
+
+
+class TestClassifySensitiveRead:
+    """NullSandbox read gating — denylist must catch both absolute
+    system paths and tilde-expanded credential dirs anchored at the
+    same home root the picker / mount validator use."""
+
+    @pytest.fixture
+    def fake_home(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+        home = tmp_path / "home"
+        home.mkdir()
+        home = home.resolve()
+        # classify_sensitive_read lazy-imports get_home + is_denied_path
+        # from the sandbox modules; patch both bindings so the cached
+        # denylist and the tilde expansion both see the fake home.
+        monkeypatch.setattr(
+            "magentic_ui.sandbox._path_normalizer.get_home",
+            lambda: home,
+        )
+        monkeypatch.setattr(
+            "magentic_ui.sandbox._path_validator.get_home",
+            lambda: home,
+        )
+        return home
+
+    def test_sandbox_always_allows(self):
+        result = classify_sensitive_read("/etc/shadow", is_sandbox=True)
+        assert result.verdict == CommandVerdict.ALLOW
+
+    def test_absolute_system_path_flagged(self, fake_home: Path):
+        # /etc/shadow is in _DENIED_ABSOLUTE; reading it under NullSandbox
+        # must require approval even though it's nowhere near home.
+        result = classify_sensitive_read("/etc/shadow", is_sandbox=False)
+        assert result.verdict == CommandVerdict.REQUIRE_APPROVAL
+        assert result.category == ApprovalCategory.DESTRUCTIVE_FILE_OP
+
+    def test_tilde_expands_against_get_home(self, fake_home: Path):
+        # ~/.ssh expansion must use get_home() so the denylist (anchored
+        # to the same root) catches it. Path.home() would give a Linux
+        # path on WSL that the denylist no longer covers.
+        ssh = fake_home / ".ssh"
+        ssh.mkdir()
+        result = classify_sensitive_read("~/.ssh/id_rsa", is_sandbox=False)
+        assert result.verdict == CommandVerdict.REQUIRE_APPROVAL
+
+    def test_neutral_path_allowed(self, fake_home: Path):
+        ordinary = fake_home / "notes.txt"
+        ordinary.write_text("hello")
+        result = classify_sensitive_read(str(ordinary), is_sandbox=False)
+        assert result.verdict == CommandVerdict.ALLOW
+
+
+class TestWslDualHomeDenylist:
+    """On WSL there are two home roots: get_home() (Windows profile) and
+    get_runtime_home() (Linux $HOME, where the NullSandbox shell resolves
+    ~). The credential denylist must guard BOTH, so the agent cannot read
+    the real Linux-side keys it can actually reach."""
+
+    @pytest.fixture
+    def wsl_homes(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        # Simulate the WSL divergence: distinct Windows and Linux homes.
+        win_home = (tmp_path / "mnt_c_users_name").resolve()
+        win_home.mkdir()
+        linux_home = (tmp_path / "home_user").resolve()
+        linux_home.mkdir()
+        # get_home() (Windows) drives tilde expansion in classify_sensitive_read
+        # and one denylist anchor; get_runtime_home() (Linux) drives the other.
+        monkeypatch.setattr(
+            "magentic_ui.sandbox._path_normalizer.get_home", lambda: win_home
+        )
+        monkeypatch.setattr(
+            "magentic_ui.sandbox._path_validator.get_home", lambda: win_home
+        )
+        monkeypatch.setattr(
+            "magentic_ui.sandbox._path_validator.get_runtime_home",
+            lambda: linux_home,
+        )
+        return win_home, linux_home
+
+    def test_absolute_linux_home_credential_flagged(self, wsl_homes):
+        # The HIGH fix: the NullSandbox shell reads /home/<user>/.ssh, which
+        # before dual-anchoring was auto-ALLOWed because the denylist only
+        # covered the Windows profile.
+        _win_home, linux_home = wsl_homes
+        (linux_home / ".ssh").mkdir()
+        result = classify_sensitive_read(
+            str(linux_home / ".ssh" / "id_rsa"), is_sandbox=False
+        )
+        assert result.verdict == CommandVerdict.REQUIRE_APPROVAL
+
+    def test_absolute_windows_home_credential_flagged(self, wsl_homes):
+        win_home, _linux_home = wsl_homes
+        (win_home / ".aws").mkdir()
+        result = classify_sensitive_read(
+            str(win_home / ".aws" / "credentials"), is_sandbox=False
+        )
+        assert result.verdict == CommandVerdict.REQUIRE_APPROVAL
+
+    def test_bash_absolute_linux_credential_flagged(self, wsl_homes):
+        # Same gap via the bash classifier's find_denied_path_in_command.
+        _win_home, linux_home = wsl_homes
+        (linux_home / ".ssh").mkdir()
+        result = classify_bash_command(
+            f"cat {linux_home / '.ssh' / 'id_rsa'}", is_sandbox=False
+        )
+        assert result.verdict == CommandVerdict.REQUIRE_APPROVAL
+
+    def test_neutral_linux_path_still_allowed(self, wsl_homes):
+        _win_home, linux_home = wsl_homes
+        (linux_home / "notes.txt").write_text("hi")
+        result = classify_sensitive_read(
+            str(linux_home / "notes.txt"), is_sandbox=False
+        )
+        assert result.verdict == CommandVerdict.ALLOW
