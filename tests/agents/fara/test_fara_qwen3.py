@@ -163,6 +163,27 @@ class TestMakeModelCall:
             await agent._make_model_call([])
         assert create.call_count == 1
 
+    @pytest.mark.asyncio
+    async def test_rejects_length_truncated_response(self):
+        agent, create = _agent_with_mock_create()
+        response = create.return_value
+        response.choices[0].finish_reason = "length"
+        response.choices[
+            0
+        ].message.content = 'thinking\n<tool_call>\n{"name":"computer_use"'
+
+        with pytest.raises(RuntimeError, match="truncated at the token limit"):
+            await agent._make_model_call([])
+
+    @pytest.mark.asyncio
+    async def test_rejects_unsupported_finish_reason(self):
+        agent, create = _agent_with_mock_create()
+        response = create.return_value
+        response.choices[0].finish_reason = "content_filter"
+
+        with pytest.raises(RuntimeError, match="content_filter"):
+            await agent._make_model_call([])
+
 
 def _terminate_response() -> str:
     return (
@@ -242,6 +263,66 @@ class TestGenerateModelCallHistoryMutation:
         resumed_user = agent._state.chat_history[1]
         assert isinstance(resumed_user.content, list)
         assert resumed_user.content[1] == "Current URL: https://www.bing.com\ncontinue"
+        assert agent._state.chat_history[2].content == _terminate_response()
+
+    @pytest.mark.asyncio
+    async def test_missing_stop_delimiter_is_canonicalized_only_in_history(self, agent):
+        from PIL import Image
+
+        env = _make_mock_env()
+        agent._get_scaled_screenshot = AsyncMock(  # type: ignore[method-assign]
+            return_value=Image.new("RGB", (100, 100), "white")
+        )
+        agent._get_system_message = lambda screenshot: (  # type: ignore[method-assign]
+            [LLMMessage(role="system", content="system")],
+            screenshot,
+        )
+        raw_response = (
+            "done\n<tool_call>\n" '{"arguments":{"action":"terminate","answer":"done"}}'
+        )
+        agent._make_model_call = AsyncMock(  # type: ignore[method-assign]
+            return_value=raw_response
+        )
+
+        _, returned_raw = await agent._generate_model_call(
+            env,
+            is_first_round=False,
+            user_response="continue",
+        )
+
+        assert returned_raw == raw_response
+        assert agent._state is not None
+        assert agent._state.chat_history[-1].content == (
+            f"{raw_response}\n</tool_call>"
+        )
+
+    @pytest.mark.asyncio
+    async def test_malformed_tool_call_is_not_added_to_history(self, agent):
+        from PIL import Image
+
+        env = _make_mock_env()
+        agent._get_scaled_screenshot = AsyncMock(  # type: ignore[method-assign]
+            return_value=Image.new("RGB", (100, 100), "white")
+        )
+        agent._get_system_message = lambda screenshot: (  # type: ignore[method-assign]
+            [LLMMessage(role="system", content="system")],
+            screenshot,
+        )
+        agent._make_model_call = AsyncMock(  # type: ignore[method-assign]
+            return_value='done\n<tool_call>\n{"arguments":'
+        )
+
+        with pytest.raises((SyntaxError, ValueError)):
+            await agent._generate_model_call(
+                env,
+                is_first_round=False,
+                user_response="continue",
+            )
+
+        assert agent._state is not None
+        assert agent._state.chat_history == [
+            LLMMessage(role="user", content="previous turn")
+        ]
 
 
 class TestMergeChatTemplateKwargs:

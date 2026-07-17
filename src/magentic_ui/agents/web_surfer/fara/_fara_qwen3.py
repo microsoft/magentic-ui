@@ -400,6 +400,11 @@ class FaraQwen3Agent:
         assert self._client is not None, "Call initialize() first"
         openai_messages = [m.to_openai_dict() for m in history]
         create_args: dict[str, Any] = dict(extra_create_args or {})
+        # OpenAI-compatible servers omit a matched stop sequence from the
+        # returned content. Keep the generation bound here; after parsing and
+        # validating the tool call, _generate_model_call restores the closing
+        # delimiter only in the canonical copy stored in chat history.
+        create_args.setdefault("stop", ["</tool_call>"])
         if self.config.disable_thinking:
             create_args["extra_body"] = _merge_chat_template_kwargs(
                 create_args.get("extra_body"),
@@ -414,7 +419,15 @@ class FaraQwen3Agent:
             messages=openai_messages,
             **create_args,
         )
-        return response.choices[0].message.content or ""
+        choice = response.choices[0]
+        finish_reason = getattr(choice, "finish_reason", None)
+        if finish_reason == "length":
+            raise RuntimeError("Model response was truncated at the token limit")
+        if finish_reason not in (None, "stop"):
+            raise RuntimeError(
+                f"Model response ended with unsupported finish_reason={finish_reason!r}"
+            )
+        return choice.message.content or ""
 
     # ------------------------------------------------------------------
     # Generate model call
@@ -473,13 +486,27 @@ class FaraQwen3Agent:
             full_history, extra_create_args={"temperature": 0}
         )
 
+        thoughts, action = self._parse_thoughts_and_action(raw_response)
+        action["arguments"]["thoughts"] = thoughts
+
+        # A custom stop sequence is not included in OpenAI-compatible response
+        # content. Canonicalize only after the JSON and required action shape
+        # have parsed successfully. The raw response returned to callers stays
+        # untouched for logging/debugging, and malformed output never enters
+        # chat history disguised as a complete tool call.
+        history_response = raw_response
+        tool_call_start = history_response.find("<tool_call>\n")
+        if (
+            tool_call_start >= 0
+            and "\n</tool_call>" not in history_response[tool_call_start:]
+        ):
+            history_response = f"{history_response.rstrip()}\n</tool_call>"
+
         if curr_message is not None:
             self._state.chat_history.append(curr_message)
         self._state.chat_history.append(
-            LLMMessage(role="assistant", content=raw_response)
+            LLMMessage(role="assistant", content=history_response)
         )
-        thoughts, action = self._parse_thoughts_and_action(raw_response)
-        action["arguments"]["thoughts"] = thoughts
 
         return action, raw_response
 
