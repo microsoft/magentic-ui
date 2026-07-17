@@ -400,10 +400,6 @@ class FaraQwen3Agent:
         assert self._client is not None, "Call initialize() first"
         openai_messages = [m.to_openai_dict() for m in history]
         create_args: dict[str, Any] = dict(extra_create_args or {})
-        # Stop at the first complete tool_call: the parser only consumes the
-        # first <tool_call>...</tool_call> block, and without this the Qwen3.5
-        # backbones sometimes spew redundant blocks past the wall-clock timeout.
-        create_args.setdefault("stop", ["</tool_call>"])
         if self.config.disable_thinking:
             create_args["extra_body"] = _merge_chat_template_kwargs(
                 create_args.get("extra_body"),
