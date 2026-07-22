@@ -21,7 +21,7 @@ model_config_omni: &omni
     model: your-orchestrator-model
     base_url: https://api.openai.com/v1   # or your own endpoint
     # api_key: set via OPENAI_API_KEY env var
-  max_retries: 5
+    max_retries: 5
 
 # Fara web surfer — drives the browser via CDP.
 model_config_fara: &fara
@@ -30,7 +30,7 @@ model_config_fara: &fara
     model: your-web-surfer-model
     base_url: https://api.openai.com/v1   # or your own endpoint
     # api_key: set via OPENAI_API_KEY env var
-  max_retries: 5
+    max_retries: 5
 
 # Optional Azure example (defined but unused by default). Swap *omni or
 # *fara below for *azure_example to route either agent through an
@@ -46,7 +46,7 @@ model_config_azure_example: &azure_example
       config:
         scopes:
           - "https://your-token-scope.example.com/.default"
-  max_retries: 5
+    max_retries: 5
 
 # ---------------------------------------------------------------------------
 # MagenticUIConfig
