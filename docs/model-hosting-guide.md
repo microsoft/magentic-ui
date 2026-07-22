@@ -45,7 +45,10 @@ You'll repeat this once per model role you want to use (browser use and/or orche
    - **Fara:** Nvidia L40S ×1 (48 GB, ~$1.80/hr)
    - **MagenticBrain:** Nvidia RTX PRO 6000 Blackwell ×1 (96 GB, ~$2.75/hr)
 
-   In **Advanced Configuration**, apply the current vLLM options from the model card. Hugging Face does not automatically copy command-line options from the model card. vLLM gives the endpoint an OpenAI-compatible API.
+   In **Advanced Configuration**, enter the complete string for your model in the single **Container Arguments** text field:
+
+   - **Fara:** `--dtype bfloat16 --max-model-len 262144 --limit-mm-per-prompt {"image":10}`
+   - **MagenticBrain:** `--enable-auto-tool-choice --tool-call-parser hermes --max-model-len 32768`
 
 4. Click **Create Endpoint**.
 
