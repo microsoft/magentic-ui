@@ -48,7 +48,7 @@ dependencies = [
     "pillow",
     "tenacity",
     "jsonschema",
-    "tiktoken>=0.12,<0.14",
+    "tiktoken>=0.12,<0.15",
     "quick-sandbox[qemu,cua]~=0.11.14",
     "quicksand-cua>=0.3.10",
     "pip>=24",
