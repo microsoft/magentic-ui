@@ -49,7 +49,7 @@ dependencies = [
     "tenacity",
     "jsonschema",
     "tiktoken>=0.12,<0.14",
-    "quick-sandbox[qemu,cua]~=0.11.14",
+    "quick-sandbox[qemu,cua]>=0.11.14,<0.13.0",
     "quicksand-cua>=0.3.10",
     "pip>=24",
 ]
