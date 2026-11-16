@@ -7,8 +7,13 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
+    groups:
+      github-actions:
+        patterns: ["*"]
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
 
   - package-ecosystem: "npm"
     directory: "/frontend"
